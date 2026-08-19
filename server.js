@@ -636,9 +636,19 @@ function getTeacherPortalHtml() {
       border-radius: 999px; font-size: 15px; font-weight: 800; margin: 12px 0; letter-spacing: 0.5px;
     }
 
-    .track-result { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-top: 16px; display: none; }
-    .timeline-item { padding: 10px 0 10px 18px; border-left: 2px solid var(--primary); position: relative; font-size: 13px; }
-    .timeline-item::before { content: ''; width: 8px; height: 8px; background: var(--primary); border-radius: 50%; position: absolute; left: -5px; top: 14px; }
+    .school-search-wrap { position: relative; margin-bottom: 8px; }
+    .school-suggest-box {
+      display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+      background: white; border: 2px solid #2563eb; border-radius: 12px;
+      max-height: 250px; overflow-y: auto; box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+      margin-top: 4px;
+    }
+    .suggest-item {
+      padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
+    }
+    .suggest-item:hover { background: #eff6ff; }
+    .suggest-item strong { color: #1e3a8a; font-size: 13.5px; display: block; }
+    .suggest-item span { font-size: 11.5px; color: #64748b; }
   </style>
 </head>
 <body>
@@ -660,9 +670,15 @@ function getTeacherPortalHtml() {
         
         <div class="form-group">
           <label class="form-label">
-            பள்ளியின் பெயரைத் தேர்ந்தெடுக்கவும் (Select School) <span class="req">*</span>
-            <span class="sub-label">பட்டியலில் உள்ள 183 பள்ளிகளில் உங்கள் பள்ளியைத் தேர்வு செய்யவும்</span>
+            பள்ளியின் பெயரைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span>
+            <span class="sub-label">பள்ளியின் பெயர், UDISE அல்லது வட்டாரத்தைத் தட்டச்சு செய்து எளிதில் தேர்ந்தெடுக்கலாம்:</span>
           </label>
+          
+          <div class="school-search-wrap">
+            <input type="text" id="schoolSearchInput" class="form-control" style="border: 2px solid #2563eb; font-weight: 600; background: #eff6ff;" placeholder="🔍 பள்ளியின் பெயர் / UDISE எண் / வட்டாரத்தைத் தட்டச்சு செய்யவும்..." autocomplete="off">
+            <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
+          </div>
+
           <select id="schoolSelect" class="form-select" required>
             <option value="">-- Choose School (183 Schools across 10 Blocks) --</option>
             ${masterSchools.map(s => `<option value="${s.id}">${s.block} • ${s.schoolName} (${s.udise})</option>`).join('')}
@@ -897,6 +913,53 @@ function getTeacherPortalHtml() {
         document.getElementById('successBox').style.display = 'none';
       }
     }
+
+    const searchInput = document.getElementById('schoolSearchInput');
+    const suggestBox = document.getElementById('schoolSuggestionsBox');
+
+    searchInput.addEventListener('input', function() {
+      const q = this.value.trim().toLowerCase();
+      if (!q) {
+        suggestBox.style.display = 'none';
+        return;
+      }
+      const matches = schoolsData.filter(s => 
+        (s.schoolName || '').toLowerCase().includes(q) ||
+        (s.udise || '').includes(q) ||
+        (s.block || '').toLowerCase().includes(q) ||
+        (s.aiName || '').toLowerCase().includes(q)
+      );
+
+      if (matches.length === 0) {
+        suggestBox.innerHTML = '<div style="padding:12px; color:#64748b; font-size:12.5px;">பள்ளி கிடைக்கவில்லை (School not found).</div>';
+        suggestBox.style.display = 'block';
+        return;
+      }
+
+      suggestBox.innerHTML = matches.slice(0, 15).map(s => `
+        <div class="suggest-item" onclick="chooseSchool('\${s.id}')">
+          <strong>\${s.schoolName}</strong>
+          <span>📍 \${s.block} Block • UDISE: \${s.udise} • AI: \${s.aiName}</span>
+        </div>
+      \`).join('');
+      suggestBox.style.display = 'block';
+    });
+
+    function chooseSchool(id) {
+      select.value = id;
+      suggestBox.style.display = 'none';
+      const item = schoolsData.find(s => s.id === id);
+      if (item) {
+        searchInput.value = \`\${item.schoolName} (\${item.udise})\`;
+      }
+      select.dispatchEvent(new Event('change'));
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!searchInput.contains(e.target) && !suggestBox.contains(e.target)) {
+        suggestBox.style.display = 'none';
+      }
+    });
 
     select.addEventListener('change', function() {
       if (this.value === 'OTHER') {
