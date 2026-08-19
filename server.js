@@ -252,9 +252,9 @@ const server = http.createServer((req, res) => {
           ticket.vendorName = data.vendorName || ticket.vendorName;
           ticket.vendorTicketNo = data.vendorTicketNo || ticket.vendorTicketNo;
           ticket.resolutionNotes = data.resolutionNotes || ticket.resolutionNotes;
-          if (data.photo1Url) ticket.photo1Url = data.photo1Url;
-          if (data.photo2Url) ticket.photo2Url = data.photo2Url;
-          if (data.photo3Url) ticket.photo3Url = data.photo3Url;
+          if (data.photo1Url !== undefined) ticket.photo1Url = data.photo1Url;
+          if (data.photo2Url !== undefined) ticket.photo2Url = data.photo2Url;
+          if (data.photo3Url !== undefined) ticket.photo3Url = data.photo3Url;
 
           if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
             ticket.resolvedAt = dateStr;
@@ -1395,6 +1395,58 @@ function getITSMWorkbenchHtml() {
           <span style="font-size:11px; display:block; font-weight:500; color:#64748b; margin-top:2px;">(Visited School Physically)</span>
         </div>
       </div>
+      
+      <!-- Photo Editor Section inside Modal -->
+      <div style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 12px; padding: 12px; margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="font-size: 12px; font-weight: 800; color:#1e293b; margin:0;">📸 Upload / Replace 3 Inspection Photos:</label>
+          <button type="button" onclick="requestPhotosViaWhatsApp()" class="btn" style="background:#25d366; color:white; padding:4px 8px; font-size:11px; font-weight:700;">📲 Ask Photos on WhatsApp</button>
+        </div>
+        
+        <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; text-align:center;">
+          <!-- Photo 1 -->
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px;">
+            <span style="font-size:10px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">1. Front Display</span>
+            <div id="previewBox1" style="height:60px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:6px; overflow:hidden; margin-bottom:4px; border:1px solid #e2e8f0;">
+              <img id="editPreview1" src="" style="width:100%; height:100%; object-fit:cover; display:none;">
+              <span id="noImg1" style="font-size:10px; color:#94a3b8;">No Photo</span>
+            </div>
+            <label class="btn btn-blue" style="font-size:10px; padding:3px 6px; cursor:pointer; display:block; margin-bottom:2px;">
+              📁 Choose
+              <input type="file" id="editFile1" accept="image/*" style="display:none;" onchange="handlePhotoUpload(1, event)">
+            </label>
+            <button type="button" onclick="clearPhoto(1)" style="border:none; background:none; color:#ef4444; font-size:10px; cursor:pointer; padding:0;">✕ Clear</button>
+          </div>
+
+          <!-- Photo 2 -->
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px;">
+            <span style="font-size:10px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">2. Overall UPS</span>
+            <div id="previewBox2" style="height:60px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:6px; overflow:hidden; margin-bottom:4px; border:1px solid #e2e8f0;">
+              <img id="editPreview2" src="" style="width:100%; height:100%; object-fit:cover; display:none;">
+              <span id="noImg2" style="font-size:10px; color:#94a3b8;">No Photo</span>
+            </div>
+            <label class="btn btn-blue" style="font-size:10px; padding:3px 6px; cursor:pointer; display:block; margin-bottom:2px;">
+              📁 Choose
+              <input type="file" id="editFile2" accept="image/*" style="display:none;" onchange="handlePhotoUpload(2, event)">
+            </label>
+            <button type="button" onclick="clearPhoto(2)" style="border:none; background:none; color:#ef4444; font-size:10px; cursor:pointer; padding:0;">✕ Clear</button>
+          </div>
+
+          <!-- Photo 3 -->
+          <div style="background:white; border:1px solid #e2e8f0; border-radius:8px; padding:6px;">
+            <span style="font-size:10px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">3. Battery / MCB</span>
+            <div id="previewBox3" style="height:60px; display:flex; align-items:center; justify-content:center; background:#f1f5f9; border-radius:6px; overflow:hidden; margin-bottom:4px; border:1px solid #e2e8f0;">
+              <img id="editPreview3" src="" style="width:100%; height:100%; object-fit:cover; display:none;">
+              <span id="noImg3" style="font-size:10px; color:#94a3b8;">No Photo</span>
+            </div>
+            <label class="btn btn-blue" style="font-size:10px; padding:3px 6px; cursor:pointer; display:block; margin-bottom:2px;">
+              📁 Choose
+              <input type="file" id="editFile3" accept="image/*" style="display:none;" onchange="handlePhotoUpload(3, event)">
+            </label>
+            <button type="button" onclick="clearPhoto(3)" style="border:none; background:none; color:#ef4444; font-size:10px; cursor:pointer; padding:0;">✕ Clear</button>
+          </div>
+        </div>
+      </div>
 
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
         <div>
@@ -1470,6 +1522,9 @@ function getITSMWorkbenchHtml() {
     let allTickets = [];
     let currentEditingTicketId = null;
     let selectedCategory = 'Pending';
+    let editPhoto1 = '';
+    let editPhoto2 = '';
+    let editPhoto3 = '';
 
     function selectCategory(cat) {
       selectedCategory = cat;
@@ -1523,7 +1578,7 @@ function getITSMWorkbenchHtml() {
                             (t.ticketId || '').toLowerCase().includes(search);
         const matchBlock = !block || (t.block || '').toLowerCase().includes(block.toLowerCase());
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-        const matchCat = !cat || (tCat === cat) || (cat === 'Vendor Escalated' && t.status === 'Vendor Escalated');
+        const matchCat = !cat || tCat === cat;
         return matchSearch && matchBlock && matchCat;
       });
 
@@ -1574,9 +1629,10 @@ function getITSMWorkbenchHtml() {
               </small>
             </td>
             <td>
-              <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; flex-direction:column; gap:5px;">
                 <a href="\${waLink}" target="_blank" class="btn btn-whatsapp">💬 WhatsApp AI</a>
-                <button onclick="openActionModal('\${t.ticketId}')" class="btn btn-blue" style="padding:6px 10px; font-size:12px;">⚙️ Set Resolution</button>
+                <button onclick="openActionModal('\${t.ticketId}')" class="btn btn-blue" style="padding:5px 8px; font-size:11.5px;">⚙️ Manage / Edit Photos</button>
+                <button onclick="printServiceSlip('\${t.ticketId}')" class="btn" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px;">📄 Service Slip</button>
               </div>
             </td>
           </tr>
@@ -1587,6 +1643,72 @@ function getITSMWorkbenchHtml() {
     function showImgModal(src) {
       document.getElementById('modalImg').src = src;
       document.getElementById('imgModal').style.display = 'flex';
+    }
+
+    function updatePhotoPreviews() {
+      for (let i = 1; i <= 3; i++) {
+        const val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : editPhoto3);
+        const img = document.getElementById('editPreview' + i);
+        const noImg = document.getElementById('noImg' + i);
+        if (val && val.length > 50) {
+          img.src = val;
+          img.style.display = 'block';
+          noImg.style.display = 'none';
+        } else {
+          img.src = '';
+          img.style.display = 'none';
+          noImg.style.display = 'block';
+        }
+      }
+    }
+
+    function handlePhotoUpload(index, event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const maxDim = 1000;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const compressed = canvas.toDataURL('image/jpeg', 0.82);
+
+          if (index === 1) editPhoto1 = compressed;
+          else if (index === 2) editPhoto2 = compressed;
+          else if (index === 3) editPhoto3 = compressed;
+
+          updatePhotoPreviews();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearPhoto(index) {
+      if (index === 1) editPhoto1 = '';
+      else if (index === 2) editPhoto2 = '';
+      else if (index === 3) editPhoto3 = '';
+      updatePhotoPreviews();
+    }
+
+    function requestPhotosViaWhatsApp() {
+      if (!currentEditingTicketId) return;
+      const t = allTickets.find(i => i.ticketId === currentEditingTicketId);
+      if (!t) return;
+
+      const msg = encodeURIComponent(\`வணக்கம் \${t.aiName} ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). \${t.schoolName} பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\\n\\n1. UPS முன்புற டிஸ்ப்ளே (Front Display Panel)\\n2. ஆய்வக UPS முழுத் தோற்றம் (Overall Lab Setup)\\n3. பேட்டரி வங்கி மற்றும் MCB பிரேக்கர் (Battery Bank & MCB)\\n\\nநன்றி!\`);
+      window.open(\`https://wa.me/91\${t.phone}?text=\${msg}\`, '_blank');
     }
 
     function openActionModal(ticketId) {
@@ -1601,6 +1723,11 @@ function getITSMWorkbenchHtml() {
         document.getElementById('modalParts').value = t.partsRequired || '';
         document.getElementById('modalNotes').value = t.resolutionNotes || '';
         document.getElementById('vendorBox').style.display = (t.status === 'Vendor Escalated') ? 'block' : 'none';
+
+        editPhoto1 = t.photo1Url || '';
+        editPhoto2 = t.photo2Url || '';
+        editPhoto3 = t.photo3Url || '';
+        updatePhotoPreviews();
 
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
         selectCategory(tCat);
@@ -1634,7 +1761,10 @@ function getITSMWorkbenchHtml() {
         vendorName: document.getElementById('modalVendorName').value,
         vendorTicketNo: document.getElementById('modalVendorTicket').value,
         partsRequired: document.getElementById('modalParts').value,
-        resolutionNotes: document.getElementById('modalNotes').value
+        resolutionNotes: document.getElementById('modalNotes').value,
+        photo1Url: editPhoto1,
+        photo2Url: editPhoto2,
+        photo3Url: editPhoto3
       };
 
       try {
@@ -1653,6 +1783,91 @@ function getITSMWorkbenchHtml() {
       } catch(e) {
         alert('Update failed.');
       }
+    }
+
+    function printServiceSlip(ticketId) {
+      const t = allTickets.find(i => i.ticketId === ticketId);
+      if (!t) return;
+
+      const w = window.open('', '_blank');
+      w.document.write(\`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Field Service Slip - \${t.ticketId}</title>
+          <style>
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; }
+            .header h1 { font-size: 20px; color: #1e3a8a; margin: 0 0 4px 0; }
+            .header h2 { font-size: 15px; color: #475569; margin: 0; }
+            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+            .field { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; }
+            .field-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+            .field-val { font-size: 13.5px; font-weight: 600; color: #0f172a; margin-top: 2px; }
+            .photo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 16px 0; }
+            .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; text-align: center; background: #fafafa; }
+            .photo-card img { width: 100%; height: 130px; object-fit: cover; border-radius: 4px; }
+            .photo-label { font-size: 11px; font-weight: 700; color: #475569; margin-top: 4px; }
+            .sig-box { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 20px; }
+            .sig-line { border-top: 1.5px dashed #64748b; text-align: center; padding-top: 8px; font-size: 12px; font-weight: 700; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="no-print" style="margin-bottom: 16px; text-align: right;">
+            <button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:700; cursor:pointer;">🖨️ Print Service Slip</button>
+          </div>
+          <div class="header">
+            <h1>DIRECTORATE OF SCHOOL EDUCATION • GOVERNMENT OF TAMIL NADU</h1>
+            <h2>Hi-Tech Lab UPS Maintenance & Incident Resolution Service Slip (Thiruvarur District)</h2>
+          </div>
+          
+          <div class="grid">
+            <div class="field"><div class="field-label">Ticket ID</div><div class="field-val">\${t.ticketId}</div></div>
+            <div class="field"><div class="field-label">Logged Date & Time</div><div class="field-val">\${t.createdAt}</div></div>
+            <div class="field"><div class="field-label">School Name</div><div class="field-val">\${t.schoolName}</div></div>
+            <div class="field"><div class="field-label">Block & UDISE</div><div class="field-val">\${t.block} • \${t.udise}</div></div>
+            <div class="field"><div class="field-label">AI Incharge Name</div><div class="field-val">\${t.aiName}</div></div>
+            <div class="field"><div class="field-label">Contact Number</div><div class="field-val">\${t.phone}</div></div>
+            <div class="field"><div class="field-label">Reported Issue</div><div class="field-val">\${t.issue}</div></div>
+            <div class="field"><div class="field-label">Resolution Status</div><div class="field-val">\${t.status} (\${t.resolutionCategory || 'Standard'})</div></div>
+          </div>
+
+          <div class="field" style="margin-bottom: 16px;">
+            <div class="field-label">Engineer Diagnosis & Action Notes:</div>
+            <div class="field-val" style="font-weight: normal; margin-top: 4px;">\${t.resolutionNotes || 'Guided AI Teacher to inspect breaker/isolation switches and perform safe restart.'}</div>
+          </div>
+
+          <div class="field-label" style="margin-bottom: 6px;">Visual Inspection Photos:</div>
+          <div class="photo-grid">
+            <div class="photo-card">
+              \${t.photo1Url ? \`<img src="\${t.photo1Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
+              <div class="photo-label">1. Front Display Panel</div>
+            </div>
+            <div class="photo-card">
+              \${t.photo2Url ? \`<img src="\${t.photo2Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
+              <div class="photo-label">2. Overall UPS & Lab</div>
+            </div>
+            <div class="photo-card">
+              \${t.photo3Url ? \`<img src="\${t.photo3Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
+              <div class="photo-label">3. Battery Bank & MCB</div>
+            </div>
+          </div>
+
+          <div class="sig-box">
+            <div class="sig-line">
+              Signature of School AI Incharge / Headmaster<br>
+              <small style="font-weight:normal; color:#64748b;">(\${t.aiName})</small>
+            </div>
+            <div class="sig-line">
+              Signature of Field Engineer<br>
+              <small style="font-weight:normal; color:#64748b;">(Mohamed Shameer • Hi-Tech Lab)</small>
+            </div>
+          </div>
+        </body>
+        </html>
+      \`);
+      w.document.close();
     }
 
     async function deleteCurrentTicket() {
