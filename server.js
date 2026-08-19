@@ -40,7 +40,7 @@ function saveTickets(list) {
     `"${t.ticketId || ''}"`,
     `"${t.createdAt || ''}"`,
     `"${t.priority || 'Medium'}"`,
-    `"${t.status || 'Open / Triage'}"`,
+    `"${t.status || 'New / Under Review'}"`,
     `"${t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'))}"`,
     `"${t.district || 'Thiruvarur'}"`,
     `"${t.block || ''}"`,
@@ -196,7 +196,7 @@ const server = http.createServer((req, res) => {
           duration: data.duration || '',
           serialNo: data.serialNo || '',
           priority: priority,
-          status: 'Open / Triage',
+          status: 'New / Under Review',
           resolutionCategory: 'Pending',
           resolutionType: '',
           vendorName: '',
@@ -342,7 +342,7 @@ const server = http.createServer((req, res) => {
     const solvedDirectVisitCount = tickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
     const vendorCount = tickets.filter(t => t.status === 'Vendor Escalated').length;
     const inProgressCount = tickets.filter(t => t.status === 'In Progress (Remote)' || t.status === 'Field Visit Scheduled').length;
-    const openCount = tickets.filter(t => t.status === 'Open / Triage').length;
+    const openCount = tickets.filter(t => t.status === 'New / Under Review').length;
 
     const blockStats = {};
     masterSchools.forEach(s => {
@@ -1719,10 +1719,10 @@ function getTeacherPortalHtml() {
 
         document.getElementById('trackIssue').textContent = ticket.issue || 'UPS Technical Glitch';
         document.getElementById('trackDuration').textContent = ticket.duration || 'Reported';
-        document.getElementById('trackNotes').textContent = ticket.resolutionNotes || (ticket.status === 'Open / Triage' ? 'பொறியாளர் பரிசீலனையில் உள்ளது (Awaiting Engineer Inspection)' : 'பணிகள் நடைபெற்று வருகின்றன');
+        document.getElementById('trackNotes').textContent = ticket.resolutionNotes || (ticket.status === 'New / Under Review' ? 'பொறியாளர் பரிசீலனையில் உள்ளது (Awaiting Engineer Inspection)' : 'பணிகள் நடைபெற்று வருகின்றன');
 
         const badge = document.getElementById('trackStatusBadge');
-        const st = ticket.status || 'Open / Triage';
+        const st = ticket.status || 'New / Under Review';
         badge.textContent = st;
 
         if (st.includes('Resolved') || st.includes('Solved') || st.includes('Closed')) {
@@ -2153,7 +2153,7 @@ function getITSMWorkbenchHtml() {
         <option value="Resolved Remotely">🟢 1. Resolved Remotely (Phone/WhatsApp)</option>
         <option value="Solved by Direct Visit">🔵 2. Solved by Direct Visit (Physical Visit)</option>
         <option value="Vendor Escalated">🔴 Vendor Escalated (Parts Needed)</option>
-        <option value="Pending">🟡 Pending / In Triage</option>
+        <option value="Pending">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
       </select>
     </div>
 
@@ -2271,7 +2271,7 @@ function getITSMWorkbenchHtml() {
           <div>
             <label class="modal-label">Lifecycle Status:</label>
             <select id="modalStatus" class="modal-select">
-              <option value="Open / Triage">🟡 Open / In Triage</option>
+              <option value="New / Under Review">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
               <option value="In Progress (Remote)">🔵 In Progress (Remote Guidance)</option>
               <option value="Resolved Remotely">🟢 Resolved Remotely</option>
               <option value="Solved by Direct Visit">🔵 Solved by Direct Visit</option>
@@ -2461,7 +2461,7 @@ function getITSMWorkbenchHtml() {
       tbody.innerHTML = filtered.map(function(t) {
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
         
-        let badgeHtml = '<span class="badge badge-open">🟡 Open / In Triage</span>';
+        let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
         if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
         else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
         else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
@@ -2619,7 +2619,7 @@ function getITSMWorkbenchHtml() {
         document.getElementById('modalTicketTitle').textContent = 'Manage Incident: ' + (t.ticketId || '');
         document.getElementById('modalTicketSub').textContent = (t.schoolName || '') + ' • ' + (t.block || '') + ' Block (UDISE: ' + (t.udise || '') + ')';
         
-        document.getElementById('modalStatus').value = t.status || 'Open / Triage';
+        document.getElementById('modalStatus').value = t.status || 'New / Under Review';
         document.getElementById('modalPriority').value = t.priority || 'Medium';
         document.getElementById('modalVendorName').value = t.vendorName || '';
         document.getElementById('modalVendorTicket').value = t.vendorTicketNo || '';
