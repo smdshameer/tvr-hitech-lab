@@ -838,7 +838,6 @@ server.listen(PORT, () => {
   console.log(`🚀 TVR Hi-Tech Lab Service Desk running on port ${PORT}`);
 });
 
-
 function getLoginHtml() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -891,12 +890,12 @@ function getLoginHtml() {
 
       <div class="form-group">
         <label>Username / User ID</label>
-        <input type="text" id="username" placeholder="e.g. shameer" value="shameer" required>
+        <input type="text" id="username" placeholder="e.g. shameer"  required>
       </div>
 
       <div class="form-group">
         <label>Password / PIN</label>
-        <input type="password" id="password" placeholder="Enter PIN" value="1234" required>
+        <input type="password" id="password" placeholder="Enter PIN"  required>
       </div>
 
       <button type="submit" class="btn-login" id="btnLogin">Sign In to Command Center</button>
@@ -2547,7 +2546,7 @@ function getITSMWorkbenchHtml() {
     <div class="filter-bar">
       <div class="filter-search-wrap">
         <span class="filter-search-icon">🔍</span>
-        <input type="text" id="searchInput" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()">
+        <input type="search" id="searchInput" name="htl_search_filter_box" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <select id="blockFilter" class="filter-select" onchange="renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
@@ -3270,6 +3269,14 @@ function getITSMWorkbenchHtml() {
 
     loadData();
     setInterval(loadData, 5000);
+    // Clear accidental browser password autofill from search box
+    setTimeout(function() {
+      const si = document.getElementById('searchInput');
+      if (si && (si.value.toLowerCase() === 'shameer' || si.value.toLowerCase() === 'engineer' || si.value.toLowerCase() === 'head' || si.value.toLowerCase() === 'admin')) {
+        si.value = '';
+        renderTable();
+      }
+    }, 150);
   </script>
 </body>
 </html>`;
