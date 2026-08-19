@@ -664,10 +664,10 @@ function getTeacherPortalHtml() {
         <div class="checklist-box">
           <div class="checklist-title">💡 விரைவு சுய சரிபார்ப்பு (Quick Pre-Checks before submitting):</div>
           <label class="check-item"><input type="checkbox"> EB மெயின் பவர் சப்ளை லேபிற்கு வருகிறதா? (EB Main Power Supply Active)</label>
-          <label class="check-item"><input type="checkbox"> UPS-ன் பின்புறம் உள்ள Main Input MCB Breaker ஆன் செய்யப்பட்டுள்ளதா? (Input MCB ON)</label>
+          <label class="check-item"><input type="checkbox"> UPS-ன் Top பகுதியில் உள்ள Main Input MCB Breaker ஆன் செய்யப்பட்டுள்ளதா? (Input MCB ON)</label>
           <label class="check-item"><input type="checkbox"> பேட்டரி ரேக்கின் (Battery Bank) பின்புற DC MCB Breaker ஆன் நிலையில் உள்ளதா? (Battery MCB ON)</label>
           <label class="check-item"><input type="checkbox"> UPS முன்புறமுள்ள Power ON பொத்தானை 3 விநாடிகள் அழுத்திப் பிடித்தீர்களா? (Hold Front ON button 3s)</label>
-          <label class="check-item"><input type="checkbox"> சுவரில் உள்ள 32A பவர் பிளக் சாக்கெட் லூஸ் இல்லாமல் சரியாக மாட்டப்பட்டுள்ளதா? (Wall Plug Firmly Connected)</label>
+          <label class="check-item"><input type="checkbox"> சுவரில் உள்ள Circuit Breaker சரியாக ஆன் செய்யப்பட்டுள்ளதா? (Wall Circuit Breaker ON)</label>
         </div>
 
         <div class="form-group">
