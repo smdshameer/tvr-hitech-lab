@@ -33,7 +33,7 @@ function saveTickets(list) {
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
     'AI Teacher Name', 'AI Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
     'Resolution Type', 'Vendor Name', 'Vendor Ticket No', 'Parts Required', 'Resolution Notes',
-    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Battery/MCB)', 'Activity Log History'
+    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Activity Log History'
   ];
 
   const rows = list.map(t => [
@@ -59,6 +59,7 @@ function saveTickets(list) {
     `"${t.resolvedAt || ''}"`,
     `"${t.photo1 || 'No Photo'}"`,
     `"${t.photo2 || 'No Photo'}"`,
+    `"${t.photo3 || 'No Photo'}"`,
     `"${(t.timeline || []).map(e => `[${e.time}] ${e.action}: ${e.note}`).join(' | ').replace(/"/g, '""')}"`
   ]);
 
@@ -142,9 +143,11 @@ const server = http.createServer((req, res) => {
 
         let p1Name = '';
         let p2Name = '';
+        let p3Name = '';
         const ts = Date.now();
         const cleanSchool = (data.schoolName || 'school').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
 
+        // Photo 1: Front Display
         if (data.photo1Base64) {
           const m = data.photo1Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
           if (m) {
@@ -153,11 +156,21 @@ const server = http.createServer((req, res) => {
           }
         }
 
+        // Photo 2: Overall UPS Photo
         if (data.photo2Base64) {
           const m = data.photo2Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
           if (m) {
-            p2Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
+            p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
             fs.writeFileSync(path.join(UPLOADS_DIR, p2Name), Buffer.from(m[2], 'base64'));
+          }
+        }
+
+        // Photo 3: Battery / MCB Photo
+        if (data.photo3Base64) {
+          const m = data.photo3Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+          if (m) {
+            p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
+            fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), Buffer.from(m[2], 'base64'));
           }
         }
 
@@ -195,6 +208,8 @@ const server = http.createServer((req, res) => {
           photo1Url: p1Name ? `/uploads/${p1Name}` : '',
           photo2: p2Name,
           photo2Url: p2Name ? `/uploads/${p2Name}` : '',
+          photo3: p3Name,
+          photo3Url: p3Name ? `/uploads/${p3Name}` : '',
           remarks: data.remarks || '',
           timeline: [
             { time: dateStr, action: 'Ticket Logged', note: `Issue reported by AI ${data.aiName}. Priority set to ${priority}.` }
@@ -368,7 +383,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Default: Teacher Portal
+  // Default: Teacher Portal (100% Dedicated Clean Form)
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(getTeacherPortalHtml());
 });
@@ -487,7 +502,7 @@ function getLoginHtml() {
 }
 
 // ==========================================
-// 2. TEACHER PORTAL HTML
+// 2. TEACHER PORTAL HTML (WITH OVERALL UPS PHOTO BUTTON)
 // ==========================================
 function getTeacherPortalHtml() {
   return `<!DOCTYPE html>
@@ -509,11 +524,7 @@ function getTeacherPortalHtml() {
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Noto Sans Tamil', sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 14px; line-height: 1.5; }
-    .container { max-width: 650px; margin: 0 auto; }
-    
-    .nav-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: 12.5px; }
-    .nav-bar a { color: var(--primary); text-decoration: none; font-weight: 700; }
-    .btn-login-nav { background: #1e293b; color: white !important; padding: 4px 10px; border-radius: 6px; }
+    .container { max-width: 680px; margin: 0 auto; }
 
     .header-card {
       background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
@@ -575,13 +586,13 @@ function getTeacherPortalHtml() {
     .checklist-title { font-size: 13px; font-weight: 700; color: #854d0e; margin-bottom: 8px; }
     .check-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #713f12; margin-bottom: 6px; }
 
-    .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .photo-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
     .photo-dropzone {
       border: 2px dashed #93c5fd; background: #eff6ff; border-radius: 12px; padding: 14px 10px;
       text-align: center; cursor: pointer; transition: all 0.2s;
     }
     .photo-dropzone:hover { background: #dbeafe; }
-    .preview-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
+    .preview-img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
 
     .btn-submit {
       width: 100%; background: var(--primary); color: white; border: none; padding: 15px;
@@ -606,8 +617,6 @@ function getTeacherPortalHtml() {
 </head>
 <body>
   <div class="container">
-    <!-- 100% Dedicated Teacher Portal -->
-
     <div class="header-card">
       <span class="badge">Hi-Tech Lab ITSM Service Desk</span>
       <h1>UPS Incident & Complaint Center</h1>
@@ -746,24 +755,34 @@ function getTeacherPortalHtml() {
 
         <div class="section-title" style="margin-top: 22px;">3. புகைப்படங்கள் அப்லோட் (Upload Visual Evidence)</div>
 
-        <div class="photo-grid">
+        <div class="photo-grid-3">
           <div class="form-group">
-            <label class="form-label" style="font-size:12.5px;">1. UPS முன்புற டிஸ்ப்ளே படம் <span class="req">*</span></label>
+            <label class="form-label" style="font-size:12px;">1. UPS டிஸ்ப்ளே படம் <span class="req">*</span></label>
             <div class="photo-dropzone" onclick="document.getElementById('photoInput1').click()">
               <span style="font-size: 26px;">📷</span>
-              <p style="font-size: 12px; font-weight: 700; color: #1e40af; margin-top: 2px;">Front Display Photo</p>
+              <p style="font-size: 11.5px; font-weight: 700; color: #1e40af; margin-top: 2px;">Front Display Photo</p>
               <input type="file" id="photoInput1" accept="image/*" capture="environment" style="display: none;" required>
               <img id="preview1" class="preview-img" alt="Front Preview">
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label" style="font-size:12.5px;">2. பேட்டரி / MCB படம் (Optional)</label>
+            <label class="form-label" style="font-size:12px;">2. முழுமையான UPS படம்</label>
             <div class="photo-dropzone" onclick="document.getElementById('photoInput2').click()">
-              <span style="font-size: 26px;">🔋</span>
-              <p style="font-size: 12px; font-weight: 700; color: #1e40af; margin-top: 2px;">Battery / MCB Photo</p>
+              <span style="font-size: 26px;">📸</span>
+              <p style="font-size: 11.5px; font-weight: 700; color: #1e40af; margin-top: 2px;">Overall UPS Photo</p>
               <input type="file" id="photoInput2" accept="image/*" capture="environment" style="display: none;">
-              <img id="preview2" class="preview-img" alt="Battery Preview">
+              <img id="preview2" class="preview-img" alt="Overall Preview">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" style="font-size:12px;">3. பேட்டரி / MCB படம்</label>
+            <div class="photo-dropzone" onclick="document.getElementById('photoInput3').click()">
+              <span style="font-size: 26px;">🔋</span>
+              <p style="font-size: 11.5px; font-weight: 700; color: #1e40af; margin-top: 2px;">Battery / MCB Photo</p>
+              <input type="file" id="photoInput3" accept="image/*" capture="environment" style="display: none;">
+              <img id="preview3" class="preview-img" alt="Battery Preview">
             </div>
           </div>
         </div>
@@ -835,6 +854,7 @@ function getTeacherPortalHtml() {
     const customBox = document.getElementById('customSchoolBox');
     let base64Photo1 = '';
     let base64Photo2 = '';
+    let base64Photo3 = '';
 
     function switchTab(tab) {
       if (tab === 'log') {
@@ -917,6 +937,7 @@ function getTeacherPortalHtml() {
 
     handleImageUpload(document.getElementById('photoInput1'), document.getElementById('preview1'), data => { base64Photo1 = data; });
     handleImageUpload(document.getElementById('photoInput2'), document.getElementById('preview2'), data => { base64Photo2 = data; });
+    handleImageUpload(document.getElementById('photoInput3'), document.getElementById('preview3'), data => { base64Photo3 = data; });
 
     document.getElementById('incidentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -955,6 +976,7 @@ function getTeacherPortalHtml() {
         serialNo: document.getElementById('serialNo').value,
         photo1Base64: base64Photo1,
         photo2Base64: base64Photo2,
+        photo3Base64: base64Photo3,
         remarks: document.getElementById('remarks').value
       };
 
@@ -1038,7 +1060,7 @@ function getTeacherPortalHtml() {
 }
 
 // ==========================================
-// 3. ENGINEER WORKBENCH HTML (WITH PASSWORD-PROTECTED RESET)
+// 3. ENGINEER WORKBENCH HTML (WITH 3-PHOTO VIEW & PASSWORD-PROTECTED RESET)
 // ==========================================
 function getITSMWorkbenchHtml() {
   return `<!DOCTYPE html>
@@ -1091,7 +1113,7 @@ function getITSMWorkbenchHtml() {
     td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     tr:hover { background: #f8fafc; }
 
-    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; margin-right: 4px; }
+    .thumb-img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; margin-right: 4px; }
     
     .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; }
     .badge-remote { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
@@ -1193,7 +1215,7 @@ function getITSMWorkbenchHtml() {
         <thead>
           <tr>
             <th>Ticket ID</th>
-            <th>Photos</th>
+            <th>3 Visual Photos</th>
             <th>School & Block</th>
             <th>AI Contact</th>
             <th>Reported Issue</th>
@@ -1385,9 +1407,10 @@ function getITSMWorkbenchHtml() {
             <td><strong>\${t.ticketId}</strong><br><small style="color:#64748b;">\${t.createdAt}</small></td>
             <td>
               <div style="display:flex;">
-                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal('\${t.photo1Url}')" title="Front Display">\` : ''}
-                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal('\${t.photo2Url}')" title="Battery / MCB">\` : ''}
-                \${!t.photo1Url && !t.photo2Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : ''}
+                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal('\${t.photo1Url}')" title="1. Front Display">\` : ''}
+                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal('\${t.photo2Url}')" title="2. Overall UPS">\` : ''}
+                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal('\${t.photo3Url}')" title="3. Battery / MCB">\` : ''}
+                \${!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : ''}
               </div>
             </td>
             <td><strong>\${t.schoolName}</strong><br><small style="color:#64748b;">\${t.block} • \${t.udise}</small></td>
@@ -1577,7 +1600,7 @@ function getITSMExecutiveHtml() {
     td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     tr:hover { background: #f8fafc; }
 
-    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; }
+    .thumb-img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; margin-right: 3px; }
 
     /* Modal */
     .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
@@ -1654,7 +1677,7 @@ function getITSMExecutiveHtml() {
         <table>
           <thead>
             <tr>
-              <th>Ticket & Photo</th>
+              <th>Ticket & Photos</th>
               <th>School & Block</th>
               <th>Fault & Serial No</th>
               <th>Vendor & Call #</th>
@@ -1721,7 +1744,11 @@ function getITSMExecutiveHtml() {
           <tr>
             <td>
               <strong>\${t.ticketId}</strong><br>
-              \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="window.open('\${t.photo1Url}', '_blank')">\` : '<span style="color:#94a3b8;">No Photo</span>'}
+              <div style="display:flex; margin-top:4px;">
+                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="window.open('\${t.photo1Url}', '_blank')" title="Front Display">\` : ''}
+                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="window.open('\${t.photo2Url}', '_blank')" title="Overall UPS">\` : ''}
+                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="window.open('\${t.photo3Url}', '_blank')" title="Battery/MCB">\` : ''}
+              </div>
             </td>
             <td><strong>\${t.schoolName}</strong><br><small style="color:#64748b;">\${t.block} • \${t.udise}</small></td>
             <td><span style="font-weight:600; color:#dc2626;">\${t.issue}</span><br><small>S/N: \${t.serialNo || 'N/A'}</small></td>
