@@ -830,11 +830,11 @@ function getTeacherPortalHtml() {
         <div class="form-group">
           <label class="form-label">பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span></label>
           <div class="school-search-wrap" id="searchWrap">
-            <input type="text" id="schoolSearchInput" list="schoolsDatalist" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
-            <datalist id="schoolsDatalist">
-              ${masterSchools.map(s => `<option value="${s.udise}">🏫 ${s.schoolName} (${s.block})</option><option value="${s.schoolName}">${s.udise} - ${s.block}</option>`).join('')}
-            </datalist>
+            <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
             <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
+            <div style="margin-top: 6px; text-align: right;">
+              <a href="javascript:void(0)" onclick="openOtherSchool()" style="font-size: 12px; color: #2563eb; font-weight: 600; text-decoration: none;">➕ பள்ளி பட்டியலில் இல்லையா? (Click here for Other School)</a>
+            </div>
           </div>
 
           <div id="verifiedSchoolCard" class="verified-school-card">
@@ -849,14 +849,18 @@ function getTeacherPortalHtml() {
             <button type="button" onclick="resetSchoolSelection()" class="btn-reselect">🔄 வேறு பள்ளியைத் தேர்வு செய்ய (Change School)</button>
           </div>
 
-          <select id="schoolSelect" class="form-select" style="margin-top: 6px;">
-            <option value="">-- அல்லது பட்டியலிலிருந்து தேர்ந்தெடுக்கவும் (Choose from Dropdown) --</option>
-            ${masterSchools.map(s => `<option value="${s.id}">${s.block} • ${s.schoolName} (${s.udise})</option>`).join('')}
-            <option value="OTHER">➕ [+ மற்ற பள்ளி / Other School]</option>
+          <select id="schoolSelect" style="display:none;">
+            <option value="">-- None --</option>
+            ${masterSchools.map(s => `<option value="${s.id}">${s.schoolName}</option>`).join('')}
+            <option value="OTHER">OTHER</option>
           </select>
         </div>
 
-        <div id="customSchoolBox" style="display:none;">
+        <div id="customSchoolBox" style="display:none; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <strong style="color:#1e3a8a; font-size:13.5px;">➕ புதிய / மற்ற பள்ளியின் விவரங்கள்:</strong>
+            <button type="button" onclick="resetSchoolSelection()" class="btn" style="background:#e2e8f0; color:#334155; padding:4px 8px; font-size:11px;">← பள்ளி தேடலுக்குத் திரும்பு</button>
+          </div>
           <div class="form-group">
             <label class="form-label">பள்ளியின் பெயர் (School Name) <span class="req">*</span></label>
             <input type="text" id="custSchool" class="form-control" placeholder="Enter Full School Name">
@@ -1228,13 +1232,27 @@ function getTeacherPortalHtml() {
       select.dispatchEvent(new Event('change'));
     }
 
+    function openOtherSchool() {
+      select.value = 'OTHER';
+      customBox.style.display = 'block';
+      verCard.style.display = 'none';
+      searchWrap.style.display = 'none';
+      document.getElementById('custSchool').required = true;
+      document.getElementById('custUdise').required = true;
+      document.getElementById('custBlock').required = true;
+    }
+
     function resetSchoolSelection() {
       select.value = '';
       verCard.style.display = 'none';
+      customBox.style.display = 'none';
+      document.getElementById('custSchool').required = false;
+      document.getElementById('custUdise').required = false;
+      document.getElementById('custBlock').required = false;
       searchWrap.style.display = 'block';
-      select.style.display = 'block';
       searchInput.value = '';
-      searchInput.focus();
+      suggestBox.style.display = 'none';
+      setTimeout(function() { searchInput.focus(); }, 50);
     }
 
     document.addEventListener('click', function(e) {
@@ -1247,6 +1265,7 @@ function getTeacherPortalHtml() {
       if (this.value === 'OTHER') {
         customBox.style.display = 'block';
         verCard.style.display = 'none';
+        searchWrap.style.display = 'none';
         document.getElementById('custSchool').required = true;
         document.getElementById('custUdise').required = true;
         document.getElementById('custBlock').required = true;
@@ -1265,10 +1284,8 @@ function getTeacherPortalHtml() {
           document.getElementById('verUdise').textContent = item.udise;
           document.getElementById('verAiName').textContent = item.aiName || '-';
           document.getElementById('verPhone').textContent = item.aiPhone || '-';
-
           verCard.style.display = 'block';
           searchWrap.style.display = 'none';
-          select.style.display = 'none';
 
           if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
           if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
