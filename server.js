@@ -1060,12 +1060,12 @@ function getTeacherPortalHtml() {
           <input type="text" id="serialNo" class="form-control" placeholder="e.g. EM-10KVA-2021-XXXX">
         </div>
 
-        <div class="section-title" style="margin-top: 24px;">3. UPS ஆய்வகப் புகைப்படங்கள் (Visual Verification - 3 Photos)</div>
-        <p style="font-size: 12.5px; color: #64748b; margin-bottom: 12px;">பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்ய 3 புகைப்படங்களை இணைப்பது கட்டாயமாகும்.</p>
+        <div class="section-title" style="margin-top: 24px;">3. UPS ஆய்வகப் புகைப்படங்கள் (Visual Verification - 3 Photos) <span class="req">*</span></div>
+        <p style="font-size: 12.5px; color: #dc2626; font-weight: 700; margin-bottom: 12px;">⚠️ கவனத்திற்கு: பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்து சரிசெய்ய 3 புகைப்படங்களையும் இணைப்பது கட்டாயமாகும் (All 3 Photos are Mandatory).</p>
 
         <div class="photo-upload-grid">
           <!-- Photo 1 -->
-          <div class="photo-upload-box">
+          <div class="photo-upload-box" id="photoBox1">
             <div class="photo-title">1. Front Display Panel <span class="req">*</span></div>
             <div id="btnGroup1" class="photo-btn-group">
               <!-- Live Camera Input -->
@@ -1091,8 +1091,8 @@ function getTeacherPortalHtml() {
           </div>
 
           <!-- Photo 2 -->
-          <div class="photo-upload-box">
-            <div class="photo-title">2. Overall Lab Setup</div>
+          <div class="photo-upload-box" id="photoBox2">
+            <div class="photo-title">2. Overall Lab Setup <span class="req">*</span></div>
             <div id="btnGroup2" class="photo-btn-group">
               <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
               <label for="photoCam2" class="btn-camera-snap">
@@ -1115,8 +1115,8 @@ function getTeacherPortalHtml() {
           </div>
 
           <!-- Photo 3 -->
-          <div class="photo-upload-box">
-            <div class="photo-title">3. Battery Bank & MCB</div>
+          <div class="photo-upload-box" id="photoBox3">
+            <div class="photo-title">3. Battery Bank & MCB <span class="req">*</span></div>
             <div id="btnGroup3" class="photo-btn-group">
               <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
               <label for="photoCam3" class="btn-camera-snap">
@@ -1451,7 +1451,20 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('தயவுசெய்து UPS முன்புற டிஸ்ப்ளே புகைப்படத்தைப் படம் பிடித்து அப்லோட் செய்யவும்.');
+        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\n\nதயவுசெய்து "1. Front Display Panel (UPS முன்புற டிஸ்ப்ளே)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        document.getElementById('photoBox1').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      if (!base64Photo2) {
+        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\n\nதயவுசெய்து "2. Overall Lab Setup (ஆய்வக அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        document.getElementById('photoBox2').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      if (!base64Photo3) {
+        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\n\nதயவுசெய்து "3. Battery Bank & MCB (பேட்டரி அடுக்கு மற்றும் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
       const btn = document.getElementById('btnSubmit');
