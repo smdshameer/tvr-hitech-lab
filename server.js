@@ -919,69 +919,75 @@ function getTeacherPortalHtml() {
     const searchInput = document.getElementById('schoolSearchInput');
     const suggestBox = document.getElementById('schoolSuggestionsBox');
 
-    function checkAndAutoSelect(val) {
-      const q = (val || '').trim().toLowerCase();
-      if (!q) return false;
+    function filterSchools(query) {
+      const q = (query || '').trim().toLowerCase();
+      if (!q) return [];
 
-      // 1. Check exact UDISE or exact School Name
-      const exact = schoolsData.find(function(s) {
-        return (s.udise || '').toLowerCase() === q || (s.schoolName || '').toLowerCase() === q;
-      });
-      if (exact) {
-        chooseSchool(exact.id);
-        return true;
-      }
+      const digits = q.replace(/\D/g, '');
+      const terms = q.split(/\s+/).filter(Boolean);
 
-      // 2. Check if query matches single school
-      const matches = schoolsData.filter(function(s) {
-        return (s.udise || '').includes(q) || (s.schoolName || '').toLowerCase().includes(q);
+      return schoolsData.filter(function(s) {
+        const u = String(s.udise || '').replace(/\D/g, '');
+        const name = (s.schoolName || '').toLowerCase();
+        const block = (s.block || '').toLowerCase();
+        const ai = (s.aiName || '').toLowerCase();
+
+        // 1. If searching with digits, check UDISE first
+        if (digits.length >= 2 && u.includes(digits)) {
+          return true;
+        }
+
+        // 2. Check all words in query match either school name, block, or AI teacher
+        return terms.every(function(term) {
+          return name.includes(term) || block.includes(term) || ai.includes(term) || u.includes(term);
+        });
       });
-      if (matches.length === 1) {
-        chooseSchool(matches[0].id);
-        return true;
-      }
-      return false;
     }
 
     searchInput.addEventListener('input', function() {
-      const q = this.value.trim().toLowerCase();
+      const q = this.value.trim();
       if (!q) {
         suggestBox.style.display = 'none';
         return;
       }
 
-      // Auto-match when typing UDISE (e.g. 11 digits)
-      if (q.length >= 8 && checkAndAutoSelect(q)) {
-        return;
+      const digits = q.replace(/\D/g, '');
+      const matches = filterSchools(q);
+
+      // Exact 11-digit UDISE match: Auto select immediately
+      if (digits.length === 11) {
+        const exact = schoolsData.find(function(s) {
+          return String(s.udise || '').replace(/\D/g, '') === digits;
+        });
+        if (exact) {
+          chooseSchool(exact.id);
+          return;
+        }
       }
 
-      const matches = schoolsData.filter(function(s) {
-        return (s.schoolName || '').toLowerCase().includes(q) ||
-          (s.udise || '').includes(q) ||
-          (s.block || '').toLowerCase().includes(q) ||
-          (s.aiName || '').toLowerCase().includes(q);
-      });
-
       if (matches.length === 0) {
-        suggestBox.innerHTML = '<div style="padding:12px; color:#64748b; font-size:12.5px;">பள்ளி கிடைக்கவில்லை (School not found).</div>';
+        suggestBox.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி அல்லது UDISE எண் கிடைக்கவில்லை.<br><small style="color:#94a3b8;">(தயவுசெய்து சரியான UDISE எண் அல்லது பள்ளியின் பெயரை டைப் செய்யவும்)</small></div>';
         suggestBox.style.display = 'block';
         return;
       }
 
-      suggestBox.innerHTML = matches.slice(0, 20).map(function(s) {
-        return '<div class="suggest-item" onmousedown="chooseSchool(\'' + s.id + '\')">' +
-          '<strong>' + s.schoolName + '</strong>' +
-          '<span>📍 ' + s.block + ' Block • UDISE: ' + s.udise + ' • AI: ' + (s.aiName || '') + '</span>' +
+      suggestBox.innerHTML = matches.slice(0, 25).map(function(s) {
+        return '<div class="suggest-item" onpointerdown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')">' +
+          '<div style="font-weight:700; color:#1e3a8a; font-size:13.5px;">🏫 ' + s.schoolName + '</div>' +
+          '<div style="font-size:12px; color:#475569; margin-top:2px;">📍 வட்டாரம்: <strong>' + s.block + '</strong> | UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></div>' +
+          '<div style="font-size:11.5px; color:#16a34a; margin-top:2px;">👤 AI பொறுப்பாளர்: ' + (s.aiName || 'Not Assigned') + ' (' + (s.aiPhone || '-') + ')</div>' +
         '</div>';
       }).join('');
       suggestBox.style.display = 'block';
     });
 
-    searchInput.addEventListener('blur', function() {
-      setTimeout(function() {
-        checkAndAutoSelect(searchInput.value);
-        suggestBox.style.display = 'none';
-      }, 200);
+    searchInput.addEventListener('focus', function() {
+      if (this.value.trim().length > 0) {
+        const matches = filterSchools(this.value.trim());
+        if (matches.length > 0) {
+          suggestBox.style.display = 'block';
+        }
+      }
     });
 
     function chooseSchool(id) {
