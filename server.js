@@ -537,723 +537,678 @@ function getTeacherPortalHtml() {
 <html lang="ta">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Hi-Tech Lab Service Desk - Thiruvarur District</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hi-Tech Lab UPS Service Desk | Thiruvarur</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --primary: #1d4ed8;
-      --primary-hover: #1e40af;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --text-muted: #64748b;
-      --border: #e2e8f0;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f1f5f9;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Noto Sans Tamil', sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 14px; line-height: 1.5; }
-    .container { max-width: 680px; margin: 0 auto; }
-
-    .header-card {
-      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-      color: white; padding: 22px 18px; border-radius: 16px; margin-bottom: 16px;
-      box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.25);
+    .header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+      color: #ffffff;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 4px 20px -2px rgba(30, 58, 138, 0.25);
     }
-    .badge {
-      display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 4px 12px;
-      border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;
+    .header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
     }
-    .header-card h1 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
-    .header-card p { font-size: 13px; opacity: 0.92; }
-
-    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-    .tab-btn {
-      flex: 1; padding: 12px; background: white; border: 1.5px solid var(--border); border-radius: 10px;
-      font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; text-align: center;
-      user-select: none; transition: all 0.2s ease;
+    .header p {
+      font-size: 13px;
+      color: #bfdbfe;
+      font-weight: 500;
     }
-    .tab-btn:hover { background: #f8fafc; border-color: #93c5fd; color: #1e3a8a; }
-    .tab-btn.active {
-      background: #eff6ff; border-color: var(--primary); color: var(--primary);
-      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+    .container {
+      max-width: 720px;
+      width: 100%;
+      margin: -16px auto 40px auto;
+      padding: 0 16px;
+      flex: 1;
     }
-
-    .card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
-      padding: 18px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04); margin-bottom: 16px;
-    }
-    .section-title { font-size: 13.5px; font-weight: 800; color: #1e3a8a; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-
-    .form-group { margin-bottom: 16px; }
-    .form-label { display: block; font-size: 13.5px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
-    .form-label .sub-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); margin-top: 1px; }
-    .form-label .req { color: #dc2626; }
-    
-    .form-control, .form-select, .form-textarea {
-      width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 10px;
-      font-size: 14px; background: #fff; transition: all 0.2s;
-    }
-    .form-control:focus, .form-select:focus, .form-textarea:focus {
-      outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-    }
-
-    .auto-fill-grid {
-      background: #f1f5f9; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 12px;
-      margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;
-    }
-    .auto-item span { display: block; color: var(--text-muted); font-size: 11px; font-weight: 600; }
-    .auto-item strong { color: var(--text); font-weight: 700; font-size: 12.5px; }
-
-    .radio-option {
-      display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1.5px solid var(--border);
-      border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s;
-    }
-    .radio-option:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .radio-option input { margin-top: 3px; accent-color: var(--primary); }
-    .radio-option strong { font-size: 13px; display: block; color: var(--text); }
-    .radio-option span { font-size: 11.5px; color: var(--text-muted); display: block; margin-top: 1px; }
-
-    .checklist-box {
-      background: #fefce8; border: 1px solid #fef08a; border-radius: 12px; padding: 14px; margin-bottom: 16px;
-    }
-    .checklist-title { font-size: 13px; font-weight: 700; color: #854d0e; margin-bottom: 8px; }
-    .check-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #713f12; margin-bottom: 6px; }
-
-    .photo-grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    .photo-dropzone {
-      border: 2px dashed #93c5fd; background: #eff6ff; border-radius: 12px; padding: 14px 10px;
-      text-align: center; cursor: pointer; transition: all 0.2s;
-    }
-    .photo-dropzone:hover { background: #dbeafe; }
-    .preview-img { width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; margin-top: 8px; display: none; }
-
-    .btn-submit {
-      width: 100%; background: var(--primary); color: white; border: none; padding: 15px;
-      border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25); transition: all 0.2s;
-    }
-    .btn-submit:hover { background: var(--primary-hover); transform: translateY(-1px); }
-
-    .success-card {
-      display: none; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 16px;
-      padding: 28px 18px; text-align: center; color: #166534;
-    }
-    .ticket-badge {
-      display: inline-block; background: #16a34a; color: white; padding: 6px 16px;
-      border-radius: 999px; font-size: 15px; font-weight: 800; margin: 12px 0; letter-spacing: 0.5px;
-    }
-    .school-search-wrap { position: relative; margin-bottom: 10px; }
-    .search-input-group { position: relative; display: flex; align-items: center; width: 100%; }
-    .school-search-input {
-      width: 100%; padding: 13px 148px 13px 14px; border: 2.5px solid #2563eb; border-radius: 12px;
-      font-size: 14px; font-weight: 600; color: #0f172a; background: #f8fafc;
-      box-shadow: 0 4px 12px rgba(37,99,235,0.08); outline: none; transition: all 0.2s ease;
-      box-sizing: border-box;
-    }
-    .school-search-input:focus {
-      background: white; border-color: #1d4ed8; box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
-    }
-    .btn-other-school-edge {
-      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-      background: #eff6ff; color: #1d4ed8; border: 1.5px solid #93c5fd; border-radius: 8px;
-      padding: 7px 11px; font-size: 12px; font-weight: 700; cursor: pointer;
-      display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: all 0.2s ease;
-      z-index: 5;
-    }
-    .btn-other-school-edge:hover {
-      background: #2563eb; color: #ffffff; border-color: #1d4ed8;
-      box-shadow: 0 2px 8px rgba(37,99,235,0.25); transform: translateY(-50%) scale(1.02);
-    }
-    .btn-other-school-edge .other-icon { font-size: 13px; line-height: 1; }
-    @media (max-width: 480px) {
-      .school-search-input { padding-right: 125px; font-size: 13px; }
-      .btn-other-school-edge { padding: 6px 8px; font-size: 11px; }
-    }
-    .school-suggest-box {
-      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
-      background: white; border: 2px solid #2563eb; border-radius: 14px;
-      max-height: 280px; overflow-y: auto; box-shadow: 0 16px 36px rgba(15,23,42,0.22);
-    }
-    .suggest-item {
-      padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
-      transition: background 0.15s ease;
-    }
-    .suggest-item:hover, .suggest-item:active { background: #eff6ff; }
-    .suggest-title { color: #1e3a8a; font-size: 14px; font-weight: 800; }
-    .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
-    .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
-
-    /* Executive-Grade Photo Upload UI */
-    .photo-upload-grid {
+    .tab-bar {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-top: 12px;
+      grid-template-columns: 1fr 1fr;
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 6px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border: 1px solid #e2e8f0;
+      gap: 6px;
     }
-    @media (max-width: 768px) {
-      .photo-upload-grid {
+    .tab-btn {
+      padding: 12px 14px;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab-btn:hover {
+      background: #f8fafc;
+      color: #1e3a8a;
+    }
+    .tab-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+      border: 1px solid #e2e8f0;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #1e3a8a;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e0e7ff;
+    }
+    .form-group {
+      margin-bottom: 18px;
+      position: relative;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 6px;
+    }
+    .form-label .req {
+      color: #ef4444;
+      margin-left: 2px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #0f172a;
+      background: #f8fafc;
+      transition: all 0.2s ease;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: #2563eb;
+      background: #ffffff;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+    }
+    .school-verify-card {
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 12px;
+      display: none;
+    }
+    .school-verify-card.active {
+      display: block;
+      animation: fadeIn 0.3s ease;
+    }
+    .school-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #166534;
+      margin-bottom: 4px;
+    }
+    .school-meta {
+      font-size: 12.5px;
+      color: #15803d;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .school-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .radio-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .radio-card {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #f8fafc;
+      transition: all 0.2s ease;
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .radio-card:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+    .radio-card input {
+      margin-right: 10px;
+      accent-color: #2563eb;
+      transform: scale(1.15);
+    }
+    .radio-card.selected {
+      border-color: #2563eb;
+      background: #eff6ff;
+      color: #1e40af;
+    }
+    
+    /* Professional 3 Photo Upload Cards Grid */
+    .photo-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+      margin-top: 6px;
+    }
+    @media (max-width: 680px) {
+      .photo-grid-3 {
         grid-template-columns: 1fr;
-        gap: 16px;
+        gap: 12px;
       }
     }
-    .photo-upload-box {
+    .photo-card-item {
       background: #ffffff;
       border: 1.5px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 16px 14px;
+      border-radius: 12px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
       transition: all 0.2s ease;
-      position: relative;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
     }
-    .photo-upload-box:hover {
-      border-color: #2563eb;
-      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
-      transform: translateY(-2px);
+    .photo-card-item:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
     }
-    .photo-header-area {
-      text-align: center;
-      margin-bottom: 12px;
+    .photo-card-item.uploaded {
+      border-color: #86efac;
+      background: #f0fdf4;
     }
-    .photo-badge-num {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 11.5px;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-    .photo-title-text {
-      font-size: 14px;
-      font-weight: 800;
-      color: #0f172a;
+    .photo-card-header {
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 8px;
       line-height: 1.35;
       min-height: 38px;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
+      align-items: flex-start;
     }
-    .photo-sub-text {
-      display: block;
-      font-size: 11.5px;
-      color: #64748b;
-      font-weight: 600;
-      margin-top: 3px;
+    .photo-card-header .req-star {
+      color: #ef4444;
+      font-weight: 800;
+      white-space: nowrap;
     }
-    .photo-drop-zone {
+    .photo-dropzone {
       background: #f8fafc;
       border: 1.5px dashed #cbd5e1;
-      border-radius: 12px;
-      padding: 14px 10px;
+      border-radius: 10px;
+      padding: 14px 8px;
+      text-align: center;
+      margin-bottom: 8px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
+      gap: 4px;
     }
-    .photo-upload-box:hover .photo-drop-zone {
-      background: #f0f7ff;
-      border-color: #93c5fd;
+    .photo-dropzone .camera-icon {
+      font-size: 24px;
+      margin-bottom: 2px;
     }
-    .photo-icon-circle {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      background: #ffffff;
-      color: #2563eb;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 20px;
-      margin-bottom: 10px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
-      border: 1px solid #e2e8f0;
-      transition: transform 0.2s ease;
+    .photo-dropzone-text {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 600;
     }
-    .photo-upload-box:hover .photo-icon-circle {
-      transform: scale(1.08);
-    }
-    .file-input {
-      display: none !important;
-    }
-    .photo-btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-      width: 100%;
-    }
-    .btn-camera-snap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .photo-actions-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 6px;
-      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
-      color: white;
+    }
+    .btn-photo-action {
+      padding: 7px 6px;
       border-radius: 8px;
-      padding: 9px 10px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(37,99,235,0.22);
-      transition: all 0.2s ease;
-      border: none;
       text-align: center;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .btn-camera-snap:hover {
-      background: #1e40af;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 10px rgba(37,99,235,0.3);
-    }
-    .btn-gallery-pick {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      text-decoration: none;
+      border: none;
+    }
+    .btn-photo-action.camera {
+      background: #2563eb;
+      color: #ffffff;
+    }
+    .btn-photo-action.camera:hover {
+      background: #1d4ed8;
+    }
+    .btn-photo-action.gallery {
       background: #ffffff;
       color: #334155;
       border: 1.5px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 11.5px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      text-align: center;
-      width: 100%;
-      box-sizing: border-box;
     }
-    .btn-gallery-pick:hover {
-      background: #eff6ff;
-      border-color: #2563eb;
-      color: #1d4ed8;
-      transform: translateY(-1px);
+    .btn-photo-action.gallery:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
     }
-    .photo-preview-wrap {
+    .photo-preview-wrapper {
       position: relative;
-      margin-top: 4px;
-      display: none;
-      animation: fadeIn 0.3s ease;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: scale(0.96); }
-      to { opacity: 1; transform: scale(1); }
-    }
-    .photo-preview-img {
-      width: 100%;
-      height: 155px;
-      object-fit: cover;
       border-radius: 10px;
-      border: 2.5px solid #10b981;
-      box-shadow: 0 6px 16px rgba(16,185,129,0.18);
+      overflow: hidden;
+      display: none;
+      border: 1.5px solid #86efac;
+      background: #000000;
+      margin-bottom: 8px;
     }
-    .photo-success-badge {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background: #10b981;
-      color: white;
-      font-size: 11px;
-      font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 999px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    .photo-preview-wrapper img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      display: block;
     }
-    .btn-retake {
-      margin-top: 8px;
+    .photo-retake-btn {
+      width: 100%;
+      padding: 6px;
       background: #ffffff;
-      color: #475569;
       border: 1.5px solid #cbd5e1;
-      padding: 6px 14px;
       border-radius: 8px;
       font-size: 11.5px;
       font-weight: 700;
+      color: #dc2626;
       cursor: pointer;
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
+      gap: 4px;
       transition: all 0.15s ease;
     }
-    .btn-retake:hover {
-      background: #fee2e2;
-      color: #b91c1c;
-      border-color: #fca5a5;
-      transform: scale(1.02);
+    .photo-retake-btn:hover {
+      background: #fef2f2;
+      border-color: #f87171;
     }
-
-    /* Custom School Box Card */
-    .custom-school-card {
-      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-      border: 2px solid #bfdbfe;
-      border-radius: 14px;
-      padding: 18px 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.06);
-    }
-    .custom-school-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-      padding-bottom: 10px;
-      border-bottom: 1px dashed #cbd5e1;
-    }
-    .custom-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      border: 1px solid #bfdbfe;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
+    .btn-submit {
+      width: 100%;
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 14px;
+      border-radius: 12px;
+      font-size: 15px;
       font-weight: 800;
-    }
-    .btn-back-search {
-      background: #ffffff;
-      color: #2563eb;
-      border: 1.5px solid #bfdbfe;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 11.5px;
-      font-weight: 700;
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 5px;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(37, 99, 235, 0.35);
       transition: all 0.2s ease;
+      margin-top: 24px;
     }
-    .btn-back-search:hover {
+    .btn-submit:hover {
+      background: #1d4ed8;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+    }
+    .btn-submit:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .success-card {
+      text-align: center;
+      padding: 40px 20px;
+      display: none;
+    }
+    .success-card h2 {
+      font-size: 20px;
+      color: #166534;
+      margin-bottom: 8px;
+    }
+    .ticket-badge {
+      display: inline-block;
       background: #eff6ff;
-      border-color: #2563eb;
-      transform: translateX(-2px);
+      border: 1.5px solid #bfdbfe;
+      color: #1e40af;
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 15px;
+      font-weight: 800;
+      margin: 12px 0;
     }
-    .custom-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+    .suggestions-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      max-height: 240px;
+      overflow-y: auto;
+      z-index: 50;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      display: none;
     }
-    @media (max-width: 600px) {
-      .custom-grid {
-        grid-template-columns: 1fr;
-      }
+    .suggest-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      cursor: pointer;
+      transition: background 0.15s ease;
     }
-
-    .verified-school-card {
-      display: none; background: #ecfdf5; border: 2px solid #10b981; border-radius: 14px;
-      padding: 16px 18px; margin-bottom: 14px; position: relative;
+    .suggest-item:hover {
+      background: #eff6ff;
     }
-    .verified-school-card .badge-ver {
-      display: inline-block; background: #10b981; color: white; font-size: 11px; font-weight: 800;
-      padding: 3px 10px; border-radius: 999px; margin-bottom: 6px;
+    .suggest-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #1e3a8a;
     }
-    .verified-school-name { font-size: 16px; font-weight: 800; color: #065f46; margin-bottom: 6px; }
-    .verified-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; color: #047857; margin-bottom: 10px; }
-    .btn-reselect {
-      background: white; color: #065f46; border: 1.5px solid #10b981; padding: 6px 12px;
-      border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+    .suggest-meta {
+      font-size: 11.5px;
+      color: #64748b;
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+    }
+    .suggest-ai {
+      font-size: 11.5px;
+      color: #059669;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
+
+  <div class="header">
+    <h1>🏛️ Hi-Tech Lab UPS Service Desk</h1>
+    <p>தஞ்சை / திருவாரூர் மாவட்டம் - களப் பொறியாளர் சேவை மையம்</p>
+  </div>
+
   <div class="container">
-    <div class="header-card">
-      <span class="badge">Hi-Tech Lab ITSM Service Desk</span>
-      <h1>UPS Incident & Complaint Center</h1>
-      <p>திருவாரூர் மாவட்ட Hi-Tech Lab பழுதுபதிவு மற்றும் சேவை மையம் (183 பள்ளிகள்)</p>
+    <!-- Tab Navigation -->
+    <div class="tab-bar">
+      <button type="button" class="tab-btn active" id="tabLog">📝 புதிய புகார் பதிவு (Log Issue)</button>
+      <button type="button" class="tab-btn" id="tabTrack">🔍 புகார் நிலை அறிதல் (Track Status)</button>
     </div>
 
-    <div class="tabs">
-      <div class="tab-btn active" id="tabLog" onclick="switchTab('log')">📝 புதிய புகார் பதிவு (Log Incident)</div>
-      <div class="tab-btn" id="tabTrack" onclick="switchTab('track')">🔍 புகார் நிலை அறிதல் (Track Status)</div>
-    </div>
-
+    <!-- Form Container -->
     <div class="card" id="formContainer">
       <form id="incidentForm">
-        <div class="section-title">1. பள்ளி & AI பொறுப்பாளர் விவரங்கள் (School Details)</div>
         
-        <div class="form-group">
-          <label class="form-label">பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span></label>
-          <div class="school-search-wrap" id="searchWrap">
-            <div class="search-input-group">
-              <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
-              <button type="button" onclick="openOtherSchool()" class="btn-other-school-edge" title="பள்ளி பட்டியலில் இல்லையா? புதிய பள்ளியைப் பதிவு செய்ய கிளிக் செய்யவும்">
-                <span class="other-icon">➕</span>
-                <span>மற்ற பள்ளி</span>
-              </button>
+        <!-- Section 1: School Details -->
+        <div class="section-title">🏫 1. பள்ளி மற்றும் ஆசிரியர் விவரங்கள் (School & Teacher Info)</div>
+        
+        <div class="form-group" id="schoolSearchWrap">
+          <label class="form-label">பள்ளிப் பெயர் அல்லது 11-இலக்க UDISE எண்: <span class="req">*</span></label>
+          <div style="position: relative;">
+            <div style="display:flex; gap:8px; align-items:center;">
+              <input type="text" id="schoolSearchInput" class="form-control" placeholder="🔍 எ.கா: 33201000507 அல்லது Koradachery..." autocomplete="off" style="flex:1;">
+              <button type="button" onclick="openOtherSchool()" title="பட்டியலில் இல்லாத பிற பள்ளிகளுக்கு" style="background:#f1f5f9; border:1.5px solid #cbd5e1; color:#334155; border-radius:10px; padding:0 12px; font-size:12px; font-weight:700; height:46px; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; transition:all 0.15s ease;">➕ பிற பள்ளி</button>
             </div>
-            <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
+            <div id="schoolSuggestionsBox" class="suggestions-list"></div>
           </div>
-
-          <div id="verifiedSchoolCard" class="verified-school-card">
-            <span class="badge-ver">✅ பள்ளி தேர்வு செய்யப்பட்டது (School Selected)</span>
-            <div class="verified-school-name" id="verSchoolName">-</div>
-            <div class="verified-grid">
-              <div>📍 வட்டாரம்: <strong id="verBlock">-</strong></div>
-              <div>🔢 UDISE: <strong id="verUdise">-</strong></div>
-              <div>👤 AI பொறுப்பாளர்: <strong id="verAiName">-</strong></div>
-              <div>📞 தொடர்பு எண்: <strong id="verPhone">-</strong></div>
-            </div>
-            <button type="button" onclick="resetSchoolSelection()" class="btn-reselect">🔄 வேறு பள்ளியைத் தேர்வு செய்ய (Change School)</button>
-          </div>
-
-          <select id="schoolSelect" style="display:none;">
-            <option value="">-- None --</option>
-            ${masterSchools.map(s => `<option value="${s.id}">${s.schoolName}</option>`).join('')}
-            <option value="OTHER">OTHER</option>
-          </select>
         </div>
 
-        <div id="customSchoolBox" class="custom-school-card" style="display:none;">
-          <div class="custom-school-header">
-            <div class="custom-badge">
-              <span>➕</span>
-              <span>புதிய / மற்ற பள்ளி விவரங்கள் (Other School)</span>
-            </div>
-            <button type="button" onclick="resetSchoolSelection()" class="btn-back-search">
-              <span>←</span>
-              <span>பள்ளி தேடலுக்குத் திரும்பு</span>
-            </button>
-          </div>
+        <select id="schoolSelect" style="display:none;">
+          <option value="">-- பள்ளி தேர்வு செய்க --</option>
+          ${masterSchools.map(s => `<option value="${s.id}">${s.schoolName} (${s.block} - ${s.udise})</option>`).join('')}
+          <option value="OTHER">➕ பட்டியலில் இல்லாத பிற பள்ளி (Other School)</option>
+        </select>
 
+        <!-- Verified School Card -->
+        <div id="verifiedSchoolCard" class="school-verify-card">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div class="school-name" id="verSchoolName">-</div>
+              <div class="school-meta">
+                <span>📍 <strong id="verBlock">-</strong> Block</span>
+                <span>🔢 UDISE: <strong id="verUdise">-</strong></span>
+                <span>👤 AI: <strong id="verAiName">-</strong></span>
+                <span>📞 <strong id="verPhone">-</strong></span>
+              </div>
+            </div>
+            <button type="button" onclick="resetSchoolSelection()" style="background:none; border:none; color:#dc2626; font-size:12px; font-weight:700; cursor:pointer; padding:4px 8px;">மாற்று (Change)</button>
+          </div>
+        </div>
+
+        <!-- Custom School Input if Other -->
+        <div id="customSchoolBox" style="display:none; margin-top:14px; background:#f8fafc; padding:14px; border-radius:10px; border:1.5px solid #e2e8f0;">
           <div class="form-group">
-            <label class="form-label">பள்ளியின் முழுப் பெயர் (School Name) <span class="req">*</span></label>
-            <input type="text" id="custSchool" class="form-control" placeholder="எ.கா: GHS / PUMS / GHSS பள்ளியின் முழுப் பெயர்">
+            <label class="form-label">பள்ளியின் முழுப் பெயர் (School Name): <span class="req">*</span></label>
+            <input type="text" id="custSchool" class="form-control" placeholder="எ.கா: GHSS KORADACHERY">
           </div>
-
-          <div class="custom-grid">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label">UDISE எண் (UDISE Code) <span class="req">*</span></label>
-              <input type="text" id="custUdise" class="form-control" placeholder="11-இலக்க UDISE எண்" maxlength="11">
+              <label class="form-label">UDISE எண்: <span class="req">*</span></label>
+              <input type="text" id="custUdise" class="form-control" placeholder="11 இலக்க எண்" maxlength="11">
             </div>
             <div class="form-group" style="margin-bottom:0;">
-              <label class="form-label">வட்டாரம் (Block Name) <span class="req">*</span></label>
-              <select id="custBlock" class="form-select">
-                <option value="">-- வட்டாரத்தைத் தேர்ந்தெடுக்கவும் --</option>
-                <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
-                <option value="Kottur">Kottur (கோட்டூர்)</option>
-                <option value="Kudavasal">Kudavasal (குடவாசல்)</option>
-                <option value="Mannargudi">Mannargudi (மன்னார்குடி)</option>
-                <option value="Muthupet">Muthupet (முத்துப்பேட்டை)</option>
-                <option value="Nannilam">Nannilam (நன்னிலம்)</option>
-                <option value="Needamangalam">Needamangalam (நீடாமங்கலம்)</option>
-                <option value="Thirumakkottai">Thirumakkottai (திருமக்கோட்டை)</option>
-                <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
-                <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
-                <option value="Other">Other / பிற வட்டாரம்</option>
-              </select>
+              <label class="form-label">வட்டம் (Block): <span class="req">*</span></label>
+              <input type="text" id="custBlock" class="form-control" placeholder="எ.கா: Koradachery">
             </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">AI பொறுப்பாளர் பெயர் (AI Instructor Name) <span class="req">*</span></label>
-          <input type="text" id="aiName" class="form-control" placeholder="Enter full name" required>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-top:14px;">
+          <div class="form-group">
+            <label class="form-label">பொறுப்பு ஆசிரியர் பெயர் (AI Name):</label>
+            <input type="text" id="aiName" class="form-control" placeholder="ஆசிரியர் பெயர்">
+          </div>
+          <div class="form-group">
+            <label class="form-label">அலைபேசி எண் (Mobile No): <span class="req">*</span></label>
+            <input type="tel" id="aiPhone" class="form-control" placeholder="10 இலக்க எண்" required maxlength="10">
+          </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">AI தொடர்பு எண் (Mobile / WhatsApp Number) <span class="req">*</span></label>
-          <input type="tel" id="aiPhone" class="form-control" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
-        </div>
+        <!-- Section 2: Fault Type -->
+        <div class="section-title" style="margin-top:20px;">⚡ 2. UPS பழுது வகை & காலம் (Fault Symptoms)</div>
 
-        <div class="section-title" style="margin-top: 24px;">2. UPS பழுது & தொழில்நுட்ப நிலை (Technical Diagnosis)</div>
-        
-        <div class="checklist-box">
-          <div class="checklist-title">💡 விரைவு சுய சரிபார்ப்பு (Quick Pre-Checks before submitting):</div>
-          <div class="checklist-items">
-            <label class="check-item">
-              <input type="checkbox" id="chkInputPower">
-              <span>Main Input Power / Phase Selector MCB ஆன் செய்யப்பட்டுள்ளதா?</span>
+        <div class="form-group">
+          <label class="form-label">UPS பழுது வகை (Primary UPS Issue): <span class="req">*</span></label>
+          <div class="radio-grid">
+            <label class="radio-card selected">
+              <input type="radio" name="upsStatus" value="No Battery Backup / Trips Immediately" checked>
+              <span>1. பேட்டரி பேக்அப் இல்லை / மின்சாரம் நின்றவுடன் உடனே ஆஃப் ஆகிறது (No Backup / Trips)</span>
             </label>
-            <label class="check-item">
-              <input type="checkbox" id="chkUpsSwitch">
-              <span>UPS Front Power Push Button இயக்கப்பட்டுள்ளதா?</span>
+            <label class="radio-card">
+              <input type="radio" name="upsStatus" value="Battery Low Backup (Discharges within 5-15 mins)">
+              <span>2. பேட்டரி குறைந்த நேரம் மட்டுமே தாங்குகிறது (5-15 நிமிடங்கள் மட்டும்) (Low Backup)</span>
             </label>
-            <label class="check-item">
-              <input type="checkbox" id="chkBatteryBreaker">
-              <span>பின்புற பேட்டரி பிரேக்கர் (DC Circuit Breaker) 'ON' நிலையில் உள்ளதா?</span>
+            <label class="radio-card">
+              <input type="radio" name="upsStatus" value="UPS Not Turning ON (Dead Condition)">
+              <span>3. UPS ஆன் ஆகவில்லை / முற்றிலும் இயங்கவில்லை (Dead Condition)</span>
             </label>
-            <label class="check-item">
-              <input type="checkbox" id="chkEbTrip">
-              <span>பள்ளி வளாக மின் இணைப்பு அல்லது மெயின் பியூஸ் ட்ரிப் ஆகாமல் உள்ளதா?</span>
+            <label class="radio-card">
+              <input type="radio" name="upsStatus" value="Continuous Beep Sound / Fault Red LED Light">
+              <span>4. தொடர் பீப் ஒலி / Fault சிகப்பு விளக்கு எரிகிறது (Fault LED / Beep)</span>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="upsStatus" value="UPS Input MCB / Output Tripping Repeatedly">
+              <span>5. MCB அடிக்கடி ட்ரிப் ஆகிறது (MCB Tripping)</span>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="upsStatus" value="Physical Damage / Acid Leak / Burning Smell">
+              <span>6. அமிலக் கசிவு / எரிந்த வாசனை / உடல் சேதம் (Acid Leak / Smell)</span>
             </label>
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">UPS-ல் ஏற்பட்டுள்ள முதன்மைப் பிரச்சனை (Primary Fault) <span class="req">*</span></label>
-          <div class="radio-card">
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="Total Dead / No Power / Lab Off" required>
-              <span>🔴 <strong>Total Dead / No Power:</strong> UPS ஆன் ஆகவில்லை, ஆய்வகம் முழுவதும் இயங்கவில்லை.</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="No Battery Backup / Trips Immediately">
-              <span>🟠 <strong>No Backup / Trips Immediately:</strong> EB கரண்ட் நின்றவுடன் ஆய்வகம் உடனடியாக அணைந்துவிடுகிறது.</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="Continuous Beep Sound / Error Warning Light">
-              <span>🟡 <strong>Continuous Beep Sound / Error Light:</strong> UPS-லிருந்து தொடர்ந்து அலாரம்/பீப் சத்தம் கேட்கிறது.</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="Isolation Transformer / MCB Tripping">
-              <span>⚡ <strong>Isolation Transformer / MCB Tripping:</strong> பிரதான சுவிட்ச் அல்லது MCB தானாக ட்ரிப் ஆகிறது.</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="Battery Swollen / Acid Leakage / Burning Smell">
-              <span>⚠️ <strong>Battery Swollen / Burning Smell:</strong> பேட்டரி வீக்கம் / புகை அல்லது துர்நாற்றம்.</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="upsStatus" value="Other Technical Glitch">
-              <span>⚙️ <strong>Other Technical Glitch:</strong> பிற தொழில்நுட்பக் கோளாறு.</span>
-            </label>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div class="form-group">
+            <label class="form-label">எவ்வளவு காலமாக பழுது உள்ளது? <span class="req">*</span></label>
+            <select id="duration" class="form-control" required>
+              <option value="Today (இன்று முதல்)">Today (இன்று முதல்)</option>
+              <option value="Past 2-3 Days (கடந்த 2-3 நாட்கள்)">Past 2-3 Days (கடந்த 2-3 நாட்கள்)</option>
+              <option value="Past 1 Week (கடந்த 1 வாரம்)">Past 1 Week (கடந்த 1 வாரம்)</option>
+              <option value="Past 2 Weeks (கடந்த 2 வாரங்கள்)">Past 2 Weeks (கடந்த 2 வாரங்கள்)</option>
+              <option value="1 Month (1 மாதம்)">1 Month (1 மாதம்)</option>
+              <option value="3 Months (3 மாதங்கள்)">3 Months (3 மாதங்கள்)</option>
+              <option value="6 Months (6 மாதங்கள்)">6 Months (6 மாதங்கள்)</option>
+              <option value="More than 6 Months (6 மாதங்களுக்கு மேல்)">More than 6 Months (6 மாதங்களுக்கு மேல்)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">UPS வரிசை எண் (Serial No - தெரிந்தால் மட்டும்):</label>
+            <input type="text" id="serialNo" class="form-control" placeholder="எ.கா: AVO-2018-XXXX">
           </div>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">பழுது நீடிக்கும் காலம் (How long has this issue persisted?) <span class="req">*</span></label>
-          <select id="duration" class="form-select" required>
-            <option value="Today (இன்று முதல்)">Today (இன்று முதல்)</option>
-            <option value="1-3 Days (1-3 நாட்கள்)">1-3 Days (1-3 நாட்கள்)</option>
-            <option value="1 Week (1 வாரம்)">1 Week (1 வாரம்)</option>
-            <option value="2 Weeks (2 வாரங்கள்)">2 Weeks (2 வாரங்கள்)</option>
-            <option value="1 Month (1 மாதம்)">1 Month (1 மாதம்)</option>
-            <option value="3 Months (3 மாதங்கள்)">3 Months (3 மாதங்கள்)</option>
-            <option value="6 Months (6 மாதங்கள்)">6 Months (6 மாதங்கள்)</option>
-            <option value="More than 6 Months (6 மாதங்களுக்கு மேல்)">More than 6 Months (6 மாதங்களுக்கு மேல்)</option>
-          </select>
-        </div>
+        <!-- Section 3: Professional 3 Photo Upload Cards Grid -->
+        <div class="section-title" style="margin-top:20px;">📸 3. களப் புகைப்படங்கள் (Lab Photos - 3 கட்டாயப் படங்கள்)</div>
+        <p style="font-size:12.5px; color:#64748b; margin-bottom:14px; line-height:1.4;">
+          துல்லியமான பழுது கண்டறிதலுக்குக் கீழ்க்கண்ட <strong>3 புகைப்படங்களையும்</strong> பதிவேற்றுவது கட்டாயமாகும்.
+        </p>
 
-        <div class="form-group">
-          <label class="form-label">UPS Serial Number (Optional / தெரிந்தால் பதிவு செய்யவும்)</label>
-          <input type="text" id="serialNo" class="form-control" placeholder="e.g. EM-10KVA-2021-XXXX">
-        </div>
-
-        <div class="section-title" style="margin-top: 24px;">3. UPS ஆய்வகப் புகைப்படங்கள் (Visual Verification - 3 Photos) <span class="req">*</span></div>
-        <p style="font-size: 12.5px; color: #dc2626; font-weight: 700; margin-bottom: 12px;">⚠️ கவனத்திற்கு: பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்து சரிசெய்ய 3 புகைப்படங்களையும் இணைப்பது கட்டாயமாகும் (All 3 Photos are Mandatory).</p>
-
-        <div class="photo-upload-grid">
-          <!-- Photo 1 -->
-          <div class="photo-upload-box" id="photoBox1">
-            <div class="photo-header-area">
-              <span class="photo-badge-num">📷 Photo 1</span>
-              <div class="photo-title-text">UPS Display&nbsp;<span class="req">*</span></div>
-              <span class="photo-sub-text">UPS டிஸ்ப்ளே நிலை</span>
-            </div>
-
-            <div id="btnGroup1" class="photo-drop-zone">
-              <div class="photo-icon-circle">📸</div>
-              <div class="photo-btn-group">
-                <!-- Live Camera Input -->
-                <input type="file" id="photoCam1" accept="image/*" capture="environment" class="file-input">
-                <label for="photoCam1" class="btn-camera-snap">
-                  <span>📷 Take Live Photo (கேமரா)</span>
-                </label>
-
-                <!-- Gallery / File Upload Input -->
-                <input type="file" id="photoFile1" accept="image/*" class="file-input">
-                <label for="photoFile1" class="btn-gallery-pick">
-                  <span>📁 Choose from Gallery (கேலரி)</span>
-                </label>
+        <div class="photo-grid-3">
+          <!-- Card 1: UPS Display -->
+          <div class="photo-card-item" id="photoBox1">
+            <div>
+              <div class="photo-card-header">
+                1. UPS Display (UPS டிஸ்ப்ளே நிலை)&nbsp;<span class="req-star">*</span>
+              </div>
+              <div class="photo-dropzone" id="dropzone1">
+                <span class="camera-icon">📷</span>
+                <span class="photo-dropzone-text">டிஸ்ப்ளே படம் எடுக்கவும்</span>
+              </div>
+              <div class="photo-preview-wrapper" id="previewWrap1">
+                <img id="preview1" src="" alt="UPS Display Preview">
+                <button type="button" class="photo-retake-btn" onclick="retakePhoto(1)">🔄 புகைப்படத்தை மாற்று</button>
               </div>
             </div>
-
-            <div id="previewWrap1" class="photo-preview-wrap">
-              <img id="preview1" class="photo-preview-img" alt="UPS Display Preview">
-              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
-              <button type="button" onclick="retakePhoto(1)" class="btn-retake">🔄 மாற்ற / Retake</button>
+            <div class="photo-actions-group" id="btnGroup1">
+              <label class="btn-photo-action camera">
+                📸 கேமரா
+                <input type="file" id="photoCam1" accept="image/*" capture="environment" style="display:none;">
+              </label>
+              <label class="btn-photo-action gallery">
+                🖼️ கேலரி
+                <input type="file" id="photoFile1" accept="image/*" style="display:none;">
+              </label>
             </div>
           </div>
 
-          <!-- Photo 2 -->
-          <div class="photo-upload-box" id="photoBox2">
-            <div class="photo-header-area">
-              <span class="photo-badge-num">🏢 Photo 2</span>
-              <div class="photo-title-text">Overall UPS Setup Photo&nbsp;<span class="req">*</span></div>
-              <span class="photo-sub-text">முழுமையான UPS அமைப்பு</span>
-            </div>
-
-            <div id="btnGroup2" class="photo-drop-zone">
-              <div class="photo-icon-circle">🏫</div>
-              <div class="photo-btn-group">
-                <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
-                <label for="photoCam2" class="btn-camera-snap">
-                  <span>📷 Take Live Photo (கேமரா)</span>
-                </label>
-
-                <input type="file" id="photoFile2" accept="image/*" class="file-input">
-                <label for="photoFile2" class="btn-gallery-pick">
-                  <span>📁 Choose from Gallery (கேலரி)</span>
-                </label>
+          <!-- Card 2: Overall UPS Setup Photo -->
+          <div class="photo-card-item" id="photoBox2">
+            <div>
+              <div class="photo-card-header">
+                2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)&nbsp;<span class="req-star">*</span>
+              </div>
+              <div class="photo-dropzone" id="dropzone2">
+                <span class="camera-icon">📷</span>
+                <span class="photo-dropzone-text">முழு UPS படம் எடுக்கவும்</span>
+              </div>
+              <div class="photo-preview-wrapper" id="previewWrap2">
+                <img id="preview2" src="" alt="Overall UPS Setup Preview">
+                <button type="button" class="photo-retake-btn" onclick="retakePhoto(2)">🔄 புகைப்படத்தை மாற்று</button>
               </div>
             </div>
-
-            <div id="previewWrap2" class="photo-preview-wrap">
-              <img id="preview2" class="photo-preview-img" alt="Overall UPS Setup Preview">
-              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
-              <button type="button" onclick="retakePhoto(2)" class="btn-retake">🔄 மாற்ற / Retake</button>
+            <div class="photo-actions-group" id="btnGroup2">
+              <label class="btn-photo-action camera">
+                📸 கேமரா
+                <input type="file" id="photoCam2" accept="image/*" capture="environment" style="display:none;">
+              </label>
+              <label class="btn-photo-action gallery">
+                🖼️ கேலரி
+                <input type="file" id="photoFile2" accept="image/*" style="display:none;">
+              </label>
             </div>
           </div>
 
-          <!-- Photo 3 -->
-          <div class="photo-upload-box" id="photoBox3">
-            <div class="photo-header-area">
-              <span class="photo-badge-num">⚡ Photo 3</span>
-              <div class="photo-title-text">Battery Single MCB Photo&nbsp;<span class="req">*</span></div>
-              <span class="photo-sub-text">பேட்டரி சிங்கிள் MCB</span>
-            </div>
-
-            <div id="btnGroup3" class="photo-drop-zone">
-              <div class="photo-icon-circle">🔋</div>
-              <div class="photo-btn-group">
-                <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
-                <label for="photoCam3" class="btn-camera-snap">
-                  <span>📷 Take Live Photo (கேமரா)</span>
-                </label>
-
-                <input type="file" id="photoFile3" accept="image/*" class="file-input">
-                <label for="photoFile3" class="btn-gallery-pick">
-                  <span>📁 Choose from Gallery (கேலரி)</span>
-                </label>
+          <!-- Card 3: Battery Single MCB Photo -->
+          <div class="photo-card-item" id="photoBox3">
+            <div>
+              <div class="photo-card-header">
+                3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)&nbsp;<span class="req-star">*</span>
+              </div>
+              <div class="photo-dropzone" id="dropzone3">
+                <span class="camera-icon">📷</span>
+                <span class="photo-dropzone-text">பேட்டரி MCB படம் எடுக்கவும்</span>
+              </div>
+              <div class="photo-preview-wrapper" id="previewWrap3">
+                <img id="preview3" src="" alt="Battery MCB Preview">
+                <button type="button" class="photo-retake-btn" onclick="retakePhoto(3)">🔄 புகைப்படத்தை மாற்று</button>
               </div>
             </div>
-
-            <div id="previewWrap3" class="photo-preview-wrap">
-              <img id="preview3" class="photo-preview-img" alt="Battery Single MCB Preview">
-              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
-              <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 மாற்ற / Retake</button>
+            <div class="photo-actions-group" id="btnGroup3">
+              <label class="btn-photo-action camera">
+                📸 கேமரா
+                <input type="file" id="photoCam3" accept="image/*" capture="environment" style="display:none;">
+              </label>
+              <label class="btn-photo-action gallery">
+                🖼️ கேலரி
+                <input type="file" id="photoFile3" accept="image/*" style="display:none;">
+              </label>
             </div>
           </div>
         </div>
 
-        <div class="form-group" style="margin-top: 16px;">
-          <label class="form-label">கூடுதல் தகவல்கள் / குறிப்புகள் (Additional Remarks)</label>
-          <textarea id="remarks" class="form-control" rows="2" placeholder="ஏதேனும் கூடுதல் தகவல்கள் இருந்தால் குறிப்பிடவும்..."></textarea>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">கூடுதல் குறிப்புகள் (Additional Remarks):</label>
+          <textarea id="remarks" class="form-control" rows="2" placeholder="வேறு ஏதேனும் தகவல்கள் இருப்பின் குறிப்பிடவும்..."></textarea>
         </div>
 
-        <button type="submit" id="btnSubmit" class="btn-submit">🚀 புகாரைப் பதிவு செய்க (Submit Incident)</button>
+        <button type="submit" id="btnSubmit" class="btn-submit">
+          🚀 புகாரைப் பதிவு செய்க (Submit Service Request)
+        </button>
       </form>
     </div>
 
     <!-- Track Ticket Container -->
     <div class="card" id="trackContainer" style="display:none;">
       <div class="section-title">🔍 உங்கள் புகாரின் நிலையைக் கண்டறியவும் (Track Ticket Status)</div>
-      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">உங்கள் டிக்கெட் எண் (எ.கா: <strong>HTL-TVR-05301</strong>), 11-இலக்க <strong>UDISE எண்</strong> அல்லது <strong>பள்ளியின் பெயரைத்</strong> தட்டச்சு செய்யவும்.</p>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">உங்கள் 11-இலக்க <strong>UDISE எண்</strong> அல்லது <strong>டிக்கெட் எண்ணை (எ.கா: HTL-TVR-05301)</strong> உள்ளிட்டுத் தேடவும்.</p>
 
       <div class="form-group">
-        <label class="form-label">டிக்கெட் எண் / UDISE எண் / பள்ளிப் பெயர்: <span class="req">*</span></label>
+        <label class="form-label">UDISE எண் / டிக்கெட் எண் / பள்ளிப் பெயர்: <span class="req">*</span></label>
         <div style="display:flex; gap:10px;">
-          <input type="text" id="trackInput" class="form-control" placeholder="🔍 எ.கா: 33201000507 அல்லது Koradachery அல்லது HTL-TVR..." oninput="filterTrackList()" onkeydown="if(event.key==='Enter'){event.preventDefault();trackTicket();}">
+          <input type="text" id="trackInput" class="form-control" placeholder="🔍 எ.கா: 33201000507 அல்லது HTL-TVR..." onkeydown="if(event.key==='Enter'){event.preventDefault();trackTicket();}">
           <button type="button" id="btnTrackSearch" onclick="trackTicket()" class="btn-submit" style="width:auto; padding:0 22px; white-space:nowrap; margin-top:0;">🔍 தேடுக</button>
         </div>
       </div>
@@ -1300,15 +1255,11 @@ function getTeacherPortalHtml() {
         </div>
       </div>
 
-      <!-- Quick List of Registered Tickets -->
-      <div id="trackListArea" style="margin-top:20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <strong style="color:#1e3a8a; font-size:13.5px;">📋 பதிவு செய்யப்பட்ட புகார்கள் (Registered Complaints):</strong>
-          <span id="trackListCount" style="font-size:12px; color:#64748b; font-weight:700;">-</span>
-        </div>
-        <div id="trackListCards" style="display:flex; flex-direction:column; gap:10px; max-height:450px; overflow-y:auto; padding-right:4px;">
-          <div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">டிக்கெட் விவரங்கள் ஏற்றப்படுகின்றன...</div>
-        </div>
+      <!-- Initial Search Placeholder -->
+      <div id="trackPlaceholder" style="text-align:center; padding:35px 20px; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:12px; margin-top:16px;">
+        <div style="font-size:36px; margin-bottom:8px;">🔍</div>
+        <strong style="color:#1e3a8a; font-size:14.5px; display:block;">உங்கள் பள்ளியின் புகார் நிலையை அறிய மேலே தேடவும்</strong>
+        <span style="color:#64748b; font-size:12.5px; margin-top:4px; display:block;">உங்கள் 11-இலக்க UDISE எண் (எ.கா: <strong>33201000507</strong>) அல்லது டிக்கெட் எண்ணை உள்ளிட்டு <strong>'தேடுக'</strong> பொத்தானை அழுத்தவும்.</span>
       </div>
     </div>
 
@@ -1318,17 +1269,20 @@ function getTeacherPortalHtml() {
       <h2 style="margin-top: 8px;">டிக்கெட் வெற்றிகரமாகப் பதிவு செய்யப்பட்டது!</h2>
       <div class="ticket-badge" id="dispTicketId">HTL-TVR-XXXX</div>
       <p style="margin-top: 6px; font-size: 14px;">உங்கள் புகாருக்குரிய டிக்கெட் எண் உருவாக்கப்பட்டு களப் பொறியாளர் (Mohamed Shameer) கட்டுப்பாட்டு அறைக்கு அனுப்பப்பட்டுள்ளது.</p>
+      <button type="button" onclick="location.reload()" class="btn-submit" style="width: auto; margin: 20px auto 0 auto; padding: 10px 24px;">
+        🔄 மற்றொரு புகார் பதிவு செய்க
+      </button>
     </div>
   </div>
 
   <script>
     const schoolsData = ${JSON.stringify(masterSchools)};
-    const select = document.getElementById('schoolSelect');
     const searchInput = document.getElementById('schoolSearchInput');
     const suggestBox = document.getElementById('schoolSuggestionsBox');
-    const searchWrap = document.getElementById('searchWrap');
+    const select = document.getElementById('schoolSelect');
     const verCard = document.getElementById('verifiedSchoolCard');
     const customBox = document.getElementById('customSchoolBox');
+    const searchWrap = document.getElementById('schoolSearchWrap');
 
     let base64Photo1 = '';
     let base64Photo2 = '';
@@ -1347,7 +1301,6 @@ function getTeacherPortalHtml() {
         document.getElementById('formContainer').style.display = 'none';
         document.getElementById('trackContainer').style.display = 'block';
         document.getElementById('successBox').style.display = 'none';
-        loadTrackList();
         setTimeout(function() {
           const inp = document.getElementById('trackInput');
           if (inp) inp.focus();
@@ -1608,19 +1561,19 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\\n\\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 1 கட்டாயம்! தயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox1').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\\n\\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 2 கட்டாயம்! தயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox2').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\\n\\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 3 கட்டாயம்! தயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
@@ -1682,168 +1635,101 @@ function getTeacherPortalHtml() {
       }
     });
 
-    let allTrackedTickets = [];
+    async function trackTicket() {
+      const inputEl = document.getElementById('trackInput');
+      const q = (inputEl ? inputEl.value : '').trim().toLowerCase();
+      if (!q) {
+        alert('தயவுசெய்து உங்கள் பள்ளியின் 11-இலக்க UDISE எண் அல்லது டிக்கெட் எண்ணை உள்ளிடவும்.');
+        if (inputEl) inputEl.focus();
+        return;
+      }
 
-    async function loadTrackList() {
-      const container = document.getElementById('trackListCards');
-      const countEl = document.getElementById('trackListCount');
-      if (!container) return;
+      const box = document.getElementById('trackResultBox');
+      const placeholder = document.getElementById('trackPlaceholder');
+      const btn = document.getElementById('btnTrackSearch');
+
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'தேடுகிறது...';
+      }
 
       try {
         const res = await fetch('/api/data?v=' + Date.now());
         const data = await res.json();
-        allTrackedTickets = data.tickets || [];
-        if (countEl) countEl.textContent = allTrackedTickets.length + ' புகார்கள்';
-        filterTrackList();
-      } catch (err) {
-        if (container) container.innerHTML = '<div style="color:#ef4444; padding:12px; font-size:12.5px;">விவரங்களை ஏற்றுவதில் பிழை ஏற்பட்டது. இணைய இணைப்பைச் சரிபார்க்கவும்.</div>';
-      }
-    }
-    window.loadTrackList = loadTrackList;
+        const cleanQ = q.replace(/\D/g, '');
 
-    function filterTrackList() {
-      const q = (document.getElementById('trackInput')?.value || '').trim().toLowerCase();
-      const container = document.getElementById('trackListCards');
-      if (!container) return;
+        const ticket = (data.tickets || []).find(function(t) {
+          const tId = (t.ticketId || '').toLowerCase();
+          const tUdise = String(t.udise || '').replace(/\D/g, '');
+          const tSchool = (t.schoolName || '').toLowerCase();
+          const tAi = (t.aiName || '').toLowerCase();
+          const tPhone = String(t.phone || '').replace(/\D/g, '');
 
-      if (!allTrackedTickets || allTrackedTickets.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:24px; color:#64748b; font-size:13px;">இன்னும் புகார்கள் எதுவும் பதிவு செய்யப்படவில்லை (No tickets logged yet).</div>';
-        return;
-      }
+          if (tId === q || tId.includes(q)) return true;
+          if (cleanQ && cleanQ.length >= 4 && tUdise.includes(cleanQ)) return true;
+          if (tSchool.includes(q)) return true;
+          if (tAi.includes(q)) return true;
+          if (cleanQ && cleanQ.length >= 6 && tPhone.includes(cleanQ)) return true;
+          return false;
+        });
 
-      const cleanQ = q.replace(/\D/g, '');
-      const filtered = allTrackedTickets.filter(function(t) {
-        if (!q) return true;
-        const tId = (t.ticketId || '').toLowerCase();
-        const tUdise = String(t.udise || '').replace(/\D/g, '');
-        const tSchool = (t.schoolName || '').toLowerCase();
-        const tBlock = (t.block || '').toLowerCase();
-        const tAi = (t.aiName || '').toLowerCase();
-        const tPhone = String(t.phone || '').replace(/\D/g, '');
-
-        if (tId.includes(q)) return true;
-        if (cleanQ && cleanQ.length >= 2 && tUdise.includes(cleanQ)) return true;
-        if (tSchool.includes(q)) return true;
-        if (tBlock.includes(q)) return true;
-        if (tAi.includes(q)) return true;
-        if (cleanQ && cleanQ.length >= 4 && tPhone.includes(cleanQ)) return true;
-        return false;
-      });
-
-      if (filtered.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:#94a3b8; font-size:13px;">தேடலுக்குரிய புகார்கள் எதுவும் கிடைக்கவில்லை.</div>';
-        return;
-      }
-
-      container.innerHTML = filtered.map(function(t) {
-        const st = t.status || 'Open / Triage';
-        let badgeColor = 'background:#fef3c7; color:#b45309; border:1px solid #fde68a;';
-        if (st.includes('Resolved') || st.includes('Solved') || st.includes('Closed')) {
-          badgeColor = 'background:#dcfce7; color:#15803d; border:1px solid #86efac;';
-        } else if (st.includes('Vendor')) {
-          badgeColor = 'background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;';
-        } else if (st.includes('Progress') || st.includes('Visit Scheduled')) {
-          badgeColor = 'background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;';
+        if (!ticket) {
+          alert('மன்னிக்கவும்! "' + q + '" என்ற விவரத்திற்குரிய புகார் எதுவும் கிடைக்கவில்லை. தயவுசெய்து டிக்கெட் எண் (எ.கா: HTL-TVR-05301) அல்லது 11-இலக்க UDISE எண்ணைச் சரிபார்த்து மீண்டும் தேடவும்.');
+          if (box) box.style.display = 'none';
+          if (placeholder) placeholder.style.display = 'block';
+          return;
         }
 
-        return '<div data-tid="' + t.ticketId + '" onclick="showTrackDetails(this.dataset.tid)" style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; cursor:pointer; transition:all 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.02);">' +
-          '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px;">' +
-            '<strong style="color:#1e3a8a; font-size:13.5px;">' + (t.ticketId || '') + ' - ' + (t.schoolName || '') + '</strong>' +
-            '<span style="font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px; ' + badgeColor + '">' + st + '</span>' +
-          '</div>' +
-          '<div style="font-size:12px; color:#475569; display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:2px;">' +
-            '<span>UDISE: <strong>' + (t.udise || '') + '</strong> • ' + (t.block || '') + ' Block</span>' +
-            '<span style="color:#2563eb; font-weight:700;">👁️ விவரங்கள் பார்க்க (Click to view) &rarr;</span>' +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-    window.filterTrackList = filterTrackList;
+        document.getElementById('trackTicketBadge').textContent = ticket.ticketId || 'TICKET';
+        document.getElementById('trackSchoolName').textContent = ticket.schoolName || '-';
+        document.getElementById('trackMeta').textContent = (ticket.block || '') + ' Block • UDISE: ' + (ticket.udise || '-') + ' • AI: ' + (ticket.aiName || '-') + ' (' + (ticket.phone || '-') + ')';
 
-    function showTrackDetails(ticketId) {
-      const ticket = allTrackedTickets.find(t => t.ticketId === ticketId);
-      if (!ticket) return;
+        document.getElementById('trackIssue').textContent = ticket.issue || 'UPS Technical Glitch';
+        document.getElementById('trackDuration').textContent = ticket.duration || 'Reported';
+        document.getElementById('trackNotes').textContent = ticket.resolutionNotes || (ticket.status === 'Open / Triage' ? 'பொறியாளர் பரிசீலனையில் உள்ளது (Awaiting Engineer Inspection)' : 'பணிகள் நடைபெற்று வருகின்றன');
 
-      const box = document.getElementById('trackResultBox');
-      document.getElementById('trackTicketBadge').textContent = ticket.ticketId || 'TICKET';
-      document.getElementById('trackSchoolName').textContent = ticket.schoolName || '-';
-      document.getElementById('trackMeta').textContent = (ticket.block || '') + ' Block • UDISE: ' + (ticket.udise || '-') + ' • AI: ' + (ticket.aiName || '-') + ' (' + (ticket.phone || '-') + ')';
+        const badge = document.getElementById('trackStatusBadge');
+        const st = ticket.status || 'Open / Triage';
+        badge.textContent = st;
 
-      document.getElementById('trackIssue').textContent = ticket.issue || 'UPS Technical Glitch';
-      document.getElementById('trackDuration').textContent = ticket.duration || 'Reported';
-      document.getElementById('trackNotes').textContent = ticket.resolutionNotes || (ticket.status === 'Open / Triage' ? 'பொறியாளர் பரிசீலனையில் உள்ளது (Awaiting Engineer Inspection)' : 'பணிகள் நடைபெற்று வருகின்றன');
+        if (st.includes('Resolved') || st.includes('Solved') || st.includes('Closed')) {
+          badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; badge.style.border = '1px solid #86efac';
+        } else if (st.includes('Vendor')) {
+          badge.style.background = '#fee2e2'; badge.style.color = '#b91c1c'; badge.style.border = '1px solid #fca5a5';
+        } else if (st.includes('Progress') || st.includes('Visit Scheduled')) {
+          badge.style.background = '#dbeafe'; badge.style.color = '#1e40af'; badge.style.border = '1px solid #93c5fd';
+        } else {
+          badge.style.background = '#fef3c7'; badge.style.color = '#b45309'; badge.style.border = '1px solid #fde68a';
+        }
 
-      const badge = document.getElementById('trackStatusBadge');
-      const st = ticket.status || 'Open / Triage';
-      badge.textContent = st;
+        const tl = document.getElementById('trackTimeline');
+        const timelineList = ticket.timeline && ticket.timeline.length > 0 ? ticket.timeline : [
+          { action: 'Ticket Logged by School AI', time: ticket.createdDate || ticket.createdAt || 'Recently', note: 'புகார் வெற்றிகரமாகப் பதிவு செய்யப்பட்டு களப் பொறியாளருக்கு அனுப்பப்பட்டது.' }
+        ];
 
-      if (st.includes('Resolved') || st.includes('Solved') || st.includes('Closed')) {
-        badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; badge.style.border = '1px solid #86efac';
-      } else if (st.includes('Vendor')) {
-        badge.style.background = '#fee2e2'; badge.style.color = '#b91c1c'; badge.style.border = '1px solid #fca5a5';
-      } else if (st.includes('Progress') || st.includes('Visit Scheduled')) {
-        badge.style.background = '#dbeafe'; badge.style.color = '#1e40af'; badge.style.border = '1px solid #93c5fd';
-      } else {
-        badge.style.background = '#fef3c7'; badge.style.color = '#b45309'; badge.style.border = '1px solid #fde68a';
+        tl.innerHTML = timelineList.map(function(e) {
+          return '<div style="background:#ffffff; border-left:3px solid #2563eb; padding:8px 12px; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">' +
+            '<div style="font-size:12px; font-weight:700; color:#1e3a8a;">' + (e.action || 'Update') + ' <span style="color:#64748b; font-size:11px; font-weight:normal;">• ' + (e.time || '') + '</span></div>' +
+            '<p style="color:#334155; font-size:11.5px; margin:3px 0 0 0;">' + (e.note || '') + '</p>' +
+          '</div>';
+        }).join('');
+
+        if (placeholder) placeholder.style.display = 'none';
+        if (box) {
+          box.style.display = 'block';
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      } catch (e) {
+        alert('டிக்கெட் விவரங்களை எடுப்பதில் பிழை ஏற்பட்டது. இணைய இணைப்பைச் சரிபார்க்கவும்.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '🔍 தேடுக';
+        }
       }
-
-      const tl = document.getElementById('trackTimeline');
-      const timelineList = ticket.timeline && ticket.timeline.length > 0 ? ticket.timeline : [
-        { action: 'Ticket Logged by School AI', time: ticket.createdDate || ticket.createdAt || 'Recently', note: 'புகார் வெற்றிகரமாகப் பதிவு செய்யப்பட்டு களப் பொறியாளருக்கு அனுப்பப்பட்டது.' }
-      ];
-
-      tl.innerHTML = timelineList.map(function(e) {
-        return '<div style="background:#ffffff; border-left:3px solid #2563eb; padding:8px 12px; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">' +
-          '<div style="font-size:12px; font-weight:700; color:#1e3a8a;">' + (e.action || 'Update') + ' <span style="color:#64748b; font-size:11px; font-weight:normal;">• ' + (e.time || '') + '</span></div>' +
-          '<p style="color:#334155; font-size:11.5px; margin:3px 0 0 0;">' + (e.note || '') + '</p>' +
-        '</div>';
-      }).join('');
-
-      if (box) {
-        box.style.display = 'block';
-        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-    }
-    window.showTrackDetails = showTrackDetails;
-
-    async function trackTicket() {
-      const q = (document.getElementById('trackInput')?.value || '').trim().toLowerCase();
-      if (!q) {
-        alert('தயவுசெய்து டிக்கெட் எண், UDISE எண் அல்லது பள்ளியின் பெயரை உள்ளிடவும்.');
-        document.getElementById('trackInput')?.focus();
-        return;
-      }
-
-      if (allTrackedTickets.length === 0) {
-        await loadTrackList();
-      }
-
-      const cleanQ = q.replace(/\D/g, '');
-      const ticket = allTrackedTickets.find(function(t) {
-        const tId = (t.ticketId || '').toLowerCase();
-        const tUdise = String(t.udise || '').replace(/\D/g, '');
-        const tSchool = (t.schoolName || '').toLowerCase();
-        const tAi = (t.aiName || '').toLowerCase();
-        const tPhone = String(t.phone || '').replace(/\D/g, '');
-
-        if (tId === q || tId.includes(q)) return true;
-        if (cleanQ && cleanQ.length >= 4 && tUdise.includes(cleanQ)) return true;
-        if (tSchool.includes(q)) return true;
-        if (tAi.includes(q)) return true;
-        if (cleanQ && cleanQ.length >= 6 && tPhone.includes(cleanQ)) return true;
-        return false;
-      });
-
-      if (!ticket) {
-        alert('மன்னிக்கவும்! "' + q + '" என்ற விவரத்திற்கான டிக்கெட் எதுவும் கிடைக்கவில்லை.\\n\\nதயவுசெய்து டிக்கெட் எண் (எ.கா: HTL-TVR-XXXX) அல்லது 11-இலக்க UDISE எண்ணைச் சரிபார்த்து மீண்டும் தேடவும்.');
-        return;
-      }
-
-      showTrackDetails(ticket.ticketId);
     }
     window.trackTicket = trackTicket;
 
-    // Explicit listeners for immediate reliability
     const tLogEl = document.getElementById('tabLog');
     const tTrackEl = document.getElementById('tabTrack');
     const btnTrackSearchEl = document.getElementById('btnTrackSearch');
