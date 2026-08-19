@@ -678,137 +678,210 @@ function getTeacherPortalHtml() {
     .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
     .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
 
-    /* Modern 3-Photo Upload UI */
+    /* Ultra-Modern Photo Upload Cards */
     .photo-upload-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-top: 8px;
+      gap: 14px;
+      margin-top: 10px;
     }
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
       .photo-upload-grid {
         grid-template-columns: 1fr;
-        gap: 14px;
+        gap: 16px;
       }
     }
     .photo-upload-box {
       background: #ffffff;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 14px;
-      padding: 14px 12px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 16px;
+      padding: 16px 14px;
       text-align: center;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      transition: all 0.2s ease;
+      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
     }
     .photo-upload-box:hover {
       border-color: #3b82f6;
-      box-shadow: 0 6px 16px rgba(37,99,235,0.08);
+      border-style: solid;
+      background: #f8faff;
+      box-shadow: 0 10px 24px -4px rgba(37, 99, 235, 0.12);
+      transform: translateY(-2px);
     }
-    .photo-title {
-      font-size: 12.5px;
-      font-weight: 700;
-      color: #1e3a8a;
-      margin-bottom: 8px;
+    .photo-header-area {
+      margin-bottom: 12px;
+    }
+    .photo-badge-num {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+    .photo-title-text {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #0f172a;
       line-height: 1.3;
-      min-height: 32px;
+    }
+    .photo-sub-text {
+      display: block;
+      font-size: 11.5px;
+      color: #64748b;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .photo-drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 0;
+    }
+    .photo-icon-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: #2563eb;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 20px;
+      margin-bottom: 10px;
+      border: 1px solid #bfdbfe;
+      transition: transform 0.2s ease;
+    }
+    .photo-upload-box:hover .photo-icon-circle {
+      transform: scale(1.1);
+      background: #2563eb;
+      color: #ffffff;
     }
     .file-input {
       display: none !important;
     }
     .photo-btn-group {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      width: 100%;
       margin-top: 4px;
     }
     .btn-camera-snap {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 7px;
+      gap: 4px;
       background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
       color: white;
       border-radius: 10px;
-      padding: 10px 8px;
-      font-size: 12px;
+      padding: 9px 6px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+      box-shadow: 0 3px 8px rgba(37,99,235,0.22);
       transition: all 0.2s ease;
       border: none;
+      text-align: center;
     }
     .btn-camera-snap:hover {
-      background: #1e40af;
+      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
       transform: translateY(-1px);
+      box-shadow: 0 5px 12px rgba(37,99,235,0.32);
+    }
+    .btn-camera-snap .btn-icon {
+      font-size: 16px;
+      line-height: 1;
     }
     .btn-gallery-pick {
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      background: #f8fafc;
+      gap: 4px;
+      background: #ffffff;
       color: #334155;
       border: 1.5px solid #cbd5e1;
       border-radius: 10px;
-      padding: 9px 8px;
-      font-size: 11.5px;
-      font-weight: 600;
+      padding: 9px 6px;
+      font-size: 11px;
+      font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
+      text-align: center;
     }
     .btn-gallery-pick:hover {
       background: #eff6ff;
       border-color: #3b82f6;
       color: #1d4ed8;
+      transform: translateY(-1px);
+    }
+    .btn-gallery-pick .btn-icon {
+      font-size: 16px;
+      line-height: 1;
     }
     .photo-preview-wrap {
       position: relative;
       margin-top: 4px;
       display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
     }
     .photo-preview-img {
       width: 100%;
-      height: 140px;
+      height: 145px;
       object-fit: cover;
-      border-radius: 10px;
+      border-radius: 12px;
       border: 2.5px solid #10b981;
-      box-shadow: 0 4px 12px rgba(16,185,129,0.15);
+      box-shadow: 0 6px 16px rgba(16,185,129,0.18);
     }
     .photo-success-badge {
       position: absolute;
-      top: 6px;
-      right: 6px;
+      top: 8px;
+      right: 8px;
       background: #10b981;
       color: white;
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 800;
-      padding: 3px 8px;
+      padding: 4px 10px;
       border-radius: 999px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     .btn-retake {
       margin-top: 8px;
-      background: #f8fafc;
+      background: #ffffff;
       color: #475569;
-      border: 1px solid #cbd5e1;
-      padding: 5px 12px;
-      border-radius: 6px;
+      border: 1.5px solid #cbd5e1;
+      padding: 6px 14px;
+      border-radius: 8px;
       font-size: 11.5px;
       font-weight: 700;
       cursor: pointer;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       transition: all 0.15s ease;
     }
     .btn-retake:hover {
       background: #fee2e2;
       color: #b91c1c;
       border-color: #fca5a5;
+      transform: scale(1.02);
     }
 
     /* Custom School Box Card */
@@ -1066,75 +1139,99 @@ function getTeacherPortalHtml() {
         <div class="photo-upload-grid">
           <!-- Photo 1 -->
           <div class="photo-upload-box" id="photoBox1">
-            <div class="photo-title">1. Front Display Panel <span class="req">*</span></div>
-            <div id="btnGroup1" class="photo-btn-group">
-              <!-- Live Camera Input -->
-              <input type="file" id="photoCam1" accept="image/*" capture="environment" class="file-input">
-              <label for="photoCam1" class="btn-camera-snap">
-                <span style="font-size: 15px;">📷</span>
-                <span>Take Live Photo (கேமரா)</span>
-              </label>
+            <div class="photo-header-area">
+              <span class="photo-badge-num">📷 Photo 1</span>
+              <div class="photo-title-text">Front Display Panel <span class="req">*</span></div>
+              <span class="photo-sub-text">UPS முன்புற டிஸ்ப்ளே நிலை</span>
+            </div>
 
-              <!-- Gallery / File Upload Input -->
-              <input type="file" id="photoFile1" accept="image/*" class="file-input">
-              <label for="photoFile1" class="btn-gallery-pick">
-                <span style="font-size: 15px;">📁</span>
-                <span>Choose from Gallery (கேலரி)</span>
-              </label>
+            <div id="btnGroup1" class="photo-drop-zone">
+              <div class="photo-icon-circle">📸</div>
+              <div class="photo-btn-group">
+                <!-- Live Camera Input -->
+                <input type="file" id="photoCam1" accept="image/*" capture="environment" class="file-input">
+                <label for="photoCam1" class="btn-camera-snap">
+                  <span class="btn-icon">📷</span>
+                  <span>கேமரா (Camera)</span>
+                </label>
+
+                <!-- Gallery / File Upload Input -->
+                <input type="file" id="photoFile1" accept="image/*" class="file-input">
+                <label for="photoFile1" class="btn-gallery-pick">
+                  <span class="btn-icon">📁</span>
+                  <span>கேலரி (Gallery)</span>
+                </label>
+              </div>
             </div>
 
             <div id="previewWrap1" class="photo-preview-wrap">
               <img id="preview1" class="photo-preview-img" alt="Front Display Preview">
-              <span class="photo-success-badge">✅ Uploaded</span>
-              <button type="button" onclick="retakePhoto(1)" class="btn-retake">🔄 Retake / Change</button>
+              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
+              <button type="button" onclick="retakePhoto(1)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
           </div>
 
           <!-- Photo 2 -->
           <div class="photo-upload-box" id="photoBox2">
-            <div class="photo-title">2. Overall Lab Setup <span class="req">*</span></div>
-            <div id="btnGroup2" class="photo-btn-group">
-              <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
-              <label for="photoCam2" class="btn-camera-snap">
-                <span style="font-size: 15px;">📷</span>
-                <span>Take Live Photo (கேமரா)</span>
-              </label>
+            <div class="photo-header-area">
+              <span class="photo-badge-num">🏢 Photo 2</span>
+              <div class="photo-title-text">Overall Lab Setup <span class="req">*</span></div>
+              <span class="photo-sub-text">ஆய்வகத்தின் முழு அமைப்பு</span>
+            </div>
 
-              <input type="file" id="photoFile2" accept="image/*" class="file-input">
-              <label for="photoFile2" class="btn-gallery-pick">
-                <span style="font-size: 15px;">📁</span>
-                <span>Choose from Gallery (கேலரி)</span>
-              </label>
+            <div id="btnGroup2" class="photo-drop-zone">
+              <div class="photo-icon-circle">🏫</div>
+              <div class="photo-btn-group">
+                <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
+                <label for="photoCam2" class="btn-camera-snap">
+                  <span class="btn-icon">📷</span>
+                  <span>கேமரா (Camera)</span>
+                </label>
+
+                <input type="file" id="photoFile2" accept="image/*" class="file-input">
+                <label for="photoFile2" class="btn-gallery-pick">
+                  <span class="btn-icon">📁</span>
+                  <span>கேலரி (Gallery)</span>
+                </label>
+              </div>
             </div>
 
             <div id="previewWrap2" class="photo-preview-wrap">
               <img id="preview2" class="photo-preview-img" alt="Overall Lab Preview">
-              <span class="photo-success-badge">✅ Uploaded</span>
-              <button type="button" onclick="retakePhoto(2)" class="btn-retake">🔄 Retake / Change</button>
+              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
+              <button type="button" onclick="retakePhoto(2)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
           </div>
 
           <!-- Photo 3 -->
           <div class="photo-upload-box" id="photoBox3">
-            <div class="photo-title">3. Battery Bank & MCB <span class="req">*</span></div>
-            <div id="btnGroup3" class="photo-btn-group">
-              <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
-              <label for="photoCam3" class="btn-camera-snap">
-                <span style="font-size: 15px;">📷</span>
-                <span>Take Live Photo (கேமரா)</span>
-              </label>
+            <div class="photo-header-area">
+              <span class="photo-badge-num">⚡ Photo 3</span>
+              <div class="photo-title-text">Battery Bank & MCB <span class="req">*</span></div>
+              <span class="photo-sub-text">பேட்டரி அடுக்கு & மெயின் MCB</span>
+            </div>
 
-              <input type="file" id="photoFile3" accept="image/*" class="file-input">
-              <label for="photoFile3" class="btn-gallery-pick">
-                <span style="font-size: 15px;">📁</span>
-                <span>Choose from Gallery (கேலரி)</span>
-              </label>
+            <div id="btnGroup3" class="photo-drop-zone">
+              <div class="photo-icon-circle">🔋</div>
+              <div class="photo-btn-group">
+                <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
+                <label for="photoCam3" class="btn-camera-snap">
+                  <span class="btn-icon">📷</span>
+                  <span>கேமரா (Camera)</span>
+                </label>
+
+                <input type="file" id="photoFile3" accept="image/*" class="file-input">
+                <label for="photoFile3" class="btn-gallery-pick">
+                  <span class="btn-icon">📁</span>
+                  <span>கேலரி (Gallery)</span>
+                </label>
+              </div>
             </div>
 
             <div id="previewWrap3" class="photo-preview-wrap">
               <img id="preview3" class="photo-preview-img" alt="Battery MCB Preview">
-              <span class="photo-success-badge">✅ Uploaded</span>
-              <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 Retake / Change</button>
+              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
+              <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
           </div>
         </div>
