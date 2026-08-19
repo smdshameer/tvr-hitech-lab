@@ -565,7 +565,13 @@ const server = http.createServer(async (req, res) => {
       openCount,
       blockStats,
       tickets: ticketsResponse,
-      masterSchools: db.masterSchools
+      masterSchools: session ? db.masterSchools : db.masterSchools.map(s => ({
+        id: s.id,
+        schoolName: s.schoolName,
+        udise: s.udise,
+        block: s.block,
+        category: s.category
+      }))
     }));
     return;
   }
