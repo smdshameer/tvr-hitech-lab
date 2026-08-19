@@ -638,14 +638,31 @@ function getTeacherPortalHtml() {
       border-radius: 999px; font-size: 15px; font-weight: 800; margin: 12px 0; letter-spacing: 0.5px;
     }
     .school-search-wrap { position: relative; margin-bottom: 10px; }
+    .search-input-group { position: relative; display: flex; align-items: center; width: 100%; }
     .school-search-input {
-      width: 100%; padding: 14px 16px; border: 2.5px solid #2563eb; border-radius: 12px;
-      font-size: 15px; font-weight: 600; color: #0f172a; background: #f8fafc;
+      width: 100%; padding: 13px 148px 13px 14px; border: 2.5px solid #2563eb; border-radius: 12px;
+      font-size: 14px; font-weight: 600; color: #0f172a; background: #f8fafc;
       box-shadow: 0 4px 12px rgba(37,99,235,0.08); outline: none; transition: all 0.2s ease;
       box-sizing: border-box;
     }
     .school-search-input:focus {
       background: white; border-color: #1d4ed8; box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
+    }
+    .btn-other-school-edge {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: #eff6ff; color: #1d4ed8; border: 1.5px solid #93c5fd; border-radius: 8px;
+      padding: 7px 11px; font-size: 12px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: all 0.2s ease;
+      z-index: 5;
+    }
+    .btn-other-school-edge:hover {
+      background: #2563eb; color: #ffffff; border-color: #1d4ed8;
+      box-shadow: 0 2px 8px rgba(37,99,235,0.25); transform: translateY(-50%) scale(1.02);
+    }
+    .btn-other-school-edge .other-icon { font-size: 13px; line-height: 1; }
+    @media (max-width: 480px) {
+      .school-search-input { padding-right: 125px; font-size: 13px; }
+      .btn-other-school-edge { padding: 6px 8px; font-size: 11px; }
     }
     .school-suggest-box {
       display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
@@ -889,11 +906,14 @@ function getTeacherPortalHtml() {
         <div class="form-group">
           <label class="form-label">பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span></label>
           <div class="school-search-wrap" id="searchWrap">
-            <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
-            <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
-            <div style="margin-top: 6px; text-align: right;">
-              <a href="javascript:void(0)" onclick="openOtherSchool()" style="font-size: 12px; color: #2563eb; font-weight: 600; text-decoration: none;">➕ பள்ளி பட்டியலில் இல்லையா? (Click here for Other School)</a>
+            <div class="search-input-group">
+              <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
+              <button type="button" onclick="openOtherSchool()" class="btn-other-school-edge" title="பள்ளி பட்டியலில் இல்லையா? புதிய பள்ளியைப் பதிவு செய்ய கிளிக் செய்யவும்">
+                <span class="other-icon">➕</span>
+                <span>மற்ற பள்ளி</span>
+              </button>
             </div>
+            <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
           </div>
 
           <div id="verifiedSchoolCard" class="verified-school-card">
