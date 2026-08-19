@@ -2483,7 +2483,7 @@ function getITSMWorkbenchHtml() {
     <div class="filter-bar">
       <div class="filter-search-wrap">
         <span class="filter-search-icon">🔍</span>
-        <input type="search" id="searchInput" name="htl_search_filter_box" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="text" id="searchInput" name="itsm_search_query_nocache" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly');">
       </div>
       <select id="blockFilter" class="filter-select" onchange="renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
@@ -2709,7 +2709,7 @@ function getITSMWorkbenchHtml() {
           This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.
         </p>
         <label class="modal-label">Enter Master Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
-        <input type="password" id="resetPasswordInput" class="modal-input" placeholder="Enter Protection Password" onkeydown="if(event.key==='Enter'){executeSecureReset();}">
+        <input type="text" id="resetPasswordInput" class="modal-input" style="-webkit-text-security: disc; text-security: disc;" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="modal-footer" style="justify-content: flex-end;">
         <button type="button" onclick="closeResetModal()" class="btn btn-logout">Cancel</button>
@@ -2800,7 +2800,12 @@ function getITSMWorkbenchHtml() {
     }
 
     function renderTable() {
-      let search = (document.getElementById('searchInput').value || '').trim().toLowerCase();
+      const searchInputEl = document.getElementById('searchInput');
+      let search = (searchInputEl.value || '').trim().toLowerCase();
+      if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
+        search = '';
+        searchInputEl.value = '';
+      }
       // If browser autofills username into search box, ignore it so all tickets stay visible
       if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
         search = '';
@@ -3208,8 +3213,21 @@ function getITSMWorkbenchHtml() {
       }
     }
 
+    function purgeAutofill() {
+      const si = document.getElementById('searchInput');
+      if (si && (si.value.toLowerCase() === 'shameer' || si.value.toLowerCase() === 'engineer' || si.value.toLowerCase() === 'mohamed' || si.value.toLowerCase() === 'head' || si.value.toLowerCase() === 'admin')) {
+        si.value = '';
+        renderTable();
+      }
+    }
     loadData();
     setInterval(loadData, 5000);
+    window.addEventListener('load', purgeAutofill);
+    document.addEventListener('DOMContentLoaded', purgeAutofill);
+    setTimeout(purgeAutofill, 50);
+    setTimeout(purgeAutofill, 200);
+    setTimeout(purgeAutofill, 600);
+    setTimeout(purgeAutofill, 1200);
     setTimeout(function() {
       const si = document.getElementById('searchInput');
       if (si && (si.value.toLowerCase() === 'shameer' || si.value.toLowerCase() === 'engineer' || si.value.toLowerCase() === 'head' || si.value.toLowerCase() === 'admin')) {
@@ -3376,7 +3394,7 @@ function getITSMExecutiveHtml() {
       <p style="font-size:13px; color:#475569; margin-bottom:14px;">This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.</p>
       
       <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Enter Master Security Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
-      <input type="password" id="resetPasswordInput" placeholder="Enter Protection Password" style="margin-bottom:14px;">
+      <input type="text" id="resetPasswordInput" class="modal-input" style="-webkit-text-security: disc; text-security: disc;" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
       
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button onclick="closeResetModal()" class="btn" style="background:#e2e8f0; color:#475569;">Cancel</button>
