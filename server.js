@@ -205,11 +205,11 @@ const server = http.createServer((req, res) => {
           resolutionNotes: '',
           resolvedAt: '',
           photo1: p1Name,
-          photo1Url: p1Name ? `/uploads/${p1Name}` : '',
+          photo1Url: data.photo1Base64 || (p1Name ? `/uploads/${p1Name}` : ''),
           photo2: p2Name,
-          photo2Url: p2Name ? `/uploads/${p2Name}` : '',
+          photo2Url: data.photo2Base64 || (p2Name ? `/uploads/${p2Name}` : ''),
           photo3: p3Name,
-          photo3Url: p3Name ? `/uploads/${p3Name}` : '',
+          photo3Url: data.photo3Base64 || (p3Name ? `/uploads/${p3Name}` : ''),
           remarks: data.remarks || '',
           timeline: [
             { time: dateStr, action: 'Ticket Logged', note: `Issue reported by AI ${data.aiName}. Priority set to ${priority}.` }
@@ -1543,9 +1543,9 @@ function getITSMWorkbenchHtml() {
             <td><strong>\${t.ticketId}</strong><br><small style="color:#64748b;">\${t.createdAt}</small></td>
             <td>
               <div style="display:flex;">
-                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal('\${t.photo1Url}')" title="1. Front Display">\` : ''}
-                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal('\${t.photo2Url}')" title="2. Overall UPS">\` : ''}
-                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal('\${t.photo3Url}')" title="3. Battery / MCB">\` : ''}
+                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal('\${t.photo1Url}')" title="1. Front Display" onerror="this.style.display='none'">\` : ''}
+                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal('\${t.photo2Url}')" title="2. Overall UPS" onerror="this.style.display='none'">\` : ''}
+                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal('\${t.photo3Url}')" title="3. Battery / MCB" onerror="this.style.display='none'">\` : ''}
                 \${!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : ''}
               </div>
             </td>
