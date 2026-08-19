@@ -936,21 +936,21 @@ function getTeacherPortalHtml() {
         return;
       }
 
-      suggestBox.innerHTML = matches.slice(0, 15).map(s => `
-        <div class="suggest-item" onclick="chooseSchool('\${s.id}')">
-          <strong>\${s.schoolName}</strong>
-          <span>📍 \${s.block} Block • UDISE: \${s.udise} • AI: \${s.aiName}</span>
-        </div>
-      \`).join('');
+      suggestBox.innerHTML = matches.slice(0, 15).map(function(s) {
+        return '<div class="suggest-item" onclick="chooseSchool(\'' + s.id + '\')">' +
+          '<strong>' + s.schoolName + '</strong>' +
+          '<span>📍 ' + s.block + ' Block • UDISE: ' + s.udise + ' • AI: ' + (s.aiName || '') + '</span>' +
+        '</div>';
+      }).join('');
       suggestBox.style.display = 'block';
     });
 
     function chooseSchool(id) {
       select.value = id;
       suggestBox.style.display = 'none';
-      const item = schoolsData.find(s => s.id === id);
+      const item = schoolsData.find(function(s) { return s.id === id; });
       if (item) {
-        searchInput.value = \`\${item.schoolName} (\${item.udise})\`;
+        searchInput.value = item.schoolName + ' (' + item.udise + ')';
       }
       select.dispatchEvent(new Event('change'));
     }
