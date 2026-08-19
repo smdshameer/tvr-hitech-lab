@@ -794,6 +794,65 @@ function getTeacherPortalHtml() {
       border-color: #fca5a5;
     }
 
+    /* Custom School Box Card */
+    .custom-school-card {
+      background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+      border: 2px solid #bfdbfe;
+      border-radius: 14px;
+      padding: 18px 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.06);
+    }
+    .custom-school-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #cbd5e1;
+    }
+    .custom-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .btn-back-search {
+      background: #ffffff;
+      color: #2563eb;
+      border: 1.5px solid #bfdbfe;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+    .btn-back-search:hover {
+      background: #eff6ff;
+      border-color: #2563eb;
+      transform: translateX(-2px);
+    }
+    .custom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 600px) {
+      .custom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .verified-school-card {
       display: none; background: #ecfdf5; border: 2px solid #10b981; border-radius: 14px;
       padding: 16px 18px; margin-bottom: 14px; position: relative;
@@ -856,22 +915,45 @@ function getTeacherPortalHtml() {
           </select>
         </div>
 
-        <div id="customSchoolBox" style="display:none; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:12px; padding:14px; margin-bottom:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <strong style="color:#1e3a8a; font-size:13.5px;">➕ புதிய / மற்ற பள்ளியின் விவரங்கள்:</strong>
-            <button type="button" onclick="resetSchoolSelection()" class="btn" style="background:#e2e8f0; color:#334155; padding:4px 8px; font-size:11px;">← பள்ளி தேடலுக்குத் திரும்பு</button>
+        <div id="customSchoolBox" class="custom-school-card" style="display:none;">
+          <div class="custom-school-header">
+            <div class="custom-badge">
+              <span>➕</span>
+              <span>புதிய / மற்ற பள்ளி விவரங்கள் (Other School)</span>
+            </div>
+            <button type="button" onclick="resetSchoolSelection()" class="btn-back-search">
+              <span>←</span>
+              <span>பள்ளி தேடலுக்குத் திரும்பு</span>
+            </button>
           </div>
+
           <div class="form-group">
-            <label class="form-label">பள்ளியின் பெயர் (School Name) <span class="req">*</span></label>
-            <input type="text" id="custSchool" class="form-control" placeholder="Enter Full School Name">
+            <label class="form-label">பள்ளியின் முழுப் பெயர் (School Name) <span class="req">*</span></label>
+            <input type="text" id="custSchool" class="form-control" placeholder="எ.கா: GHS / PUMS / GHSS பள்ளியின் முழுப் பெயர்">
           </div>
-          <div class="form-group">
-            <label class="form-label">UDISE எண் (UDISE Code) <span class="req">*</span></label>
-            <input type="text" id="custUdise" class="form-control" placeholder="11-digit UDISE">
-          </div>
-          <div class="form-group">
-            <label class="form-label">வட்டாரம் (Block Name) <span class="req">*</span></label>
-            <input type="text" id="custBlock" class="form-control" placeholder="e.g. Mannargudi, Nannilam...">
+
+          <div class="custom-grid">
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">UDISE எண் (UDISE Code) <span class="req">*</span></label>
+              <input type="text" id="custUdise" class="form-control" placeholder="11-இலக்க UDISE எண்" maxlength="11">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+              <label class="form-label">வட்டாரம் (Block Name) <span class="req">*</span></label>
+              <select id="custBlock" class="form-select">
+                <option value="">-- வட்டாரத்தைத் தேர்ந்தெடுக்கவும் --</option>
+                <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
+                <option value="Kottur">Kottur (கோட்டூர்)</option>
+                <option value="Kudavasal">Kudavasal (குடவாசல்)</option>
+                <option value="Mannargudi">Mannargudi (மன்னார்குடி)</option>
+                <option value="Muthupet">Muthupet (முத்துப்பேட்டை)</option>
+                <option value="Nannilam">Nannilam (நன்னிலம்)</option>
+                <option value="Needamangalam">Needamangalam (நீடாமங்கலம்)</option>
+                <option value="Thirumakkottai">Thirumakkottai (திருமக்கோட்டை)</option>
+                <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
+                <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
+                <option value="Other">Other / பிற வட்டாரம்</option>
+              </select>
+            </div>
           </div>
         </div>
 
