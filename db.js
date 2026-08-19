@@ -514,6 +514,12 @@ async function generateCsvExport() {
   return '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
 }
 
+function getDatabaseType() {
+  if (!usePostgres || !process.env.DATABASE_URL) return 'local-json';
+  if (process.env.DATABASE_URL.includes('neon.tech')) return 'neon';
+  return 'render-postgres';
+}
+
 module.exports = {
   initDatabase,
   getAllTickets,
@@ -525,5 +531,6 @@ module.exports = {
   logAudit,
   generateCsvExport,
   normalizePriority,
-  masterSchools
+  masterSchools,
+  getDatabaseType
 };

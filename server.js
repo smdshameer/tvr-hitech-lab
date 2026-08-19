@@ -182,6 +182,17 @@ function validateAndExtractPhoto(base64Str, photoNum) {
   return { valid: true, buffer: buf, ext: ext };
 }
 
+const SERVER_BOOT_TIME = new Date().toISOString();
+let CURRENT_GIT_COMMIT = process.env.RENDER_GIT_COMMIT ? process.env.RENDER_GIT_COMMIT.substring(0, 7) : '';
+if (!CURRENT_GIT_COMMIT) {
+  try {
+    const { execSync } = require('child_process');
+    CURRENT_GIT_COMMIT = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch(e) {
+    CURRENT_GIT_COMMIT = 'live-build';
+  }
+}
+
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
@@ -197,6 +208,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
     res.end();
+    return;
+  }
+
+  // 0. API: Version & Health Diagnostics (Public Unauthenticated Endpoint)
+  if (pathname === '/api/version' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      commit: process.env.RENDER_GIT_COMMIT ? process.env.RENDER_GIT_COMMIT.substring(0, 7) : CURRENT_GIT_COMMIT,
+      deployedAt: SERVER_BOOT_TIME,
+      authMiddlewareActive: true,
+      databaseConnected: db.getDatabaseType ? db.getDatabaseType() : 'local-json'
+    }, null, 2));
     return;
   }
 
