@@ -678,12 +678,12 @@ function getTeacherPortalHtml() {
     .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
     .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
 
-    /* Ultra-Modern Photo Upload Cards */
+    /* Executive-Grade Photo Upload UI */
     .photo-upload-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-top: 10px;
+      gap: 16px;
+      margin-top: 12px;
     }
     @media (max-width: 768px) {
       .photo-upload-grid {
@@ -693,144 +693,145 @@ function getTeacherPortalHtml() {
     }
     .photo-upload-box {
       background: #ffffff;
-      border: 2px dashed #cbd5e1;
-      border-radius: 16px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
       padding: 16px 14px;
-      text-align: center;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-shadow: 0 2px 10px rgba(15, 23, 42, 0.03);
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      transition: all 0.2s ease;
       position: relative;
-      overflow: hidden;
     }
     .photo-upload-box:hover {
-      border-color: #3b82f6;
-      border-style: solid;
-      background: #f8faff;
-      box-shadow: 0 10px 24px -4px rgba(37, 99, 235, 0.12);
+      border-color: #2563eb;
+      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
       transform: translateY(-2px);
     }
     .photo-header-area {
+      text-align: center;
       margin-bottom: 12px;
     }
     .photo-badge-num {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       background: #eff6ff;
       color: #1d4ed8;
       border: 1px solid #bfdbfe;
-      padding: 3px 9px;
+      padding: 3px 10px;
       border-radius: 999px;
-      font-size: 11px;
+      font-size: 11.5px;
       font-weight: 800;
       margin-bottom: 6px;
-      letter-spacing: 0.3px;
     }
     .photo-title-text {
-      font-size: 13.5px;
+      font-size: 14px;
       font-weight: 800;
       color: #0f172a;
-      line-height: 1.3;
+      line-height: 1.35;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
     }
     .photo-sub-text {
       display: block;
       font-size: 11.5px;
       color: #64748b;
       font-weight: 600;
-      margin-top: 2px;
+      margin-top: 3px;
     }
     .photo-drop-zone {
+      background: #f8fafc;
+      border: 1.5px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 14px 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 6px 0;
+      transition: all 0.2s ease;
+    }
+    .photo-upload-box:hover .photo-drop-zone {
+      background: #f0f7ff;
+      border-color: #93c5fd;
     }
     .photo-icon-circle {
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      background: #ffffff;
       color: #2563eb;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 20px;
       margin-bottom: 10px;
-      border: 1px solid #bfdbfe;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      border: 1px solid #e2e8f0;
       transition: transform 0.2s ease;
     }
     .photo-upload-box:hover .photo-icon-circle {
-      transform: scale(1.1);
-      background: #2563eb;
-      color: #ffffff;
+      transform: scale(1.08);
     }
     .file-input {
       display: none !important;
     }
     .photo-btn-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
       width: 100%;
-      margin-top: 4px;
     }
     .btn-camera-snap {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 6px;
       background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
       color: white;
-      border-radius: 10px;
-      padding: 9px 6px;
-      font-size: 11px;
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
-      box-shadow: 0 3px 8px rgba(37,99,235,0.22);
+      box-shadow: 0 2px 6px rgba(37,99,235,0.22);
       transition: all 0.2s ease;
       border: none;
       text-align: center;
+      width: 100%;
+      box-sizing: border-box;
     }
     .btn-camera-snap:hover {
-      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+      background: #1e40af;
       transform: translateY(-1px);
-      box-shadow: 0 5px 12px rgba(37,99,235,0.32);
-    }
-    .btn-camera-snap .btn-icon {
-      font-size: 16px;
-      line-height: 1;
+      box-shadow: 0 4px 10px rgba(37,99,235,0.3);
     }
     .btn-gallery-pick {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 6px;
       background: #ffffff;
       color: #334155;
       border: 1.5px solid #cbd5e1;
-      border-radius: 10px;
-      padding: 9px 6px;
-      font-size: 11px;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 11.5px;
       font-weight: 700;
       cursor: pointer;
       transition: all 0.2s ease;
       text-align: center;
+      width: 100%;
+      box-sizing: border-box;
     }
     .btn-gallery-pick:hover {
       background: #eff6ff;
-      border-color: #3b82f6;
+      border-color: #2563eb;
       color: #1d4ed8;
       transform: translateY(-1px);
-    }
-    .btn-gallery-pick .btn-icon {
-      font-size: 16px;
-      line-height: 1;
     }
     .photo-preview-wrap {
       position: relative;
@@ -844,9 +845,9 @@ function getTeacherPortalHtml() {
     }
     .photo-preview-img {
       width: 100%;
-      height: 145px;
+      height: 155px;
       object-fit: cover;
-      border-radius: 12px;
+      border-radius: 10px;
       border: 2.5px solid #10b981;
       box-shadow: 0 6px 16px rgba(16,185,129,0.18);
     }
@@ -1141,7 +1142,7 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox1">
             <div class="photo-header-area">
               <span class="photo-badge-num">📷 Photo 1</span>
-              <div class="photo-title-text">UPS Display <span class="req">*</span></div>
+              <div class="photo-title-text">UPS Display&nbsp;<span class="req">*</span></div>
               <span class="photo-sub-text">UPS டிஸ்ப்ளே நிலை</span>
             </div>
 
@@ -1151,15 +1152,13 @@ function getTeacherPortalHtml() {
                 <!-- Live Camera Input -->
                 <input type="file" id="photoCam1" accept="image/*" capture="environment" class="file-input">
                 <label for="photoCam1" class="btn-camera-snap">
-                  <span class="btn-icon">📷</span>
-                  <span>கேமரா (Camera)</span>
+                  <span>📷 Take Live Photo (கேமரா)</span>
                 </label>
 
                 <!-- Gallery / File Upload Input -->
                 <input type="file" id="photoFile1" accept="image/*" class="file-input">
                 <label for="photoFile1" class="btn-gallery-pick">
-                  <span class="btn-icon">📁</span>
-                  <span>கேலரி (Gallery)</span>
+                  <span>📁 Choose from Gallery (கேலரி)</span>
                 </label>
               </div>
             </div>
@@ -1175,7 +1174,7 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox2">
             <div class="photo-header-area">
               <span class="photo-badge-num">🏢 Photo 2</span>
-              <div class="photo-title-text">Overall UPS Setup Photo <span class="req">*</span></div>
+              <div class="photo-title-text">Overall UPS Setup Photo&nbsp;<span class="req">*</span></div>
               <span class="photo-sub-text">முழுமையான UPS அமைப்பு</span>
             </div>
 
@@ -1184,14 +1183,12 @@ function getTeacherPortalHtml() {
               <div class="photo-btn-group">
                 <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
                 <label for="photoCam2" class="btn-camera-snap">
-                  <span class="btn-icon">📷</span>
-                  <span>கேமரா (Camera)</span>
+                  <span>📷 Take Live Photo (கேமரா)</span>
                 </label>
 
                 <input type="file" id="photoFile2" accept="image/*" class="file-input">
                 <label for="photoFile2" class="btn-gallery-pick">
-                  <span class="btn-icon">📁</span>
-                  <span>கேலரி (Gallery)</span>
+                  <span>📁 Choose from Gallery (கேலரி)</span>
                 </label>
               </div>
             </div>
@@ -1207,7 +1204,7 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox3">
             <div class="photo-header-area">
               <span class="photo-badge-num">⚡ Photo 3</span>
-              <div class="photo-title-text">Battery Single MCB Photo <span class="req">*</span></div>
+              <div class="photo-title-text">Battery Single MCB Photo&nbsp;<span class="req">*</span></div>
               <span class="photo-sub-text">பேட்டரி சிங்கிள் MCB</span>
             </div>
 
@@ -1216,14 +1213,12 @@ function getTeacherPortalHtml() {
               <div class="photo-btn-group">
                 <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
                 <label for="photoCam3" class="btn-camera-snap">
-                  <span class="btn-icon">📷</span>
-                  <span>கேமரா (Camera)</span>
+                  <span>📷 Take Live Photo (கேமரா)</span>
                 </label>
 
                 <input type="file" id="photoFile3" accept="image/*" class="file-input">
                 <label for="photoFile3" class="btn-gallery-pick">
-                  <span class="btn-icon">📁</span>
-                  <span>கேலரி (Gallery)</span>
+                  <span>📁 Choose from Gallery (கேலரி)</span>
                 </label>
               </div>
             </div>
