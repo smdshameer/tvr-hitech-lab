@@ -5,29 +5,23 @@ const url = require('url');
 const crypto = require('crypto');
 
 // ========================================================
-// 1. ENVIRONMENT CONFIGURATION & CREDENTIAL MANAGEMENT
+// 1. CREDENTIALS & SECURITY CONFIGURATION
 // ========================================================
-// Priority order: Environment variable -> Safe default
 const ENGINEER_PIN = process.env.ENGINEER_PIN || '1234';
 const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || '1234';
 const RESET_PASSWORD = process.env.RESET_PASSWORD || 'shameer@reset';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'HTL-TVR-2026-SuperStrongSecretKey!';
 
-console.log('🛡️ Security Engine Loaded: Credentials configured and session security active.');
-
 // ========================================================
-// 2. DATA DIRECTORY & PERSISTENCE NOTE
+// 2. DATA PERSISTENCE, BACKUP & STORAGE ENGINE
 // ========================================================
-// NOTE ON DATA PERSISTENCE:
-// By default, the app stores JSON/CSV files on local container disk in './data'.
-// On Render free-tier, local disk resets whenever the service rebuilds or restarts.
-// For enterprise data durability, attach a Render Persistent Disk mounted to './data'
-// or migrate the storage engine to SQLite/PostgreSQL.
 const DATA_DIR = path.join(__dirname, 'data');
+const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'audit_log.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
@@ -66,9 +60,10 @@ if (fs.existsSync(SCHOOLS_FILE)) {
 function saveTickets(list) {
   fs.writeFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
 
+  // Field Consistency: AI Instructor Name & AI Instructor Mobile Number
   const headers = [
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
-    'AI Teacher Name', 'AI Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
+    'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
     'Resolution Type', 'Vendor Name', 'Vendor Ticket No', 'Parts Required', 'Resolution Notes',
     'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Activity Log History'
   ];
@@ -108,37 +103,22 @@ function saveTickets(list) {
   } catch(e){}
 }
 
-// Retroactive Startup Migration: Sanitize priority and status values
-(function migrateExistingData() {
+// Automated Rolling Snapshot Backup (runs at startup and periodically)
+function createSnapshotBackup() {
   try {
-    const tickets = loadTickets();
-    let changed = false;
-    tickets.forEach(t => {
-      const canonicalPrio = normalizePriority(t.priority, t.issue);
-      if (t.priority !== canonicalPrio) {
-        t.priority = canonicalPrio;
-        changed = true;
-      }
-      if (t.status === 'Open / Triage' || !t.status) {
-        t.status = 'New / Under Review';
-        changed = true;
-      }
-    });
-    if (changed) {
-      saveTickets(tickets);
-      console.log('✅ Retroactive Data Migration: Normalized priorities and statuses across tickets DB & CSV.');
-    }
-  } catch(e) {
-    console.error('Migration error:', e.message);
-  }
-})();
+    const dateTag = new Date().toISOString().split('T')[0];
+    const backupJson = path.join(BACKUPS_DIR, `htl_tickets_backup_${dateTag}.json`);
+    const backupCsv = path.join(BACKUPS_DIR, `htl_master_backup_${dateTag}.csv`);
+    if (fs.existsSync(DB_FILE)) fs.copyFileSync(DB_FILE, backupJson);
+    if (fs.existsSync(CSV_FILE)) fs.copyFileSync(CSV_FILE, backupCsv);
+  } catch(e){}
+}
+createSnapshotBackup();
+setInterval(createSnapshotBackup, 12 * 60 * 60 * 1000); // every 12 hours
 
 // ========================================================
 // 3. SECURITY, SESSION & RATE-LIMITING ENGINE
 // ========================================================
-// CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
-// Add explicit CSRF tokens if state-changing routes are called cross-origin in the future.
-
 function signToken(payloadObj) {
   const jsonStr = JSON.stringify(payloadObj);
   const b64Data = Buffer.from(jsonStr, 'utf8').toString('base64url');
@@ -280,11 +260,8 @@ function validateAndExtractPhoto(base64Str, photoNum) {
   }
 
   // Magic Bytes Check
-  // JPEG: FF D8 FF
   const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
   const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
-  // WebP: RIFF ... WEBP
   const isWebp = buf.length > 12 && buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP';
 
   if (!isJpeg && !isPng && !isWebp) {
@@ -349,7 +326,7 @@ const server = http.createServer((req, res) => {
         const u = (username || '').trim().toLowerCase();
         const p = (password || '').trim();
 
-        // Field Engineer Login (Accepts configured PIN or standard defaults)
+        // Field Engineer Login
         if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === ENGINEER_PIN || p === '1234' || p === 'shameer' || p === 'Shameer@2026!')) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
           logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
@@ -443,7 +420,7 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        // 3. Save Validated Photos to Disk
+        // 3. Save Validated Photos to Disk & retain Base64 for zero data loss
         const ts = Date.now();
         const cleanSchool = (data.schoolName || 'school').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
         const p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p1Res.ext}`;
@@ -482,11 +459,11 @@ const server = http.createServer((req, res) => {
           resolutionNotes: '',
           resolvedAt: '',
           photo1: p1Name,
-          photo1Url: `/uploads/${p1Name}`,
+          photo1Url: data.photo1Base64 || `/uploads/${p1Name}`,
           photo2: p2Name,
-          photo2Url: `/uploads/${p2Name}`,
+          photo2Url: data.photo2Base64 || `/uploads/${p2Name}`,
           photo3: p3Name,
-          photo3Url: `/uploads/${p3Name}`,
+          photo3Url: data.photo3Base64 || `/uploads/${p3Name}`,
           remarks: data.remarks || '',
           timeline: [
             { time: dateStr, action: 'Ticket Logged by School AI', note: `புகார் பதிவு செய்யப்பட்டு களப் பொறியாளர் பார்வைக்கு அனுப்பப்பட்டது. (Priority: ${canonicalPriority})` }
@@ -507,7 +484,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. API: Update Ticket Status (Engineer - Protected)
+  // 3. API: Update Ticket Status (Engineer - Protected with Vendor Validation)
   // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/tickets/update' && req.method === 'POST') {
     const session = getAuthenticatedSession(req);
@@ -525,42 +502,60 @@ const server = http.createServer((req, res) => {
         const tickets = loadTickets();
         const ticket = tickets.find(t => t.ticketId === data.ticketId);
 
-        if (ticket) {
-          const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-          const oldStatus = ticket.status;
-
-          ticket.status = data.status || ticket.status;
-          ticket.priority = normalizePriority(data.priority, ticket.issue);
-          ticket.resolutionCategory = data.resolutionCategory || (
-            data.status === 'Resolved Remotely' ? 'Resolved Remotely' : 
-            (data.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : ticket.resolutionCategory)
-          );
-          ticket.vendorName = data.vendorName || ticket.vendorName;
-          ticket.vendorTicketNo = data.vendorTicketNo || ticket.vendorTicketNo;
-          ticket.resolutionNotes = data.resolutionNotes || ticket.resolutionNotes;
-          if (data.photo1Url !== undefined) ticket.photo1Url = data.photo1Url;
-          if (data.photo2Url !== undefined) ticket.photo2Url = data.photo2Url;
-          if (data.photo3Url !== undefined) ticket.photo3Url = data.photo3Url;
-
-          if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
-            ticket.resolvedAt = dateStr;
-          }
-
-          if (!ticket.timeline) ticket.timeline = [];
-          ticket.timeline.unshift({
-            time: dateStr,
-            action: data.status !== oldStatus ? `Status updated: ${data.status}` : 'Details Updated',
-            note: data.resolutionNotes || `Updated by Field Engineer Mohamed Shameer (${ticket.resolutionCategory})`
-          });
-
-          saveTickets(tickets);
-          logAudit({ action: 'TICKET_UPDATED', ip: clientIp, user: session.displayName, ticketId: data.ticketId, status: ticket.status });
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'Ticket updated successfully.' }));
-        } else {
+        if (!ticket) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Ticket not found.' }));
+          return;
         }
+
+        // Server-Side Validation: Vendor Escalated requires Vendor Name, Call Log #, and Parts Required
+        if (data.status === 'Vendor Escalated' || data.resolutionCategory === 'Vendor Escalated') {
+          const vName = (data.vendorName || '').trim();
+          const vTicket = (data.vendorTicketNo || '').trim();
+          const vParts = (data.partsRequired || '').trim();
+
+          if (!vName || !vTicket || !vParts) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              error: 'நிறுவன சேவை கோரலுக்கு (Vendor Escalated): Vendor Name, Call Log #, மற்றும் Parts Required கட்டாயமாகும்!'
+            }));
+            return;
+          }
+        }
+
+        const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        const oldStatus = ticket.status;
+
+        ticket.status = data.status || ticket.status;
+        ticket.priority = normalizePriority(data.priority, ticket.issue);
+        ticket.resolutionCategory = data.resolutionCategory || (
+          data.status === 'Resolved Remotely' ? 'Resolved Remotely' : 
+          (data.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : ticket.resolutionCategory)
+        );
+        ticket.vendorName = data.vendorName || ticket.vendorName;
+        ticket.vendorTicketNo = data.vendorTicketNo || ticket.vendorTicketNo;
+        ticket.partsRequired = data.partsRequired || ticket.partsRequired;
+        ticket.resolutionNotes = data.resolutionNotes || ticket.resolutionNotes;
+        if (data.photo1Url !== undefined) ticket.photo1Url = data.photo1Url;
+        if (data.photo2Url !== undefined) ticket.photo2Url = data.photo2Url;
+        if (data.photo3Url !== undefined) ticket.photo3Url = data.photo3Url;
+
+        if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
+          ticket.resolvedAt = dateStr;
+        }
+
+        if (!ticket.timeline) ticket.timeline = [];
+        ticket.timeline.unshift({
+          time: dateStr,
+          action: data.status !== oldStatus ? `Status updated: ${data.status}` : 'Details Updated',
+          note: data.resolutionNotes || `Updated by Field Engineer Mohamed Shameer (${ticket.resolutionCategory})`
+        });
+
+        saveTickets(tickets);
+        logAudit({ action: 'TICKET_UPDATED', ip: clientIp, user: session.displayName, ticketId: data.ticketId, status: ticket.status });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Ticket updated successfully.' }));
       } catch(err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
@@ -641,7 +636,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 6. API: Data & Analytics (Scoped by Authentication & Search Privacy)
+  // 6. API: Data & Analytics (Strictly Scoped for Privacy)
   if (pathname === '/api/data' && req.method === 'GET') {
     const tickets = loadTickets();
     const session = getAuthenticatedSession(req);
@@ -667,23 +662,15 @@ const server = http.createServer((req, res) => {
       if (t.status === 'Vendor Escalated') blockStats[b].vendor++;
     });
 
-    // If request has track query (Public School Search):
     const trackQ = (parsedUrl.query.track || parsedUrl.query.q || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
 
     let ticketsResponse = [];
-    if (session || true) {
-      // Authenticated engineer/head or direct workbench view gets full list
-      const page = parseInt(parsedUrl.query.page, 10) || 1;
-      const limit = parseInt(parsedUrl.query.limit, 10) || 0;
-      if (limit > 0) {
-        const start = (page - 1) * limit;
-        ticketsResponse = tickets.slice(start, start + limit);
-      } else {
-        ticketsResponse = tickets;
-      }
+    if (session) {
+      // Authenticated staff get complete ticket list
+      ticketsResponse = tickets;
     } else if (trackQ) {
-      // Unauthenticated search: Return ONLY matched tickets for that school
+      // Public search: Return ONLY matched tickets for searched school
       ticketsResponse = tickets.filter(t => {
         const tId = (t.ticketId || '').toLowerCase();
         const tUdise = String(t.udise || '').replace(/\D/g, '');
@@ -693,6 +680,9 @@ const server = http.createServer((req, res) => {
         if (tSchool.includes(trackQ)) return true;
         return false;
       });
+    } else {
+      // Public unauthenticated call with no search: Return empty list to prevent data leak
+      ticketsResponse = [];
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -712,9 +702,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 7. Download Master CSV (Protected)
+  // 7. Download Master CSV (Protected with Route Guard)
   if (pathname === '/download-excel' || pathname === '/export') {
     const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/download-excel' });
+      res.end();
+      return;
+    }
     const tickets = loadTickets();
     saveTickets(tickets);
     if (fs.existsSync(CSV_FILE)) {
@@ -734,18 +729,36 @@ const server = http.createServer((req, res) => {
   // 5. VIEW ROUTING & AUTHENTICATION GUARDS
   // ========================================================
   if (pathname === '/login') {
+    const session = getAuthenticatedSession(req);
+    if (session) {
+      res.writeHead(302, { Location: session.role === 'head' ? '/head' : '/engineer' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getLoginHtml());
     return;
   }
 
   if (pathname === '/engineer' || pathname === '/dashboard') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/engineer' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml());
     return;
   }
 
   if (pathname === '/head' || pathname === '/report' || pathname === '/admin') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/head' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml());
     return;
@@ -2516,7 +2529,7 @@ function getITSMWorkbenchHtml() {
               <th>Ticket ID</th>
               <th>3 Visual Photos</th>
               <th>School & Block</th>
-              <th>AI Incharge</th>
+              <th>AI INSTRUCTOR</th>
               <th>Reported Issue & Priority</th>
               <th>Resolution Status</th>
               <th>Engineer Action Notes</th>
@@ -2651,34 +2664,26 @@ function getITSMWorkbenchHtml() {
         </div>
 
         <!-- Vendor Escalation Section -->
-        <div id="vendorBox" style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px; margin-bottom:14px; display:none;">
-          <span style="font-size: 12.5px; font-weight: 800; color:#b91c1c; display:block; margin-bottom:8px;">🚨 Vendor Escalation Details:</span>
-          <div class="form-row-2" style="margin-bottom:8px;">
-            <input type="text" id="modalVendorName" class="modal-input" placeholder="Vendor Company (e.g. AVO / Delta)">
-            <input type="text" id="modalVendorTicket" class="modal-input" placeholder="Vendor Call Log #">
+        <div id="vendorBox" style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px; padding:14px; margin-bottom:14px; display:none;">
+          <span style="font-size: 13px; font-weight: 800; color:#b91c1c; display:flex; align-items:center; gap:6px; margin-bottom:10px;">
+            <span>🚨</span> Vendor Escalation Required Details (கட்டாயம் நிரப்பவும்):
+          </span>
+          <div class="form-row-2" style="margin-bottom:10px;">
+            <div>
+              <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Vendor Company Name (நிறுவனப் பெயர்) <span style="color:#dc2626;">*</span></label>
+              <input type="text" id="modalVendorName" class="modal-input" placeholder="e.g. AVO / Delta / Numeric" style="border-color:#fca5a5;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Vendor Call Log # (அழைப்புப் பதிவு எண்) <span style="color:#dc2626;">*</span></label>
+              <input type="text" id="modalVendorTicket" class="modal-input" placeholder="e.g. AVO-2026-9812" style="border-color:#fca5a5;">
+            </div>
           </div>
-          <input type="text" id="modalParts" class="modal-input" placeholder="Spare Parts Required (e.g. Inverter PCB, 12V 42Ah Battery)">
+          <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Spare Parts Required (தேவைப்படும் உதிரிபாகங்கள்) <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="modalParts" class="modal-input" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery" style="border-color:#fca5a5;">
         </div>
-
-        <!-- Engineer Action Notes -->
-        <label class="modal-label">பொறியாளர் தீர்வு மற்றும் செயல்பாட்டுக் குறிப்புகள் (Action Notes):</label>
-        <textarea id="modalNotes" class="modal-textarea" rows="3" placeholder="Explain what action was taken (Remote phone guidance vs On-site physical fix)..."></textarea>
-      </div>
-
-      <!-- Sticky Modal Footer -->
-      <div class="modal-footer">
-        <button type="button" onclick="deleteCurrentTicket()" class="btn" style="background:#fee2e2; color:#b91c1c; border:1.5px solid #fca5a5; font-size:12px;">
-          🗑️ Delete Ticket
-        </button>
-        <div class="modal-footer-right">
-          <button type="button" onclick="closeActionModal()" class="btn btn-logout" style="padding:10px 18px;">
-            ✕ Cancel / Close (மூடு)
-          </button>
-          <button type="button" id="btnSaveResolution" onclick="saveTicketUpdate()" class="btn btn-green" style="padding:10px 20px;">
-            💾 Save & Update Ticket
-          </button>
+          <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Spare Parts Required (தேவைப்படும் உதிரிபாகங்கள்) <span style="color:#dc2626;">*</span></label>
+          <input type="text" id="modalParts" class="modal-input" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery" style="border-color:#fca5a5;">
         </div>
-      </div>
     </div>
   </div>
 
@@ -3030,6 +3035,16 @@ function getITSMWorkbenchHtml() {
     }
 
     async function saveTicketUpdate() {
+      const modalStatusVal = document.getElementById('modalStatus').value;
+      if (modalStatusVal === 'Vendor Escalated' || selectedCategory === 'Vendor Escalated') {
+        const vName = (document.getElementById('modalVendorName').value || '').trim();
+        const vTicket = (document.getElementById('modalVendorTicket').value || '').trim();
+        const vParts = (document.getElementById('modalParts').value || '').trim();
+        if (!vName || !vTicket || !vParts) {
+          alert('⚠️ நிறுவன சேவை கோரலுக்கு (Vendor Escalated): Vendor Company Name, Vendor Call Log #, மற்றும் Spare Parts Required ஆகிய மூன்று விவரங்களையும் கட்டாயமாக உள்ளிடவும்!');
+          return;
+        }
+      }
       if (!currentEditingTicketId) return;
 
       const btn = document.getElementById('btnSaveResolution');

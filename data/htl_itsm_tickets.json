@@ -235,12 +235,12 @@
     "duration": "1 - 3 weeks",
     "serialNo": "AVO5KVATNHL20244479",
     "priority": "High",
-    "status": "New / Under Review",
-    "resolutionCategory": "Pending",
+    "status": "Vendor Escalated",
+    "resolutionCategory": "Vendor Escalated",
     "resolutionType": "",
-    "vendorName": "",
-    "vendorTicketNo": "",
-    "partsRequired": "",
+    "vendorName": "AVO Power Systems",
+    "vendorTicketNo": "AVO-2026-9812",
+    "partsRequired": "12V 42Ah Battery Set",
     "resolutionNotes": "",
     "resolvedAt": "",
     "photo1": "UPS_F_33201000507_PUMS_JAMPAVANODAI_THARGA_1787134643256.jpg",
@@ -251,6 +251,21 @@
     "photo3Url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAAsACIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD9UicCovtcA/5bR/8AfYrxr9oH4i33hrw/4ZjtH8j+15gJ2DBSE2jIB7cuPyridI8RzS7GlkBGCQR9e9YVKypS5WjNytsfTf2yD/nvH/32KPtkH/PeP/vsV8t+ItXQRCO0a3lZQBMJQkhiPVPkYEfxEgnoQvBGccF4z8cnTrKZDfrZTEYSWUk7GI4PGeAcZwDxVKrFtJEOo+x9yh1IyGBH1or5ti16wtokicXMrxgK0g1aVQxHBOM8Z9KK9H6rUJ9siL9q+Iv4M8GOo+eLLqT0B8tOa4XwzK19EspgKoUGJJGGGyOeASfbn/69dp+13dLafD/wm7EL8jYJOP8AlmlfEvjb9rPWfD8dvoOhafFPdbIi1xErzGFdnmMx+ULgjIHJI8pyRyMedXoqo0xts+tNYvVWxvpFAcxIB5eCBkqOnqOc+nJ9K+HvG/iXVPHevXOkyS6hfPKRb262m3dc5kwU2AKC+EAyuPvnAGa19V/ahlv7QwXmn3JvdStba3YouIhMpYnjJ4YOhH1r5217VtTuY5be1le21CykWSZRujlhKuvQjlWDBfQjFefUhKMopXO7DKHLOUraI2rzwTqLXk5uPAfitpzIxkMltcsxbPOTnk570Vz8OuePFhjEfiS7EYUBQYgxA7c7efrRXTd93/4E/wDId4eX/gKP1v8A29vhp4i8U/CDRJ9AtJ9Sl0OXfc29qCztGUClgo5bBAOBzX5Za7e3dvfXhu4ZHmltTbj9wqmLYSxLZU5I3NzgMMY3AEg/v2QCCCMg9jVc6ZZk5NpB/wB+x/hXU1eXMczR/PlqXijwppVkUW2v5tbE0MzLatsjiwWDpDLuc7wFhZXYYBaRduEQvyWm+O9a1bxTe63dTS3Oo6lI7X6rmMXO9ssCFwME9hx7Y4r+jn+zLP8A59IP+/a/4Uf2ZZ/8+kH/AH7X/CrdmSo2Pyf0j9ivxlqulWV6uhWkK3MCTCOW6i3puUHDc9Rnmiv1nESKAAigDoAKK4fq7/m/A2uux//Z",
     "remarks": "UPS Power problem  no battery backup ",
     "timeline": [
+      {
+        "time": "20/8/2026, 12:31:06 am",
+        "action": "Details Updated",
+        "note": "Updated by Field Engineer Mohamed Shameer (Vendor Escalated)"
+      },
+      {
+        "time": "20/8/2026, 12:29:38 am",
+        "action": "Details Updated",
+        "note": "Updated by Field Engineer Mohamed Shameer (Vendor Escalated)"
+      },
+      {
+        "time": "20/8/2026, 12:29:23 am",
+        "action": "Status updated: Vendor Escalated",
+        "note": "Updated by Field Engineer Mohamed Shameer (Vendor Escalated)"
+      },
       {
         "time": "19/8/2026, 3:47:23 pm",
         "action": "Ticket Logged",
