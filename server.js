@@ -1045,7 +1045,7 @@ function getTeacherPortalHtml() {
     select.addEventListener('change', function() {
       if (this.value === 'OTHER') {
         customBox.style.display = 'block';
-        autoBox.style.display = 'none';
+        verCard.style.display = 'none';
         document.getElementById('custSchool').required = true;
         document.getElementById('custUdise').required = true;
         document.getElementById('custBlock').required = true;
@@ -1056,17 +1056,22 @@ function getTeacherPortalHtml() {
       document.getElementById('custUdise').required = false;
       document.getElementById('custBlock').required = false;
 
-      const item = schoolsData.find(s => s.id === this.value);
-      if (item) {
-        document.getElementById('dispUdise').textContent = item.udise;
-        document.getElementById('dispBlock').textContent = item.block;
-        document.getElementById('dispAi').textContent = item.aiName;
-        document.getElementById('dispPhone').textContent = item.aiPhone;
-        autoBox.style.display = 'grid';
-        if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
-        if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
-      } else {
-        autoBox.style.display = 'none';
+      if (this.value) {
+        const item = schoolsData.find(s => s.id === this.value);
+        if (item) {
+          document.getElementById('verSchoolName').textContent = item.schoolName;
+          document.getElementById('verBlock').textContent = item.block;
+          document.getElementById('verUdise').textContent = item.udise;
+          document.getElementById('verAiName').textContent = item.aiName || '-';
+          document.getElementById('verPhone').textContent = item.aiPhone || '-';
+
+          verCard.style.display = 'block';
+          searchWrap.style.display = 'none';
+          select.style.display = 'none';
+
+          if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
+          if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
+        }
       }
     });
 
@@ -1111,6 +1116,20 @@ function getTeacherPortalHtml() {
 
     document.getElementById('incidentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
+
+      if (!select.value && searchInput.value.trim()) {
+        const matches = filterSchools(searchInput.value.trim());
+        if (matches.length > 0) {
+          chooseSchool(matches[0].id);
+        }
+      }
+
+      if (!select.value) {
+        alert('தயவுசெய்து உங்கள் பள்ளியைத் தேர்ந்தெடுக்கவும் (Please select your school).');
+        searchInput.focus();
+        return;
+      }
+
       if (!base64Photo1) {
         alert('தயவுசெய்து UPS முன்புற டிஸ்ப்ளே புகைப்படத்தைப் படம் பிடித்து அப்லோட் செய்யவும்.');
         return;
