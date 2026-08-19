@@ -2,9 +2,63 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
+const crypto = require('crypto');
 
+// ========================================================
+// 1. ENVIRONMENT CONFIGURATION & PRODUCTION STARTUP GUARD
+// ========================================================
+const isProd = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
+const REQUIRED_ENV_VARS = ['ENGINEER_PIN', 'LEADERSHIP_PIN', 'RESET_PASSWORD', 'SESSION_SECRET'];
+const missingVars = REQUIRED_ENV_VARS.filter(k => !process.env[k]);
+
+if (isProd && missingVars.length > 0) {
+  console.error('\n========================================================');
+  console.error(' [FATAL ERROR] PRODUCTION STARTUP REFUSED');
+  console.error(' Missing required production environment variables:');
+  missingVars.forEach(v => console.error('  - ' + v));
+  console.error(' Please configure these in your Render Environment Dashboard.');
+  console.error('========================================================\n');
+  process.exit(1);
+}
+
+if (!isProd && missingVars.length > 0) {
+  console.warn('\n========================================================');
+  console.warn(' [DEV WARNING] Running with DEV-ONLY INSECURE FALLBACKS:');
+  missingVars.forEach(v => console.warn('  - ' + v + ' -> DEV-ONLY-INSECURE-' + v + '-12345678'));
+  console.warn(' Set real environment variables before deploying to production.');
+  console.warn('========================================================\n');
+}
+
+const ENGINEER_PIN = process.env.ENGINEER_PIN || 'DEV-ONLY-INSECURE-ENGINEER_PIN-12345678';
+const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || 'DEV-ONLY-INSECURE-LEADERSHIP_PIN-12345678';
+const RESET_PASSWORD = process.env.RESET_PASSWORD || 'DEV-ONLY-INSECURE-RESET_PASSWORD-12345678';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'DEV-ONLY-INSECURE-SESSION_SECRET-12345678';
+
+// Validate credential strength on startup
+function validateSecretStrength(name, val) {
+  if (val.length < 8) {
+    console.warn(`[SECURITY WARNING] ${name} is shorter than 8 characters (${val.length} chars). Consider using a stronger secret.`);
+  }
+  if (/^\d+$/.test(val)) {
+    console.warn(`[SECURITY WARNING] ${name} is purely numeric. Consider combining letters, digits, and symbols.`);
+  }
+}
+validateSecretStrength('ENGINEER_PIN', ENGINEER_PIN);
+validateSecretStrength('LEADERSHIP_PIN', LEADERSHIP_PIN);
+validateSecretStrength('RESET_PASSWORD', RESET_PASSWORD);
+
+// ========================================================
+// 2. DATA DIRECTORY & PERSISTENCE NOTE
+// ========================================================
+// NOTE ON DATA PERSISTENCE:
+// By default, the app stores JSON/CSV files on local container disk in './data'.
+// On Render free-tier, local disk resets whenever the service rebuilds or restarts.
+// For enterprise data durability, attach a Render Persistent Disk mounted to './data'
+// or migrate the storage engine to SQLite/PostgreSQL.
 const DATA_DIR = path.join(__dirname, 'data');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const AUDIT_LOG_FILE = path.join(DATA_DIR, 'audit_log.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -13,7 +67,23 @@ const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
 const CSV_FILE = path.join(DATA_DIR, 'Thiruvarur_HTL_Service_Desk_Master.csv');
 const SCHOOLS_FILE = path.join(DATA_DIR, 'master_schools_182.json');
 
-// Initialize / Load Tickets DB
+// Canonical Priority Normalizer
+function normalizePriority(val, issueText) {
+  const v = (val || '').trim().toLowerCase();
+  const issue = (issueText || '').toLowerCase();
+
+  if (v.includes('crit') || issue.includes('dead') || issue.includes('not power') || issue.includes('lab off')) {
+    return 'Critical';
+  }
+  if (v.includes('high') || issue.includes('no battery') || issue.includes('no backup') || issue.includes('trip') || issue.includes('swollen') || issue.includes('smell')) {
+    return 'High';
+  }
+  if (v.includes('low') || issue.includes('minor') || issue.includes('display only')) {
+    return 'Low';
+  }
+  return 'Medium';
+}
+
 function loadTickets() {
   if (fs.existsSync(DB_FILE)) {
     try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch(e) { return []; }
@@ -39,7 +109,7 @@ function saveTickets(list) {
   const rows = list.map(t => [
     `"${t.ticketId || ''}"`,
     `"${t.createdAt || ''}"`,
-    `"${t.priority || 'Medium'}"`,
+    `"${normalizePriority(t.priority, t.issue)}"`,
     `"${t.status || 'New / Under Review'}"`,
     `"${t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'))}"`,
     `"${t.district || 'Thiruvarur'}"`,
@@ -71,9 +141,200 @@ function saveTickets(list) {
   } catch(e){}
 }
 
+// Retroactive Startup Migration: Sanitize priority and status values
+(function migrateExistingData() {
+  try {
+    const tickets = loadTickets();
+    let changed = false;
+    tickets.forEach(t => {
+      const canonicalPrio = normalizePriority(t.priority, t.issue);
+      if (t.priority !== canonicalPrio) {
+        t.priority = canonicalPrio;
+        changed = true;
+      }
+      if (t.status === 'Open / Triage' || !t.status) {
+        t.status = 'New / Under Review';
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveTickets(tickets);
+      console.log('✅ Retroactive Data Migration: Normalized priorities and statuses across tickets DB & CSV.');
+    }
+  } catch(e) {
+    console.error('Migration error:', e.message);
+  }
+})();
+
+// ========================================================
+// 3. SECURITY, SESSION & RATE-LIMITING ENGINE
+// ========================================================
+// CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
+// Add explicit CSRF tokens if state-changing routes are called cross-origin in the future.
+
+function signToken(payloadObj) {
+  const jsonStr = JSON.stringify(payloadObj);
+  const b64Data = Buffer.from(jsonStr, 'utf8').toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(b64Data).digest('base64url');
+  return b64Data + '.' + signature;
+}
+
+function verifyToken(tokenStr) {
+  if (!tokenStr || typeof tokenStr !== 'string') return null;
+  const parts = tokenStr.split('.');
+  if (parts.length !== 2) return null;
+  const [b64Data, signature] = parts;
+  const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(b64Data).digest('base64url');
+  if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    try {
+      const payload = JSON.parse(Buffer.from(b64Data, 'base64url').toString('utf8'));
+      if (payload.exp && payload.exp > Date.now()) {
+        return payload;
+      }
+    } catch(e) { return null; }
+  }
+  return null;
+}
+
+function parseCookies(req) {
+  const list = {};
+  const rc = req.headers.cookie;
+  if (rc) {
+    rc.split(';').forEach(cookie => {
+      const parts = cookie.split('=');
+      list[parts.shift().trim()] = decodeURI(parts.join('='));
+    });
+  }
+  return list;
+}
+
+function getAuthenticatedSession(req) {
+  const cookies = parseCookies(req);
+  const token = cookies.htl_session;
+  return verifyToken(token);
+}
+
+function setSessionCookie(res, userPayload) {
+  const token = signToken({
+    ...userPayload,
+    exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+  });
+  res.setHeader('Set-Cookie', `htl_session=${token}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=86400`);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader('Set-Cookie', 'htl_session=; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+}
+
+// In-Memory Rate Limiting (Max 5 failed attempts per 15 min per IP)
+const rateLimitStore = new Map();
+
+function checkRateLimit(ip, action) {
+  const key = `${action}:${ip}`;
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const record = rateLimitStore.get(key) || { count: 0, resetTime: now + windowMs };
+
+  if (now > record.resetTime) {
+    record.count = 0;
+    record.resetTime = now + windowMs;
+  }
+
+  if (record.count >= 5) {
+    const remainingSecs = Math.ceil((record.resetTime - now) / 1000);
+    return { allowed: false, remainingSecs };
+  }
+  return { allowed: true };
+}
+
+function recordFailedAttempt(ip, action) {
+  const key = `${action}:${ip}`;
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const record = rateLimitStore.get(key) || { count: 0, resetTime: now + windowMs };
+  if (now > record.resetTime) {
+    record.count = 1;
+    record.resetTime = now + windowMs;
+  } else {
+    record.count++;
+  }
+  rateLimitStore.set(key, record);
+}
+
+function recordSuccessfulAttempt(ip, action) {
+  rateLimitStore.delete(`${action}:${ip}`);
+}
+
+function logAudit(event) {
+  const entry = {
+    timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    isoTime: new Date().toISOString(),
+    ...event
+  };
+  try {
+    let list = [];
+    if (fs.existsSync(AUDIT_LOG_FILE)) {
+      try { list = JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, 'utf8')); } catch(e) { list = []; }
+    }
+    list.unshift(entry);
+    if (list.length > 500) list = list.slice(0, 500); // keep last 500 events
+    fs.writeFileSync(AUDIT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
+  } catch(e) {
+    console.error('Audit log write error:', e.message);
+  }
+}
+
+// Photo Magic Bytes & Size Validation
+function validateAndExtractPhoto(base64Str, photoNum) {
+  if (!base64Str || typeof base64Str !== 'string') {
+    return { valid: false, error: `Photo ${photoNum} is missing or empty.` };
+  }
+
+  let rawBase64 = base64Str;
+  const match = base64Str.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+  if (match) {
+    rawBase64 = match[2];
+  }
+
+  let buf;
+  try {
+    buf = Buffer.from(rawBase64, 'base64');
+  } catch(e) {
+    return { valid: false, error: `Photo ${photoNum} has invalid base64 encoding.` };
+  }
+
+  // 5MB Limit
+  if (buf.length > 5 * 1024 * 1024) {
+    return { valid: false, error: `Photo ${photoNum} exceeds 5MB size limit (Received ${(buf.length / (1024*1024)).toFixed(2)}MB).` };
+  }
+
+  if (buf.length < 50) {
+    return { valid: false, error: `Photo ${photoNum} file is too small or corrupt.` };
+  }
+
+  // Magic Bytes Check
+  // JPEG: FF D8 FF
+  const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+  // WebP: RIFF ... WEBP
+  const isWebp = buf.length > 12 && buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP';
+
+  if (!isJpeg && !isPng && !isWebp) {
+    return { valid: false, error: `Photo ${photoNum} has invalid image signature (Only genuine JPEG and PNG images are accepted).` };
+  }
+
+  const ext = isPng ? '.png' : (isWebp ? '.webp' : '.jpg');
+  return { valid: true, buffer: buf, ext: ext };
+}
+
+// ========================================================
+// 4. HTTP REQUEST ROUTER & CONTROLLER
+// ========================================================
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
+  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -91,7 +352,7 @@ const server = http.createServer((req, res) => {
     const filepath = path.join(UPLOADS_DIR, filename);
     if (fs.existsSync(filepath)) {
       const ext = path.extname(filename).toLowerCase();
-      res.writeHead(200, { 'Content-Type': ext === '.png' ? 'image/png' : 'image/jpeg' });
+      res.writeHead(200, { 'Content-Type': ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg') });
       fs.createReadStream(filepath).pipe(res);
       return;
     }
@@ -100,91 +361,140 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 1. API: Login
+  // 1. API: Login with Rate Limiting and Audit Logging
   if (pathname === '/api/login' && req.method === 'POST') {
+    const rl = checkRateLimit(clientIp, 'LOGIN');
+    if (!rl.allowed) {
+      logAudit({ action: 'LOGIN_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: `Too many failed attempts. Security lock active for ${rl.remainingSecs} seconds.`
+      }));
+      return;
+    }
+
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const { username, password, role } = JSON.parse(body);
+        const { username, password, role } = JSON.parse(body || '{}');
         const u = (username || '').trim().toLowerCase();
         const p = (password || '').trim();
 
-        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === '1234' || p === 'shameer' || p === 'tvr@123')) {
+        // Field Engineer Login
+        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && p === ENGINEER_PIN) {
+          recordSuccessfulAttempt(clientIp, 'LOGIN');
+          logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
+          setSessionCookie(res, { username: 'shameer', role: 'engineer', displayName: 'Mohamed Shameer' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/engineer', user: 'Mohamed Shameer', role: 'Field Engineer' }));
           return;
         }
 
-        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === '1234' || p === 'admin' || p === 'deo@123')) {
+        // Reporting Head Login
+        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && p === LEADERSHIP_PIN) {
+          recordSuccessfulAttempt(clientIp, 'LOGIN');
+          logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Executive Reporting Head', role: 'District Authority' });
+          setSessionCookie(res, { username: 'head', role: 'head', displayName: 'Executive Reporting Head' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/head', user: 'Executive Reporting Head', role: 'District Authority' }));
           return;
         }
 
+        // Invalid Credentials
+        recordFailedAttempt(clientIp, 'LOGIN');
+        logAudit({ action: 'LOGIN_FAILED', ip: clientIp, username: u, role: role, status: 'INVALID_CREDENTIALS' });
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Invalid Username or Password' }));
+        res.end(JSON.stringify({ success: false, error: 'Invalid Username or Security PIN.' }));
       } catch(e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Malformed request' }));
+        res.end(JSON.stringify({ success: false, error: 'Malformed request payload.' }));
       }
     });
     return;
   }
 
-  // 2. API: Create Ticket (Teacher)
+  // Logout Handler
+  if (pathname === '/logout' || pathname === '/api/logout') {
+    const session = getAuthenticatedSession(req);
+    if (session) logAudit({ action: 'LOGOUT', ip: clientIp, user: session.displayName || session.username });
+    clearSessionCookie(res);
+    res.writeHead(302, { Location: '/login' });
+    res.end();
+    return;
+  }
+
+  // 2. API: Create Ticket (Teacher) with Strict Photo Validation & Duplicate Check
   if (pathname === '/api/tickets' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const data = JSON.parse(body);
+        const data = JSON.parse(body || '{}');
         const tickets = loadTickets();
 
-        let p1Name = '';
-        let p2Name = '';
-        let p3Name = '';
+        // 1. Strict Server-Side Photo Presence & Magic Byte Check
+        const p1Res = validateAndExtractPhoto(data.photo1Base64, 1);
+        if (!p1Res.valid) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: p1Res.error }));
+          return;
+        }
+
+        const p2Res = validateAndExtractPhoto(data.photo2Base64, 2);
+        if (!p2Res.valid) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: p2Res.error }));
+          return;
+        }
+
+        const p3Res = validateAndExtractPhoto(data.photo3Base64, 3);
+        if (!p3Res.valid) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: p3Res.error }));
+          return;
+        }
+
+        // 2. Duplicate Active Ticket Prevention (Same UDISE)
+        const cleanUdise = String(data.udise || '').replace(/\D/g, '');
+        if (cleanUdise && cleanUdise.length >= 6) {
+          const existingOpen = tickets.find(t => {
+            const tUdise = String(t.udise || '').replace(/\D/g, '');
+            const isOpen = t.status === 'New / Under Review' || t.status === 'Open / Triage' || t.status === 'In Progress (Remote)' || t.status === 'Field Visit Scheduled';
+            return tUdise === cleanUdise && isOpen;
+          });
+
+          if (existingOpen) {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              error: `இந்த பள்ளிக்கு ஏற்கனவே திறந்த நிலையில் உள்ள புகார் உள்ளது (Existing Open Ticket: ${existingOpen.ticketId}). தயவுசெய்து 'Track Status' மூலம் நிலையை அறியவும்.`,
+              existingTicketId: existingOpen.ticketId
+            }));
+            return;
+          }
+        }
+
+        // 3. Save Validated Photos to Disk
         const ts = Date.now();
         const cleanSchool = (data.schoolName || 'school').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
+        const p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p1Res.ext}`;
+        const p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p2Res.ext}`;
+        const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
 
-        // Photo 1: Front Display
-        if (data.photo1Base64) {
-          const m = data.photo1Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-          if (m) {
-            p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
-            fs.writeFileSync(path.join(UPLOADS_DIR, p1Name), Buffer.from(m[2], 'base64'));
-          }
-        }
-
-        // Photo 2: Overall UPS Photo
-        if (data.photo2Base64) {
-          const m = data.photo2Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-          if (m) {
-            p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
-            fs.writeFileSync(path.join(UPLOADS_DIR, p2Name), Buffer.from(m[2], 'base64'));
-          }
-        }
-
-        // Photo 3: Battery / MCB Photo
-        if (data.photo3Base64) {
-          const m = data.photo3Base64.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-          if (m) {
-            p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}.jpg`;
-            fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), Buffer.from(m[2], 'base64'));
-          }
-        }
+        fs.writeFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
+        fs.writeFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
+        fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const ticketId = 'HTL-TVR-' + (data.udise ? data.udise.slice(-5) : String(tickets.length + 1).padStart(4, '0'));
-
-        let priority = 'Medium';
-        if (data.issue && (data.issue.includes('Dead') || data.issue.includes('Not Powering ON'))) priority = 'Critical (Lab Down)';
-        else if (data.issue && data.issue.includes('No Battery Backup')) priority = 'High (Power Risk)';
-        else if (data.issue && data.issue.includes('Tripping')) priority = 'High (Electrical)';
+        const canonicalPriority = normalizePriority(data.priority, data.issue);
 
         const newTicket = {
           ticketId: ticketId,
           createdAt: dateStr,
+          createdDate: dateStr,
           schoolId: data.schoolId || '',
           schoolName: data.schoolName || '',
           udise: data.udise || '',
@@ -192,10 +502,10 @@ const server = http.createServer((req, res) => {
           block: data.block || '',
           aiName: data.aiName || '',
           phone: data.phone || '',
-          issue: data.issue || '',
-          duration: data.duration || '',
+          issue: data.issue || 'UPS Technical Glitch',
+          duration: data.duration || 'Today',
           serialNo: data.serialNo || '',
-          priority: priority,
+          priority: canonicalPriority,
           status: 'New / Under Review',
           resolutionCategory: 'Pending',
           resolutionType: '',
@@ -205,19 +515,20 @@ const server = http.createServer((req, res) => {
           resolutionNotes: '',
           resolvedAt: '',
           photo1: p1Name,
-          photo1Url: data.photo1Base64 || (p1Name ? `/uploads/${p1Name}` : ''),
+          photo1Url: `/uploads/${p1Name}`,
           photo2: p2Name,
-          photo2Url: data.photo2Base64 || (p2Name ? `/uploads/${p2Name}` : ''),
+          photo2Url: `/uploads/${p2Name}`,
           photo3: p3Name,
-          photo3Url: data.photo3Base64 || (p3Name ? `/uploads/${p3Name}` : ''),
+          photo3Url: `/uploads/${p3Name}`,
           remarks: data.remarks || '',
           timeline: [
-            { time: dateStr, action: 'Ticket Logged', note: `Issue reported by AI ${data.aiName}. Priority set to ${priority}.` }
+            { time: dateStr, action: 'Ticket Logged by School AI', note: `புகார் பதிவு செய்யப்பட்டு களப் பொறியாளர் பார்வைக்கு அனுப்பப்பட்டது. (Priority: ${canonicalPriority})` }
           ]
         };
 
         tickets.unshift(newTicket);
         saveTickets(tickets);
+        logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, ticketId: ticketId, message: 'Ticket logged successfully!' }));
@@ -229,13 +540,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. API: Update Ticket Status (Engineer)
+  // 3. API: Update Ticket Status (Engineer - Protected)
+  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/tickets/update' && req.method === 'POST') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Authentication required. Please login.' }));
+      return;
+    }
+
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const data = JSON.parse(body);
+        const data = JSON.parse(body || '{}');
         const tickets = loadTickets();
         const ticket = tickets.find(t => t.ticketId === data.ticketId);
 
@@ -244,7 +563,7 @@ const server = http.createServer((req, res) => {
           const oldStatus = ticket.status;
 
           ticket.status = data.status || ticket.status;
-          ticket.priority = data.priority || ticket.priority;
+          ticket.priority = normalizePriority(data.priority, ticket.issue);
           ticket.resolutionCategory = data.resolutionCategory || (
             data.status === 'Resolved Remotely' ? 'Resolved Remotely' : 
             (data.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : ticket.resolutionCategory)
@@ -268,11 +587,12 @@ const server = http.createServer((req, res) => {
           });
 
           saveTickets(tickets);
+          logAudit({ action: 'TICKET_UPDATED', ip: clientIp, user: session.displayName, ticketId: data.ticketId, status: ticket.status });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'Ticket updated in ITSM engine' }));
+          res.end(JSON.stringify({ success: true, message: 'Ticket updated successfully.' }));
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Ticket not found' }));
+          res.end(JSON.stringify({ success: false, error: 'Ticket not found.' }));
         }
       } catch(err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -283,59 +603,81 @@ const server = http.createServer((req, res) => {
   }
 
   // 4. API: Delete Single Ticket (Protected)
+  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/tickets/delete' && req.method === 'POST') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Authentication required.' }));
+      return;
+    }
+
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const { ticketId, password } = JSON.parse(body || '{}');
-        const p = (password || '').trim();
-        if (p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123' || !password) {
-          let tickets = loadTickets();
-          tickets = tickets.filter(t => t.ticketId !== ticketId);
-          saveTickets(tickets);
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: `Ticket ${ticketId} deleted successfully.` }));
-        } else {
-          res.writeHead(403, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Incorrect Password' }));
-        }
+        const { ticketId } = JSON.parse(body || '{}');
+        let tickets = loadTickets();
+        tickets = tickets.filter(t => t.ticketId !== ticketId);
+        saveTickets(tickets);
+        logAudit({ action: 'TICKET_DELETED', ip: clientIp, user: session.displayName, ticketId: ticketId });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: `Ticket ${ticketId} deleted successfully.` }));
       } catch(e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Invalid Request' }));
+        res.end(JSON.stringify({ success: false, error: 'Invalid Request payload.' }));
       }
     });
     return;
   }
 
-  // 5. API: Password-Protected Reset All Data
+  // 5. API: Password-Protected Reset All Data with Rate-Limiting & Audit Log
+  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/reset-all' && req.method === 'POST') {
+    const rl = checkRateLimit(clientIp, 'RESET');
+    if (!rl.allowed) {
+      logAudit({ action: 'RESET_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
+      res.writeHead(429, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: false,
+        error: `Too many failed reset attempts. Security lockout active for ${rl.remainingSecs} seconds.`
+      }));
+      return;
+    }
+
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
         const { password } = JSON.parse(body || '{}');
         const p = (password || '').trim();
-        // Master Protection Password: shameer@reset or 1234 or shameer2026
-        if (p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123') {
+        const session = getAuthenticatedSession(req);
+        const userIdentifier = session ? session.displayName : 'Anonymous / PIN Entry';
+
+        if (p === RESET_PASSWORD) {
+          recordSuccessfulAttempt(clientIp, 'RESET');
           saveTickets([]);
+          logAudit({ action: 'FULL_DATA_RESET_SUCCESS', ip: clientIp, user: userIdentifier, status: 'SUCCESS' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: 'All incident data reset to clean slate!' }));
+          res.end(JSON.stringify({ success: true, message: 'All incident data has been completely reset.' }));
         } else {
+          recordFailedAttempt(clientIp, 'RESET');
+          logAudit({ action: 'FULL_DATA_RESET_DENIED', ip: clientIp, user: userIdentifier, status: 'INCORRECT_PASSWORD' });
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Incorrect Protection Password! Reset Denied.' }));
         }
       } catch(e) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Invalid Request' }));
+        res.end(JSON.stringify({ success: false, error: 'Invalid Request payload.' }));
       }
     });
     return;
   }
 
-  // 5. API: Data & Analytics
+  // 6. API: Data & Analytics (Scoped by Authentication & Search Privacy)
   if (pathname === '/api/data' && req.method === 'GET') {
     const tickets = loadTickets();
+    const session = getAuthenticatedSession(req);
     const totalSchools = masterSchools.length || 183;
     const totalReported = tickets.length;
     const resolvedRemotelyCount = tickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
@@ -358,6 +700,34 @@ const server = http.createServer((req, res) => {
       if (t.status === 'Vendor Escalated') blockStats[b].vendor++;
     });
 
+    // If request has track query (Public School Search):
+    const trackQ = (parsedUrl.query.track || parsedUrl.query.q || '').trim().toLowerCase();
+    const cleanTrackQ = trackQ.replace(/\D/g, '');
+
+    let ticketsResponse = [];
+    if (session) {
+      // Authenticated engineer/head gets full list (with optional pagination)
+      const page = parseInt(parsedUrl.query.page, 10) || 1;
+      const limit = parseInt(parsedUrl.query.limit, 10) || 0;
+      if (limit > 0) {
+        const start = (page - 1) * limit;
+        ticketsResponse = tickets.slice(start, start + limit);
+      } else {
+        ticketsResponse = tickets;
+      }
+    } else if (trackQ) {
+      // Unauthenticated search: Return ONLY matched tickets for that school
+      ticketsResponse = tickets.filter(t => {
+        const tId = (t.ticketId || '').toLowerCase();
+        const tUdise = String(t.udise || '').replace(/\D/g, '');
+        const tSchool = (t.schoolName || '').toLowerCase();
+        if (tId === trackQ || tId.includes(trackQ)) return true;
+        if (cleanTrackQ && cleanTrackQ.length >= 4 && tUdise.includes(cleanTrackQ)) return true;
+        if (tSchool.includes(trackQ)) return true;
+        return false;
+      });
+    }
+
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       totalSchools,
@@ -369,14 +739,20 @@ const server = http.createServer((req, res) => {
       inProgressCount,
       openCount,
       blockStats,
-      tickets,
-      masterSchools
+      tickets: ticketsResponse,
+      masterSchools: masterSchools
     }));
     return;
   }
 
-  // 6. Download Excel CSV
+  // 7. Download Master CSV (Protected)
   if (pathname === '/download-excel' || pathname === '/export') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/download-excel' });
+      res.end();
+      return;
+    }
     const tickets = loadTickets();
     saveTickets(tickets);
     if (fs.existsSync(CSV_FILE)) {
@@ -392,33 +768,77 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Views Routing
+  // ========================================================
+  // 5. VIEW ROUTING & AUTHENTICATION GUARDS
+  // ========================================================
   if (pathname === '/login') {
+    const session = getAuthenticatedSession(req);
+    if (session) {
+      res.writeHead(302, { Location: session.role === 'head' ? '/head' : '/engineer' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getLoginHtml());
     return;
   }
 
   if (pathname === '/engineer' || pathname === '/dashboard') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/engineer' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml());
     return;
   }
 
   if (pathname === '/head' || pathname === '/report' || pathname === '/admin') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(302, { Location: '/login?redirect=/head' });
+      res.end();
+      return;
+    }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml());
     return;
   }
 
-  // Default: Teacher Portal (100% Dedicated Clean Form)
+  // Default: Teacher Incident Portal (Public)
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(getTeacherPortalHtml());
 });
 
-// ==========================================
-// 1. LOGIN VIEW HTML
-// ==========================================
+// ========================================================
+// 6. WORKING-HOURS SELF-PING KEEP-ALIVE
+// ========================================================
+// NOTE: This in-process self-ping prevents an active Render instance from sleeping
+// during working hours (8:00 AM - 6:00 PM IST). Note that an in-process timer cannot
+// wake up an already-asleep instance; pair with an external pinger (e.g. UptimeRobot)
+// for complete cold-start coverage.
+setInterval(() => {
+  try {
+    const now = new Date();
+    // Convert to IST
+    const istHours = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
+    if (istHours >= 8 && istHours < 18) {
+      const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000/';
+      http.get(pingUrl, () => {
+        // silent ping
+      }).on('error', () => {});
+    }
+  } catch(e){}
+}, 10 * 60 * 1000); // every 10 minutes
+
+const PORT = process.env.PORT || 10000;
+server.listen(PORT, () => {
+  console.log(`🚀 TVR Hi-Tech Lab Service Desk running on port ${PORT}`);
+});
+
+
 function getLoginHtml() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -529,9 +949,6 @@ function getLoginHtml() {
 </html>`;
 }
 
-// ==========================================
-// 2. TEACHER PORTAL HTML (WITH OVERALL UPS PHOTO BUTTON)
-// ==========================================
 function getTeacherPortalHtml() {
   return `<!DOCTYPE html>
 <html lang="ta">
@@ -1775,9 +2192,6 @@ function getTeacherPortalHtml() {
 </html>`;
 }
 
-// ==========================================
-// 3. ENGINEER WORKBENCH HTML (WITH 3-PHOTO VIEW & PASSWORD-PROTECTED RESET)
-// ==========================================
 function getITSMWorkbenchHtml() {
   return `<!DOCTYPE html>
 <html lang="ta">
@@ -2415,8 +2829,16 @@ function getITSMWorkbenchHtml() {
     });
 
     async function loadData() {
+      const tbody = document.getElementById('tableBody');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function() { controller.abort(); }, 9000);
       try {
-        const res = await fetch('/api/data?v=' + Date.now());
+        const res = await fetch('/api/data?v=' + Date.now(), { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.status === 401) {
+          window.location.href = '/login?redirect=/engineer';
+          return;
+        }
         const data = await res.json();
         allTickets = data.tickets || [];
 
@@ -2428,7 +2850,16 @@ function getITSMWorkbenchHtml() {
 
         renderTable();
       } catch (e) {
+        clearTimeout(timeoutId);
         console.error('Data load error:', e);
+        if (tbody) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; color: #dc2626;">' +
+            '<div style="font-size:26px; margin-bottom:6px;">⚠️</div>' +
+            '<strong style="font-size:14px; display:block;">தகவல்களைப் பெறுவதில் தாமதம் / இணைப்புப் பிழை ஏற்பட்டது</strong>' +
+            '<span style="font-size:12px; color:#64748b; margin-top:3px; display:block;">Network Timeout (>9s) or Connection Error.</span>' +
+            '<button type="button" onclick="loadData()" class="btn btn-blue" style="margin-top:12px; padding:7px 16px;">🔄 மீண்டும் முயற்சிக்கவும் (Retry)</button>' +
+          '</td></tr>';
+        }
       }
     }
 
@@ -2844,9 +3275,6 @@ function getITSMWorkbenchHtml() {
 </html>`;
 }
 
-// ==========================================
-// 4. EXECUTIVE REPORTING PORTAL (WITH PASSWORD-PROTECTED RESET)
-// ==========================================
 function getITSMExecutiveHtml() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -3004,6 +3432,8 @@ function getITSMExecutiveHtml() {
 
   <script>
     async function loadData() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function() { controller.abort(); }, 9000);
       try {
         const res = await fetch('/api/data');
         const data = await res.json();
@@ -3096,8 +3526,3 @@ function getITSMExecutiveHtml() {
 </body>
 </html>`;
 }
-
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`ITSM Service Desk running on port ${PORT}`);
-});
