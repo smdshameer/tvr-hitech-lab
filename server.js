@@ -661,6 +661,117 @@ function getTeacherPortalHtml() {
     .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
     .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
 
+    /* Modern 3-Photo Upload UI */
+    .photo-upload-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+    @media (max-width: 600px) {
+      .photo-upload-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+      }
+    }
+    .photo-upload-box {
+      background: #ffffff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      transition: all 0.2s ease;
+    }
+    .photo-upload-box:hover {
+      border-color: #3b82f6;
+      box-shadow: 0 6px 16px rgba(37,99,235,0.08);
+    }
+    .photo-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-bottom: 8px;
+      line-height: 1.3;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .file-input {
+      display: none !important;
+    }
+    .file-label-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: #eff6ff;
+      border: 2px dashed #3b82f6;
+      border-radius: 12px;
+      padding: 16px 8px;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .file-label-btn:hover {
+      background: #dbeafe;
+      border-color: #1d4ed8;
+      transform: translateY(-2px);
+    }
+    .file-label-btn .icon {
+      font-size: 32px;
+    }
+    .photo-preview-wrap {
+      position: relative;
+      margin-top: 8px;
+      display: none;
+    }
+    .photo-preview-img {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 2.5px solid #10b981;
+      box-shadow: 0 4px 12px rgba(16,185,129,0.15);
+    }
+    .photo-success-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: #10b981;
+      color: white;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 999px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    }
+    .btn-retake {
+      margin-top: 8px;
+      background: #f8fafc;
+      color: #475569;
+      border: 1px solid #cbd5e1;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-block;
+      transition: all 0.15s ease;
+    }
+    .btn-retake:hover {
+      background: #fee2e2;
+      color: #b91c1c;
+      border-color: #fca5a5;
+    }
+
     .verified-school-card {
       display: none; background: #ecfdf5; border: 2px solid #10b981; border-radius: 14px;
       padding: 16px 18px; margin-bottom: 14px; position: relative;
@@ -821,23 +932,52 @@ function getTeacherPortalHtml() {
         <p style="font-size: 12.5px; color: #64748b; margin-bottom: 12px;">பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்ய 3 புகைப்படங்களை இணைப்பது கட்டாயமாகும்.</p>
 
         <div class="photo-upload-grid">
+          <!-- Photo 1 -->
           <div class="photo-upload-box">
-            <span class="photo-label">1. UPS Front Display Panel <span class="req">*</span></span>
-            <input type="file" id="photoInput1" accept="image/*" class="file-input" required>
-            <label for="photoInput1" class="file-label">📷 Take / Upload Photo 1</label>
-            <img id="preview1" class="photo-preview">
+            <div class="photo-title">1. Front Display Panel <span class="req">*</span></div>
+            <input type="file" id="photoInput1" accept="image/*" capture="environment" class="file-input" required>
+            <label for="photoInput1" id="uploadBtn1" class="file-label-btn">
+              <span class="icon">📷</span>
+              <span>Take / Upload Photo</span>
+              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(முன்புற டிஸ்ப்ளே)</small>
+            </label>
+            <div id="previewWrap1" class="photo-preview-wrap">
+              <img id="preview1" class="photo-preview-img" alt="Front Display Preview">
+              <span class="photo-success-badge">✅ Uploaded</span>
+              <button type="button" onclick="retakePhoto(1)" class="btn-retake">🔄 Retake / Change</button>
+            </div>
           </div>
+
+          <!-- Photo 2 -->
           <div class="photo-upload-box">
-            <span class="photo-label">2. Overall Lab Setup & UPS</span>
-            <input type="file" id="photoInput2" accept="image/*" class="file-input">
-            <label for="photoInput2" class="file-label">📷 Take / Upload Photo 2</label>
-            <img id="preview2" class="photo-preview">
+            <div class="photo-title">2. Overall Lab Setup</div>
+            <input type="file" id="photoInput2" accept="image/*" capture="environment" class="file-input">
+            <label for="photoInput2" id="uploadBtn2" class="file-label-btn">
+              <span class="icon">📸</span>
+              <span>Take / Upload Photo</span>
+              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(ஆய்வக முழுத் தோற்றம்)</small>
+            </label>
+            <div id="previewWrap2" class="photo-preview-wrap">
+              <img id="preview2" class="photo-preview-img" alt="Overall Lab Preview">
+              <span class="photo-success-badge">✅ Uploaded</span>
+              <button type="button" onclick="retakePhoto(2)" class="btn-retake">🔄 Retake / Change</button>
+            </div>
           </div>
+
+          <!-- Photo 3 -->
           <div class="photo-upload-box">
-            <span class="photo-label">3. Battery Bank & Breakers</span>
-            <input type="file" id="photoInput3" accept="image/*" class="file-input">
-            <label for="photoInput3" class="file-label">📷 Take / Upload Photo 3</label>
-            <img id="preview3" class="photo-preview">
+            <div class="photo-title">3. Battery Bank & MCB</div>
+            <input type="file" id="photoInput3" accept="image/*" capture="environment" class="file-input">
+            <label for="photoInput3" id="uploadBtn3" class="file-label-btn">
+              <span class="icon">🔋</span>
+              <span>Take / Upload Photo</span>
+              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(பேட்டரி வங்கி / சுவிட்ச்)</small>
+            </label>
+            <div id="previewWrap3" class="photo-preview-wrap">
+              <img id="preview3" class="photo-preview-img" alt="Battery MCB Preview">
+              <span class="photo-success-badge">✅ Uploaded</span>
+              <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 Retake / Change</button>
+            </div>
           </div>
         </div>
 
@@ -1088,7 +1228,7 @@ function getTeacherPortalHtml() {
       }
     });
 
-    function handleImageUpload(inputEl, previewEl, callback) {
+    function handleImageUpload(index, inputEl, previewEl, wrapEl, btnEl, callback) {
       inputEl.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (file) {
@@ -1098,7 +1238,7 @@ function getTeacherPortalHtml() {
             img.src = ev.target.result;
             img.onload = function() {
               const canvas = document.createElement('canvas');
-              const maxDim = 1200;
+              const maxDim = 1000;
               let width = img.width;
               let height = img.height;
               if (width > height && width > maxDim) {
@@ -1114,7 +1254,8 @@ function getTeacherPortalHtml() {
               ctx.drawImage(img, 0, 0, width, height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
               previewEl.src = dataUrl;
-              previewEl.style.display = 'block';
+              wrapEl.style.display = 'block';
+              btnEl.style.display = 'none';
               callback(dataUrl);
             };
           };
@@ -1123,9 +1264,22 @@ function getTeacherPortalHtml() {
       });
     }
 
-    handleImageUpload(document.getElementById('photoInput1'), document.getElementById('preview1'), data => { base64Photo1 = data; });
-    handleImageUpload(document.getElementById('photoInput2'), document.getElementById('preview2'), data => { base64Photo2 = data; });
-    handleImageUpload(document.getElementById('photoInput3'), document.getElementById('preview3'), data => { base64Photo3 = data; });
+    function retakePhoto(index) {
+      const input = document.getElementById('photoInput' + index);
+      const wrap = document.getElementById('previewWrap' + index);
+      const btn = document.getElementById('uploadBtn' + index);
+      input.value = '';
+      wrap.style.display = 'none';
+      btn.style.display = 'flex';
+      if (index === 1) base64Photo1 = '';
+      else if (index === 2) base64Photo2 = '';
+      else if (index === 3) base64Photo3 = '';
+      input.click();
+    }
+
+    handleImageUpload(1, document.getElementById('photoInput1'), document.getElementById('preview1'), document.getElementById('previewWrap1'), document.getElementById('uploadBtn1'), data => { base64Photo1 = data; });
+    handleImageUpload(2, document.getElementById('photoInput2'), document.getElementById('preview2'), document.getElementById('previewWrap2'), document.getElementById('uploadBtn2'), data => { base64Photo2 = data; });
+    handleImageUpload(3, document.getElementById('photoInput3'), document.getElementById('preview3'), document.getElementById('previewWrap3'), document.getElementById('uploadBtn3'), data => { base64Photo3 = data; });
 
     document.getElementById('incidentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
