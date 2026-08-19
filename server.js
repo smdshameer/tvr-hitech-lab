@@ -917,18 +917,48 @@ function getTeacherPortalHtml() {
     const searchInput = document.getElementById('schoolSearchInput');
     const suggestBox = document.getElementById('schoolSuggestionsBox');
 
+    function checkAndAutoSelect(val) {
+      const q = (val || '').trim().toLowerCase();
+      if (!q) return false;
+
+      // 1. Check exact UDISE or exact School Name
+      const exact = schoolsData.find(function(s) {
+        return (s.udise || '').toLowerCase() === q || (s.schoolName || '').toLowerCase() === q;
+      });
+      if (exact) {
+        chooseSchool(exact.id);
+        return true;
+      }
+
+      // 2. Check if query matches single school
+      const matches = schoolsData.filter(function(s) {
+        return (s.udise || '').includes(q) || (s.schoolName || '').toLowerCase().includes(q);
+      });
+      if (matches.length === 1) {
+        chooseSchool(matches[0].id);
+        return true;
+      }
+      return false;
+    }
+
     searchInput.addEventListener('input', function() {
       const q = this.value.trim().toLowerCase();
       if (!q) {
         suggestBox.style.display = 'none';
         return;
       }
-      const matches = schoolsData.filter(s => 
-        (s.schoolName || '').toLowerCase().includes(q) ||
-        (s.udise || '').includes(q) ||
-        (s.block || '').toLowerCase().includes(q) ||
-        (s.aiName || '').toLowerCase().includes(q)
-      );
+
+      // Auto-match when typing UDISE (e.g. 11 digits)
+      if (q.length >= 8 && checkAndAutoSelect(q)) {
+        return;
+      }
+
+      const matches = schoolsData.filter(function(s) {
+        return (s.schoolName || '').toLowerCase().includes(q) ||
+          (s.udise || '').includes(q) ||
+          (s.block || '').toLowerCase().includes(q) ||
+          (s.aiName || '').toLowerCase().includes(q);
+      });
 
       if (matches.length === 0) {
         suggestBox.innerHTML = '<div style="padding:12px; color:#64748b; font-size:12.5px;">பள்ளி கிடைக்கவில்லை (School not found).</div>';
@@ -936,13 +966,20 @@ function getTeacherPortalHtml() {
         return;
       }
 
-      suggestBox.innerHTML = matches.slice(0, 15).map(function(s) {
-        return '<div class="suggest-item" onclick="chooseSchool(\'' + s.id + '\')">' +
+      suggestBox.innerHTML = matches.slice(0, 20).map(function(s) {
+        return '<div class="suggest-item" onmousedown="chooseSchool(\'' + s.id + '\')">' +
           '<strong>' + s.schoolName + '</strong>' +
           '<span>📍 ' + s.block + ' Block • UDISE: ' + s.udise + ' • AI: ' + (s.aiName || '') + '</span>' +
         '</div>';
       }).join('');
       suggestBox.style.display = 'block';
+    });
+
+    searchInput.addEventListener('blur', function() {
+      setTimeout(function() {
+        checkAndAutoSelect(searchInput.value);
+        suggestBox.style.display = 'none';
+      }, 200);
     });
 
     function chooseSchool(id) {
@@ -951,6 +988,13 @@ function getTeacherPortalHtml() {
       const item = schoolsData.find(function(s) { return s.id === id; });
       if (item) {
         searchInput.value = item.schoolName + ' (' + item.udise + ')';
+        document.getElementById('dispUdise').textContent = item.udise;
+        document.getElementById('dispBlock').textContent = item.block;
+        document.getElementById('dispAi').textContent = item.aiName || '-';
+        document.getElementById('dispPhone').textContent = item.aiPhone || '-';
+        autoBox.style.display = 'grid';
+        if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
+        if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
       }
       select.dispatchEvent(new Event('change'));
     }
