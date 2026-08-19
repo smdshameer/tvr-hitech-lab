@@ -1242,15 +1242,57 @@ function getTeacherPortalHtml() {
 
     <!-- Track Ticket Container -->
     <div class="card" id="trackContainer" style="display:none;">
-      <div class="section-title">உங்கள் புகாரின் நிலையைக் கண்டறியவும்</div>
+      <div class="section-title">🔍 உங்கள் புகாரின் நிலையைக் கண்டறியவும் (Track Ticket Status)</div>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">உங்கள் டிக்கெட் எண் (எ.கா: <strong>HTL-TVR-05301</strong>) அல்லது 11-இலக்க <strong>UDISE எண்</strong> அல்லது <strong>பள்ளியின் பெயரைத்</strong> தட்டச்சு செய்து தேடவும்.</p>
+
       <div class="form-group">
-        <label class="form-label">டிக்கெட் எண் (Ticket ID) அல்லது UDISE எண்:</label>
+        <label class="form-label">டிக்கெட் எண் / UDISE எண் / பள்ளிப் பெயர்: <span class="req">*</span></label>
         <div style="display:flex; gap:10px;">
-          <input type="text" id="trackInput" class="form-control" placeholder="e.g. HTL-TVR-05301 or 33200305301">
-          <button type="button" onclick="trackTicket()" class="btn-submit" style="width:auto; padding:0 20px;">Search</button>
+          <input type="text" id="trackInput" class="form-control" placeholder="எ.கா: HTL-TVR-XXXX அல்லது 33201000507..." onkeydown="if(event.key==='Enter'){event.preventDefault();trackTicket();}">
+          <button type="button" onclick="trackTicket()" class="btn-submit" style="width:auto; padding:0 24px; white-space:nowrap; margin-top:0;">🔍 தேடுக (Search)</button>
         </div>
       </div>
-      <div id="trackResult" style="display:none; margin-top:20px;"></div>
+
+      <div id="trackResultBox" style="display:none; margin-top:20px;">
+        <div style="background:#f8fafc; border:2px solid #93c5fd; padding:18px; border-radius:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+            <div>
+              <span class="ticket-badge" id="trackTicketBadge" style="margin:0 0 6px 0; font-size:14px; padding:4px 14px;">HTL-TVR-XXXX</span>
+              <h3 id="trackSchoolName" style="font-size:16px; font-weight:800; color:#1e3a8a; margin:6px 0 2px 0;">-</h3>
+              <div id="trackMeta" style="font-size:12.5px; color:#475569;">-</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; font-weight:700; color:#64748b; margin-bottom:4px;">தற்போதைய நிலை (Status)</div>
+              <span id="trackStatusBadge" style="display:inline-block; padding:6px 14px; border-radius:999px; font-size:12.5px; font-weight:800;">-</span>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; font-size:12.5px;">
+            <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+              <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">⚠️ பதிவு செய்யப்பட்ட பழுது:</span>
+              <div id="trackIssue" style="font-weight:700; color:#0f172a; margin-top:3px;">-</div>
+            </div>
+            <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+              <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">⏱️ பழுது நீடிக்கும் காலம்:</span>
+              <div id="trackDuration" style="font-weight:700; color:#0f172a; margin-top:3px;">-</div>
+            </div>
+            <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+              <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">👨‍🔧 களப் பொறியாளர் (Field Engineer):</span>
+              <div style="font-weight:700; color:#1e3a8a; margin-top:3px;">Mohamed Shameer • 8248880683</div>
+            </div>
+            <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+              <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">🛠️ பொறியாளர் குறிப்புகள்:</span>
+              <div id="trackNotes" style="font-weight:700; color:#15803d; margin-top:3px;">-</div>
+            </div>
+          </div>
+
+          <!-- Progress Timeline -->
+          <div style="margin-top:14px; border-top:1px solid #e2e8f0; padding-top:12px;">
+            <strong style="color:#1e3a8a; font-size:13px; display:block; margin-bottom:10px;">📋 நடவடிக்கைக் காலவரிசை (Action Timeline):</strong>
+            <div id="trackTimeline" style="display:flex; flex-direction:column; gap:8px;"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Success Container -->
@@ -1619,53 +1661,80 @@ function getTeacherPortalHtml() {
 
     async function trackTicket() {
       const q = document.getElementById('trackInput').value.trim().toLowerCase();
-      if (!q) return;
+      if (!q) {
+        alert('தயவுசெய்து டிக்கெட் எண், UDISE எண் அல்லது பள்ளியின் பெயரை உள்ளிடவும்.');
+        document.getElementById('trackInput').focus();
+        return;
+      }
+
+      const box = document.getElementById('trackResultBox');
 
       try {
-        const res = await fetch('/api/data');
+        const res = await fetch('/api/data?v=' + Date.now());
         const data = await res.json();
-        const ticket = (data.tickets || []).find(t => 
-          (t.ticketId || '').toLowerCase().includes(q) || 
-          (t.udise || '').includes(q) ||
-          (t.schoolName || '').toLowerCase().includes(q)
-        );
+        const cleanQ = q.replace(/\D/g, '');
 
-        const box = document.getElementById('trackResultBox');
+        const ticket = (data.tickets || []).find(function(t) {
+          const tId = (t.ticketId || '').toLowerCase();
+          const tUdise = String(t.udise || '').replace(/\D/g, '');
+          const tSchool = (t.schoolName || '').toLowerCase();
+          const tAi = (t.aiName || '').toLowerCase();
+          const tPhone = String(t.phone || '').replace(/\D/g, '');
+
+          if (tId === q || tId.includes(q)) return true;
+          if (cleanQ && cleanQ.length >= 4 && tUdise.includes(cleanQ)) return true;
+          if (tSchool.includes(q)) return true;
+          if (tAi.includes(q)) return true;
+          if (cleanQ && cleanQ.length >= 6 && tPhone.includes(cleanQ)) return true;
+          return false;
+        });
+
         if (!ticket) {
-          alert('டிக்கெட் எண் அல்லது UDISE எண் கிடைக்கவில்லை.');
-          box.style.display = 'none';
+          alert('மன்னிக்கவும்! "' + q + '" என்ற விவரத்திற்கான டிக்கெட் எதுவும் கிடைக்கவில்லை.\n\nதயவுசெய்து டிக்கெட் எண் (எ.கா: HTL-TVR-XXXX) அல்லது 11-இலக்க UDISE எண்ணைச் சரிபார்த்து மீண்டும் தேடவும்.');
+          if (box) box.style.display = 'none';
           return;
         }
 
-        document.getElementById('trackSchoolName').textContent = ticket.ticketId + ': ' + ticket.schoolName;
-        document.getElementById('trackMeta').textContent = ticket.block + ' Block • UDISE: ' + ticket.udise + ' • AI: ' + (ticket.aiName || '') + ' (' + (ticket.phone || '') + ')';
+        document.getElementById('trackTicketBadge').textContent = ticket.ticketId || 'TICKET';
+        document.getElementById('trackSchoolName').textContent = ticket.schoolName || '-';
+        document.getElementById('trackMeta').textContent = (ticket.block || '') + ' Block • UDISE: ' + (ticket.udise || '-') + ' • AI: ' + (ticket.aiName || '-') + ' (' + (ticket.phone || '-') + ')';
+
+        document.getElementById('trackIssue').textContent = ticket.issue || 'UPS Technical Glitch';
+        document.getElementById('trackDuration').textContent = ticket.duration || 'Reported';
+        document.getElementById('trackNotes').textContent = ticket.resolutionNotes || (ticket.status === 'Open / Triage' ? 'பொறியாளர் பரிசீலனையில் உள்ளது (Awaiting Engineer Inspection)' : 'பணிகள் நடைபெற்று வருகின்றன');
 
         const badge = document.getElementById('trackStatusBadge');
-        badge.textContent = ticket.status;
-        if (ticket.status.includes('Resolved') || ticket.status.includes('Solved') || ticket.status.includes('Closed')) {
-          badge.style.background = '#dcfce7'; badge.style.color = '#15803d';
-        } else if (ticket.status.includes('Vendor')) {
-          badge.style.background = '#fee2e2'; badge.style.color = '#b91c1c';
-        } else if (ticket.status.includes('Progress')) {
-          badge.style.background = '#dbeafe'; badge.style.color = '#1e40af';
+        const st = ticket.status || 'Open / Triage';
+        badge.textContent = st;
+
+        if (st.includes('Resolved') || st.includes('Solved') || st.includes('Closed')) {
+          badge.style.background = '#dcfce7'; badge.style.color = '#15803d'; badge.style.border = '1px solid #86efac';
+        } else if (st.includes('Vendor')) {
+          badge.style.background = '#fee2e2'; badge.style.color = '#b91c1c'; badge.style.border = '1px solid #fca5a5';
+        } else if (st.includes('Progress') || st.includes('Visit Scheduled')) {
+          badge.style.background = '#dbeafe'; badge.style.color = '#1e40af'; badge.style.border = '1px solid #93c5fd';
         } else {
-          badge.style.background = '#fef3c7'; badge.style.color = '#b45309';
+          badge.style.background = '#fef3c7'; badge.style.color = '#b45309'; badge.style.border = '1px solid #fde68a';
         }
 
-        const catBadge = document.getElementById('trackCategoryBadge');
-        catBadge.textContent = ticket.resolutionCategory || 'Pending';
-
         const tl = document.getElementById('trackTimeline');
-        tl.innerHTML = (ticket.timeline || []).map(function(e) {
-          return '<div class="timeline-item">' +
-            '<strong>' + e.action + '</strong> <span style="color:#64748b; font-size:11px;">(' + e.time + ')</span>' +
-            '<p style="color:#475569; margin-top:2px;">' + (e.note || '') + '</p>' +
+        const timelineList = ticket.timeline && ticket.timeline.length > 0 ? ticket.timeline : [
+          { action: 'Ticket Logged by School AI', time: ticket.createdDate || 'Recently', note: 'புகார் வெற்றிகரமாகப் பதிவு செய்யப்பட்டு களப் பொறியாளருக்கு அனுப்பப்பட்டது.' }
+        ];
+
+        tl.innerHTML = timelineList.map(function(e) {
+          return '<div style="background:#ffffff; border-left:3px solid #2563eb; padding:8px 12px; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">' +
+            '<div style="font-size:12px; font-weight:700; color:#1e3a8a;">' + (e.action || 'Update') + ' <span style="color:#64748b; font-size:11px; font-weight:normal;">• ' + (e.time || '') + '</span></div>' +
+            '<p style="color:#334155; font-size:11.5px; margin:3px 0 0 0;">' + (e.note || '') + '</p>' +
           '</div>';
         }).join('');
 
-        box.style.display = 'block';
+        if (box) {
+          box.style.display = 'block';
+          box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       } catch (e) {
-        alert('Tracking failed.');
+        alert('டிக்கெட் விவரங்களை எடுப்பதில் பிழை ஏற்பட்டது. இணைய இணைப்பைச் சரிபார்க்கவும்.');
       }
     }
   </script>
