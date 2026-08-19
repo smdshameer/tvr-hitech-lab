@@ -1248,7 +1248,8 @@ function getITSMWorkbenchHtml() {
     td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
     tr:hover { background: #f8fafc; }
 
-    .thumb-img { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; margin-right: 4px; }
+    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1.5px solid #cbd5e1; margin-right: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); transition: transform 0.15s ease, border-color 0.15s ease; }
+    .thumb-img:hover { transform: scale(1.1); border-color: #2563eb; }
     
     .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; display: inline-block; }
     .badge-remote { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
@@ -1552,9 +1553,9 @@ function getITSMWorkbenchHtml() {
             <td><strong>\${t.ticketId}</strong><br><small style="color:#64748b;">\${t.createdAt}</small></td>
             <td>
               <div style="display:flex;">
-                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal('\${t.photo1Url}')" title="1. Front Display" onerror="this.style.display='none'">\` : ''}
-                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal('\${t.photo2Url}')" title="2. Overall UPS" onerror="this.style.display='none'">\` : ''}
-                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal('\${t.photo3Url}')" title="3. Battery / MCB" onerror="this.style.display='none'">\` : ''}
+                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal(this.src)" title="1. Front Display" onerror="this.style.display='none'">\` : ''}
+                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS" onerror="this.style.display='none'">\` : ''}
+                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery / MCB" onerror="this.style.display='none'">\` : ''}
                 \${!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : ''}
               </div>
             </td>
