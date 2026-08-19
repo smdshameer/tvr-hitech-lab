@@ -684,7 +684,7 @@ function getTeacherPortalHtml() {
         <div class="checklist-box">
           <div class="checklist-title">💡 விரைவு சுய சரிபார்ப்பு (Quick Pre-Checks before submitting):</div>
           <label class="check-item"><input type="checkbox"> EB மெயின் பவர் சப்ளை லேபிற்கு வருகிறதா? (EB Main Power Supply Active)</label>
-          <label class="check-item"><input type="checkbox"> UPS-ன் மேற்பகுதியில் உள்ள Main Input MCB Breaker ஆன் செய்யப்பட்டுள்ளதா? (Top Input MCB ON)</label>
+          <label class="check-item"><input type="checkbox"> UPS-ன் பின்புறத்தில் உள்ள Main Input MCB Breaker ஆன் செய்யப்பட்டுள்ளதா? (Backside Input MCB ON)</label>
           <label class="check-item"><input type="checkbox"> பேட்டரி ரேக்கின் (Battery Bank) பின்புற DC MCB Breaker ஆன் நிலையில் உள்ளதா? (Battery MCB ON)</label>
           <label class="check-item"><input type="checkbox"> UPS முன்புறமுள்ள Power ON பொத்தானை 3 விநாடிகள் அழுத்திப் பிடித்தீர்களா? (Hold Front ON button 3s)</label>
           <label class="check-item"><input type="checkbox"> சுவரில் உள்ள Circuit Breaker சரியாக ஆன் செய்யப்பட்டுள்ளதா? (Wall Circuit Breaker ON)</label>
@@ -1256,7 +1256,7 @@ function getITSMWorkbenchHtml() {
 
       <div class="quick-fix-bar">
         <span style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">⚡ Quick Resolution Notes:</span>
-        <button class="quick-fix-btn" onclick="applyQuickFix('Guided AI to reset top MCB breaker; UPS started normally on load.', 'Resolved Remotely')">Remote: Top MCB Reset</button>
+        <button class="quick-fix-btn" onclick="applyQuickFix('Guided AI to reset backside MCB breaker; UPS started normally on load.', 'Resolved Remotely')">Remote: Backside MCB Reset</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Switched Wall Circuit Breaker to ON; lab power active.', 'Resolved Remotely')">Remote: Circuit Breaker ON</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Visited school on-site. Replaced 15A input fuse and tightened loose battery terminal lug.', 'Solved by Direct Visit')">Direct Visit: Fuse & Lug Fix</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Visited school on-site. Replaced faulty MCB and re-calibrated inverter output voltage.', 'Solved by Direct Visit')">Direct Visit: MCB Replacement</button>
