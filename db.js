@@ -33,12 +33,12 @@ if (process.env.DATABASE_URL) {
   try {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' || process.env.RENDER ? { rejectUnauthorized: false } : false
+      ssl: { rejectUnauthorized: false }
     });
     usePostgres = true;
-    console.log('🐘 PostgreSQL connection pool initialized with DATABASE_URL.');
+    console.log('🐘 PostgreSQL / Neon connection pool initialized with DATABASE_URL (SSL Enabled).');
   } catch (err) {
-    console.error('❌ Failed to initialize PostgreSQL pool:', err.message);
+    console.error('❌ Failed to initialize PostgreSQL/Neon pool:', err.message);
     usePostgres = false;
   }
 } else {
