@@ -704,33 +704,55 @@ function getTeacherPortalHtml() {
     .file-input {
       display: none !important;
     }
-    .file-label-btn {
+    .photo-btn-group {
       display: flex;
       flex-direction: column;
+      gap: 7px;
+      margin-top: 4px;
+    }
+    .btn-camera-snap {
+      display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      background: #eff6ff;
-      border: 2px dashed #3b82f6;
-      border-radius: 12px;
-      padding: 16px 8px;
-      color: #1d4ed8;
+      gap: 7px;
+      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+      color: white;
+      border-radius: 10px;
+      padding: 10px 8px;
       font-size: 12px;
       font-weight: 700;
       cursor: pointer;
+      box-shadow: 0 2px 6px rgba(37,99,235,0.25);
+      transition: all 0.2s ease;
+      border: none;
+    }
+    .btn-camera-snap:hover {
+      background: #1e40af;
+      transform: translateY(-1px);
+    }
+    .btn-gallery-pick {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      background: #f8fafc;
+      color: #334155;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 9px 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
       transition: all 0.2s ease;
     }
-    .file-label-btn:hover {
-      background: #dbeafe;
-      border-color: #1d4ed8;
-      transform: translateY(-2px);
-    }
-    .file-label-btn .icon {
-      font-size: 32px;
+    .btn-gallery-pick:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
     }
     .photo-preview-wrap {
       position: relative;
-      margin-top: 8px;
+      margin-top: 4px;
       display: none;
     }
     .photo-preview-img {
@@ -935,12 +957,22 @@ function getTeacherPortalHtml() {
           <!-- Photo 1 -->
           <div class="photo-upload-box">
             <div class="photo-title">1. Front Display Panel <span class="req">*</span></div>
-            <input type="file" id="photoInput1" accept="image/*" capture="environment" class="file-input" required>
-            <label for="photoInput1" id="uploadBtn1" class="file-label-btn">
-              <span class="icon">📷</span>
-              <span>Take / Upload Photo</span>
-              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(முன்புற டிஸ்ப்ளே)</small>
-            </label>
+            <div id="btnGroup1" class="photo-btn-group">
+              <!-- Live Camera Input -->
+              <input type="file" id="photoCam1" accept="image/*" capture="environment" class="file-input">
+              <label for="photoCam1" class="btn-camera-snap">
+                <span style="font-size: 15px;">📷</span>
+                <span>Take Live Photo (கேமரா)</span>
+              </label>
+
+              <!-- Gallery / File Upload Input -->
+              <input type="file" id="photoFile1" accept="image/*" class="file-input">
+              <label for="photoFile1" class="btn-gallery-pick">
+                <span style="font-size: 15px;">📁</span>
+                <span>Choose from Gallery (கேலரி)</span>
+              </label>
+            </div>
+
             <div id="previewWrap1" class="photo-preview-wrap">
               <img id="preview1" class="photo-preview-img" alt="Front Display Preview">
               <span class="photo-success-badge">✅ Uploaded</span>
@@ -951,12 +983,20 @@ function getTeacherPortalHtml() {
           <!-- Photo 2 -->
           <div class="photo-upload-box">
             <div class="photo-title">2. Overall Lab Setup</div>
-            <input type="file" id="photoInput2" accept="image/*" capture="environment" class="file-input">
-            <label for="photoInput2" id="uploadBtn2" class="file-label-btn">
-              <span class="icon">📸</span>
-              <span>Take / Upload Photo</span>
-              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(ஆய்வக முழுத் தோற்றம்)</small>
-            </label>
+            <div id="btnGroup2" class="photo-btn-group">
+              <input type="file" id="photoCam2" accept="image/*" capture="environment" class="file-input">
+              <label for="photoCam2" class="btn-camera-snap">
+                <span style="font-size: 15px;">📷</span>
+                <span>Take Live Photo (கேமரா)</span>
+              </label>
+
+              <input type="file" id="photoFile2" accept="image/*" class="file-input">
+              <label for="photoFile2" class="btn-gallery-pick">
+                <span style="font-size: 15px;">📁</span>
+                <span>Choose from Gallery (கேலரி)</span>
+              </label>
+            </div>
+
             <div id="previewWrap2" class="photo-preview-wrap">
               <img id="preview2" class="photo-preview-img" alt="Overall Lab Preview">
               <span class="photo-success-badge">✅ Uploaded</span>
@@ -967,12 +1007,20 @@ function getTeacherPortalHtml() {
           <!-- Photo 3 -->
           <div class="photo-upload-box">
             <div class="photo-title">3. Battery Bank & MCB</div>
-            <input type="file" id="photoInput3" accept="image/*" capture="environment" class="file-input">
-            <label for="photoInput3" id="uploadBtn3" class="file-label-btn">
-              <span class="icon">🔋</span>
-              <span>Take / Upload Photo</span>
-              <small style="font-size: 10.5px; font-weight: normal; color: #64748b;">(பேட்டரி வங்கி / சுவிட்ச்)</small>
-            </label>
+            <div id="btnGroup3" class="photo-btn-group">
+              <input type="file" id="photoCam3" accept="image/*" capture="environment" class="file-input">
+              <label for="photoCam3" class="btn-camera-snap">
+                <span style="font-size: 15px;">📷</span>
+                <span>Take Live Photo (கேமரா)</span>
+              </label>
+
+              <input type="file" id="photoFile3" accept="image/*" class="file-input">
+              <label for="photoFile3" class="btn-gallery-pick">
+                <span style="font-size: 15px;">📁</span>
+                <span>Choose from Gallery (கேலரி)</span>
+              </label>
+            </div>
+
             <div id="previewWrap3" class="photo-preview-wrap">
               <img id="preview3" class="photo-preview-img" alt="Battery MCB Preview">
               <span class="photo-success-badge">✅ Uploaded</span>
@@ -1228,58 +1276,64 @@ function getTeacherPortalHtml() {
       }
     });
 
-    function handleImageUpload(index, inputEl, previewEl, wrapEl, btnEl, callback) {
-      inputEl.addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (file) {
-          const img = new Image();
-          const reader = new FileReader();
-          reader.onload = function(ev) {
-            img.src = ev.target.result;
-            img.onload = function() {
-              const canvas = document.createElement('canvas');
-              const maxDim = 1000;
-              let width = img.width;
-              let height = img.height;
-              if (width > height && width > maxDim) {
-                height = Math.round((height * maxDim) / width);
-                width = maxDim;
-              } else if (height > maxDim) {
-                width = Math.round((width * maxDim) / height);
-                height = maxDim;
-              }
-              canvas.width = width;
-              canvas.height = height;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, width, height);
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-              previewEl.src = dataUrl;
-              wrapEl.style.display = 'block';
-              btnEl.style.display = 'none';
-              callback(dataUrl);
-            };
+    function setupPhotoInputs(index, callback) {
+      const cam = document.getElementById('photoCam' + index);
+      const file = document.getElementById('photoFile' + index);
+      const preview = document.getElementById('preview' + index);
+      const wrap = document.getElementById('previewWrap' + index);
+      const btnGroup = document.getElementById('btnGroup' + index);
+
+      function processFile(f) {
+        if (!f) return;
+        const img = new Image();
+        const reader = new FileReader();
+        reader.onload = function(ev) {
+          img.src = ev.target.result;
+          img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1000;
+            let width = img.width;
+            let height = img.height;
+            if (width > height && width > maxDim) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else if (height > maxDim) {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            preview.src = dataUrl;
+            wrap.style.display = 'block';
+            btnGroup.style.display = 'none';
+            callback(dataUrl);
           };
-          reader.readAsDataURL(file);
-        }
-      });
+        };
+        reader.readAsDataURL(f);
+      }
+
+      if (cam) cam.addEventListener('change', function(e) { processFile(e.target.files[0]); });
+      if (file) file.addEventListener('change', function(e) { processFile(e.target.files[0]); });
     }
 
     function retakePhoto(index) {
-      const input = document.getElementById('photoInput' + index);
-      const wrap = document.getElementById('previewWrap' + index);
-      const btn = document.getElementById('uploadBtn' + index);
-      input.value = '';
-      wrap.style.display = 'none';
-      btn.style.display = 'flex';
+      const cam = document.getElementById('photoCam' + index);
+      const file = document.getElementById('photoFile' + index);
+      if (cam) cam.value = '';
+      if (file) file.value = '';
+      document.getElementById('previewWrap' + index).style.display = 'none';
+      document.getElementById('btnGroup' + index).style.display = 'flex';
       if (index === 1) base64Photo1 = '';
       else if (index === 2) base64Photo2 = '';
       else if (index === 3) base64Photo3 = '';
-      input.click();
     }
 
-    handleImageUpload(1, document.getElementById('photoInput1'), document.getElementById('preview1'), document.getElementById('previewWrap1'), document.getElementById('uploadBtn1'), data => { base64Photo1 = data; });
-    handleImageUpload(2, document.getElementById('photoInput2'), document.getElementById('preview2'), document.getElementById('previewWrap2'), document.getElementById('uploadBtn2'), data => { base64Photo2 = data; });
-    handleImageUpload(3, document.getElementById('photoInput3'), document.getElementById('preview3'), document.getElementById('previewWrap3'), document.getElementById('uploadBtn3'), data => { base64Photo3 = data; });
+    setupPhotoInputs(1, data => { base64Photo1 = data; });
+    setupPhotoInputs(2, data => { base64Photo2 = data; });
+    setupPhotoInputs(3, data => { base64Photo3 = data; });
 
     document.getElementById('incidentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
