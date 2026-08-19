@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hi-Tech Lab UPS Issue Verification - Thiruvarur</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --whatsapp: #25d366;
+      --whatsapp-hover: #1ebc57;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding: 1.5rem 1rem 3rem 1rem;
+      display: flex;
+      justify-content: center;
+    }
+
+    .form-card {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 680px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+
+    .form-header {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      color: #ffffff;
+      padding: 1.5rem;
+    }
+
+    .form-header h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+
+    .form-header p {
+      font-size: 0.82rem;
+      margin-top: 6px;
+      opacity: 0.95;
+      line-height: 1.4;
+    }
+
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .required { color: #ef4444; margin-left: 2px; }
+
+    select, input, textarea {
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #ffffff;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    select:focus, input:focus, textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(2,132,199,0.15);
+    }
+
+    .help-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .btn-submit {
+      background: var(--whatsapp);
+      color: #ffffff;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.85rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background 0.15s ease;
+      margin-top: 0.5rem;
+    }
+
+    .btn-submit:hover {
+      background: var(--whatsapp-hover);
+    }
+
+    .matched-box {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      display: none;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-card">
+    <div class="form-header">
+      <span class="badge">TN School ICT - Thiruvarur</span>
+      <h1>Hi-Tech Lab UPS Complaint Verification</h1>
+      <p>பட்டியலில் உள்ள 22 அரசுப் பள்ளிகளின் Hi-Tech Lab UPS பிரச்சனைகளை துல்லியமாகப் பதிவு செய்வதற்கான படிவம்.</p>
+    </div>
+
+    <form id="upsForm" class="form-body" onsubmit="submitForm(event)">
+
+      <!-- 1. School Selection -->
+      <div class="form-group">
+        <label for="schoolSelect">1. Select Your School (பள்ளியின் பெயர்)<span class="required">*</span></label>
+        <select id="schoolSelect" required onchange="onSchoolChange()">
+          <option value="">-- பள்ளியைத் தேர்வு செய்யவும் (22 Schools) --</option>
+        </select>
+      </div>
+
+      <!-- Matched Info Box -->
+      <div id="matchedBox" class="matched-box">
+        <div><b>UDISE:</b> <span id="lblUdise">-</span> | <b>Block:</b> <span id="lblBlock">-</span> | <b>Ticket ID:</b> <span id="lblTicket">-</span></div>
+      </div>
+
+      <!-- 2. AI Teacher Name -->
+      <div class="form-group">
+        <label for="aiName">2. AI Teacher / In-charge Name (பொறுப்பாளர் பெயர்)<span class="required">*</span></label>
+        <input type="text" id="aiName" placeholder="உங்கள் பெயரை உள்ளிடவும்" required>
+      </div>
+
+      <!-- 3. AI Contact Phone -->
+      <div class="form-group">
+        <label for="aiPhone">3. AI Mobile / WhatsApp Number (தொடர்பு எண்)<span class="required">*</span></label>
+        <input type="tel" id="aiPhone" placeholder="10 இலக்க மொபைல் எண்" pattern="[0-9]{10}" required>
+      </div>
+
+      <!-- 4. Exact UPS Status -->
+      <div class="form-group">
+        <label for="upsStatus">4. Current UPS Status (UPS-ல் உள்ள பிரச்சனை என்ன?)<span class="required">*</span></label>
+        <select id="upsStatus" required>
+          <option value="">-- பிரச்சனையைத் தேர்வு செய்யவும் --</option>
+          <option value="UPS Not Powering ON / Totally Dead">UPS Not Powering ON / Totally Dead (ஆன் ஆகவில்லை)</option>
+          <option value="No Battery Backup / Trips immediately on power cut">No Battery Backup / Trips immediately (பேக்கப் நிற்கவில்லை)</option>
+          <option value="Beep Sound Continuous / Warning Light Error">Beep Sound Continuous / Warning Light (தொடர் பீப் சத்தம்)</option>
+          <option value="UPS Not Charging / Low Voltage">UPS Not Charging / Low Voltage (சார்ஜ் ஏறவில்லை)</option>
+          <option value="Isolation Transformer / MCB Tripping Issue">Isolation Transformer / MCB Tripping (ட்ரிப் ஆகிறது)</option>
+          <option value="Already Repaired / Working Fine Now">Already Repaired / Working Fine Now (சரியாகிவிட்டது)</option>
+          <option value="Other Problem">Other Problem (வேறு பிரச்சனை)</option>
+        </select>
+      </div>
+
+      <!-- 5. Issue Duration -->
+      <div class="form-group">
+        <label for="upsDuration">5. Issue Duration (பிரச்சனை எத்தனை நாட்களாக உள்ளது?)<span class="required">*</span></label>
+        <select id="upsDuration" required>
+          <option value="Less than 1 week">Less than 1 week (1 வாரத்திற்குள்)</option>
+          <option value="1 - 3 weeks">1 - 3 weeks (1 முதல் 3 வாரங்கள்)</option>
+          <option value="More than 1 month" selected>More than 1 month (1 மாதத்திற்கும் மேலாக)</option>
+          <option value="From Installation">From Installation (நிறுவிய நாளிலிருந்தே)</option>
+        </select>
+      </div>
+
+      <!-- 6. Serial No (Optional) -->
+      <div class="form-group">
+        <label for="upsSerial">6. UPS Serial Number (தெரிந்தால் மட்டும் - Optional)</label>
+        <input type="text" id="upsSerial" placeholder="எ.கா: AVO5KVATNHL2024...">
+      </div>
+
+      <!-- 7. Remarks -->
+      <div class="form-group">
+        <label for="upsRemarks">7. Exact Remarks / கூடுதல் விவரங்கள்</label>
+        <textarea id="upsRemarks" rows="2" placeholder="எ.கா: பவர் கட் ஆனால் சிஸ்டம் உடனே ஆஃப் ஆகிறது"></textarea>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" class="btn-submit">
+        <i class="fab fa-whatsapp"></i> Submit & Send via WhatsApp to Field Engineer
+      </button>
+
+    </form>
+  </div>
+
+  <script>
+    const schools = [
+      { id: '12511', school: 'PUMS, JAMBUVANODAI THARKA', block: 'Muthupettai', udise: '33201000507', name: 'Vidhyalakshmi Mohan', phone: '9080411733' },
+      { id: '12434', school: 'PUMS THIRUKKARAVASAL', block: 'Thiruvarur', udise: '33200503001', name: 'Sathya Govindhan', phone: '9894317355' },
+      { id: '12264', school: 'PUMS KODIMANGALAM', block: 'Koradachery', udise: '33200305002', name: 'J. T. Vinotha', phone: '9597273127' },
+      { id: '11733', school: 'PUMS SERUVALUR', block: 'Nannilam', udise: '33200403101', name: 'Durga Selvam', phone: '6380437734' },
+      { id: '11716', school: 'PUMS, PAINGATTUR', block: 'Kottur', udise: '33200802601', name: 'Priyadharshini Arunagirinathan', phone: '7010623618' },
+      { id: '11567', school: 'PUMS, SONAPPETTAI', block: 'Needamangalam', udise: '33200700702', name: 'Sivaranjini Sathiyavendan', phone: '8754607077' },
+      { id: '11442', school: 'PUMS KOMAL', block: 'Thiruvarur', udise: '33200503002', name: 'Thamilmani Elango', phone: '7708233032' },
+      { id: '10950', school: 'GGHSS, KORADACHERY', block: 'Koradachery', udise: '33200305301', name: 'Kothaibharathi Tamilmani', phone: '8248880683' },
+      { id: '10883', school: 'PUMS, THILLAIVILAGAM-SOUTH', block: 'Muthupettai', udise: '33201002104', name: 'Divya R', phone: '6374196248' },
+      { id: '10800', school: 'PUMS, VALLUR', block: 'Kottur', udise: '33200804601', name: 'Vijitha Bharathi', phone: '9786615968' },
+      { id: '10792', school: 'PUMS SEKAL', block: 'Thiruthuraipoondi', udise: '33200902401', name: '', phone: '' },
+      { id: '10332', school: 'PUMS, THIRURAMESWARAM', block: 'Mannargudi', udise: '33200601701', name: 'Rajeshwari Pandian', phone: '9025742224' },
+      { id: '10206', school: 'PUMS PETTAI', block: 'Muthupettai', udise: '33201003005', name: 'Surya Arjunan', phone: '7639151448' },
+      { id: '9782', school: 'PUMS, POZHAKUDI', block: 'Nannilam', udise: '33200401601', name: 'Sathiya', phone: '6382805484' },
+      { id: '9360', school: 'PUMS, ALATHUR', block: 'Kudavasal', udise: '33200200201', name: 'Sivakami Mohankumaramangalam', phone: '9344377544' },
+      { id: '9193', school: 'GGHSS, NANNILAM', block: 'Nannilam', udise: '33200405311', name: 'Silambarasi S', phone: '8825853923' },
+      { id: '9173', school: 'PUMS PALAYANGUDI', block: 'Thiruthuraipoondi', udise: '33200902102', name: 'Balapriya Baskaran', phone: '8610894071' },
+      { id: '9151', school: 'PUMS THIRUVIDAIVASAL', block: 'Koradachery', udise: '33200302901', name: '', phone: '' },
+      { id: '9125', school: 'PUMS, THIRUMEEACHUR', block: 'Nannilam', udise: '33200401701', name: 'Renganayaki Govindharajan', phone: '6369055196' },
+      { id: '9108', school: 'PUMS, PANDARAVADAI', block: 'Nannilam', udise: '33200401801', name: 'Durgadevi N', phone: '8825438386' },
+      { id: '8699', school: 'PUMS VEPPATHANGUDI', block: 'Thiruvarur', udise: '33200504101', name: 'Kanimozhi N', phone: '9751885293' },
+      { id: '8553', school: 'PUMS RAJAKOTHAMANGALAM', block: 'Thiruthuraipoondi', udise: '33200900401', name: 'Rajalakshmi Subramanian', phone: '8220899643' }
+    ];
+
+    const selectEl = document.getElementById('schoolSelect');
+    schools.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.udise;
+      opt.innerText = `${s.school} (${s.block}) - ${s.udise}`;
+      selectEl.appendChild(opt);
+    });
+
+    function onSchoolChange() {
+      const udise = selectEl.value;
+      const found = schools.find(s => s.udise === udise);
+      const box = document.getElementById('matchedBox');
+      if (found) {
+        box.style.display = 'block';
+        document.getElementById('lblUdise').innerText = found.udise;
+        document.getElementById('lblBlock').innerText = found.block;
+        document.getElementById('lblTicket').innerText = '#' + found.id;
+        if (found.name) document.getElementById('aiName').value = found.name;
+        if (found.phone) document.getElementById('aiPhone').value = found.phone;
+      } else {
+        box.style.display = 'none';
+      }
+    }
+
+    function submitForm(e) {
+      e.preventDefault();
+      const udise = selectEl.value;
+      const found = schools.find(s => s.udise === udise);
+      const aiName = document.getElementById('aiName').value;
+      const aiPhone = document.getElementById('aiPhone').value;
+      const status = document.getElementById('upsStatus').value;
+      const duration = document.getElementById('upsDuration').value;
+      const serial = document.getElementById('upsSerial').value || 'N/A';
+      const remarks = document.getElementById('upsRemarks').value || 'N/A';
+
+      const msg = `*TN School ICT - Hi-Tech Lab UPS Complaint*\n\n` +
+        `🏫 *School:* ${found ? found.school : 'N/A'}\n` +
+        `🔢 *UDISE:* ${udise} (Ticket ID: #${found ? found.id : ''})\n` +
+        `📍 *Block:* ${found ? found.block : 'N/A'}, Thiruvarur\n` +
+        `👤 *AI Name:* ${aiName} (${aiPhone})\n\n` +
+        `⚠️ *Exact UPS Issue:* ${status}\n` +
+        `⏱️ *Duration:* ${duration}\n` +
+        `🏷️ *UPS Serial No:* ${serial}\n` +
+        `📝 *Remarks:* ${remarks}`;
+
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+      window.open(waUrl, '_blank');
+    }
+  </script>
+</body>
+</html>

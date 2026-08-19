@@ -1,0 +1,16 @@
+{
+  "name": "thiruvarur-hitech-lab-service-desk",
+  "version": "1.0.0",
+  "description": "ITSM Incident & Resolution Platform for 183 Hi-Tech Labs in Thiruvarur District",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["hitech-lab", "tamilnadu-education", "itsm", "service-desk"],
+  "author": "Mohamed Shameer",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

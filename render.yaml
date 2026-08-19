@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: tvr-hitech-lab-service-desk
+    env: node
+    plan: free
+    buildCommand: ""
+    startCommand: "node server.js"
+    envVars:
+      - key: NODE_VERSION
+        value: 20

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hi-Tech Lab Warriors Thiruvarur - AI Contact Directory & WhatsApp Group Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-elevated: #f1f5f9;
+      --border-subtle: #e2e8f0;
+      --border-focus: #2563eb;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --primary: #0284c7;
+      --primary-hover: #0369a1;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --success-text: #15803d;
+      --whatsapp: #25d366;
+      --whatsapp-dark: #128c7e;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.5;
+      padding-bottom: 60px;
+    }
+
+    /* Header */
+    .app-header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--border-subtle);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand-title-area h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .badge-tag {
+      background: #0284c7;
+      color: #ffffff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 20px;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.55rem 1rem;
+      border-radius: var(--radius-md);
+      border: 1px solid transparent;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      color: #ffffff;
+    }
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .btn-whatsapp {
+      background: var(--whatsapp-dark);
+      color: #ffffff;
+    }
+    .btn-whatsapp:hover {
+      background: #0d7063;
+    }
+
+    .btn-outline {
+      background: #ffffff;
+      color: var(--text-secondary);
+      border-color: var(--border-subtle);
+    }
+    .btn-outline:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: #ffffff;
+    }
+
+    /* Main Container */
+    .main-container {
+      max-width: 1200px;
+      margin: 1.5rem auto;
+      padding: 0 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Steps Instructions Card */
+    .steps-card {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .steps-title {
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-primary);
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .step-item {
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .step-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #0284c7;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .step-item h4 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .step-item p {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* Quick Setup Box */
+    .config-box {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .input-group label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .input-group input, .input-group select, .input-group textarea {
+      font-family: inherit;
+      font-size: 0.85rem;
+      padding: 0.55rem 0.75rem;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      background: #ffffff;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .input-group input:focus, .input-group select:focus, .input-group textarea:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+
+    .stat-box {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-info .stat-num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.1;
+    }
+
+    .stat-info .stat-lbl {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .stat-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+    }
+
+    /* Controls & Search */
+    .controls-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      background: #ffffff;
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      min-width: 260px;
+    }
+
+    .search-box i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 0.55rem 0.75rem 0.55rem 2.25rem;
+      font-size: 0.85rem;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      outline: none;
+    }
+
+    .search-box input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.35rem 0.7rem;
+      border-radius: 20px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-base);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .pill:hover, .pill.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #0284c7;
+    }
+
+    /* Directory Table / Cards */
+    .table-container {
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table.ai-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.82rem;
+    }
+
+    table.ai-table th {
+      background: #f8fafc;
+      color: var(--text-secondary);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+    }
+
+    table.ai-table td {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+
+    table.ai-table tr:hover {
+      background-color: #f8fafc;
+    }
+
+    .person-name {
+      font-weight: 700;
+      color: var(--text-primary);
+      font-size: 0.88rem;
+    }
+
+    .emp-tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: #0284c7;
+      background: #e0f2fe;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      margin-left: 0.4rem;
+      font-weight: 600;
+    }
+
+    .school-title {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .block-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #334155;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #cbd5e1;
+    }
+
+    .phone-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .action-cell {
+      white-space: nowrap;
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+    }
+
+    .btn-action-wa {
+      background: #25d366;
+      color: #ffffff;
+      border-radius: 6px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-action-wa:hover {
+      background: #1ebc57;
+    }
+
+    .btn-action-copy {
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 0.35rem 0.55rem;
+      font-size: 0.75rem;
+      cursor: pointer;
+    }
+    .btn-action-copy:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    /* Modal / Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px);
+      transition: all 0.25s ease;
+      z-index: 9999;
+    }
+    .toast.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .config-grid {
+        grid-template-columns: 1fr;
+      }
+      .header-actions {
+        width: 100%;
+      }
+      .header-actions .btn {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-title-area">
+        <h1>
+          <span>Hi-Tech Lab Warriors Thiruvarur</span>
+          <span class="badge-tag">182 AI Members</span>
+        </h1>
+        <p class="brand-subtitle">Administrator Cum Instructor (AI) Contact Directory & WhatsApp Group Tools</p>
+      </div>
+      <div class="header-actions">
+        <button id="downloadVcfBtn" class="btn btn-primary" onclick="downloadVcf()">
+          <i class="fas fa-address-book"></i> Download 182 Contacts (.vcf)
+        </button>
+        <button id="downloadCsvBtn" class="btn btn-outline" onclick="downloadCsv()">
+          <i class="fas fa-file-csv"></i> Download Excel/CSV
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-container">
+
+    <!-- Step by Step instructions -->
+    <section class="steps-card">
+      <div class="steps-title">
+        <i class="fas fa-rocket" style="color: #0284c7;"></i>
+        <span>How to Bulk-Add All 182 AI Members to WhatsApp Group</span>
+      </div>
+      <div class="steps-grid">
+        <div class="step-item">
+          <span class="step-badge">Step 1</span>
+          <h4>Import All Contacts</h4>
+          <p>Click <b>Download 182 Contacts (.vcf)</b> and open it on your phone. All 182 members will be added to your contacts with tag <code>[HTL-TVR]</code>.</p>
+        </div>
+        <div class="step-item">
+          <span class="step-badge">Step 2</span>
+          <h4>Create WhatsApp Group</h4>
+          <p>Create group <b>"Hi-Tech lab Warriors Thiruvarur"</b> in WhatsApp. Search <code>HTL-TVR</code> or <code>Thiruvarur</code> to select all 182 AI instructors.</p>
+        </div>
+        <div class="step-item">
+          <span class="step-badge">Step 3</span>
+          <h4>Clean Contact List</h4>
+          <p>Once all members are in the group, you can batch-delete the temporary <code>HTL-TVR</code> contacts from your phone. They stay in the group!</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- WhatsApp Group Message & Link Customizer -->
+    <section class="config-box">
+      <div class="steps-title">
+        <i class="fab fa-whatsapp" style="color: #25d366;"></i>
+        <span>Custom Group Invite & Welcome Message</span>
+      </div>
+      <div class="config-grid">
+        <div class="input-group">
+          <label for="groupInviteLink">WhatsApp Group Invite Link</label>
+          <input type="text" id="groupInviteLink" placeholder="https://chat.whatsapp.com/..." oninput="updateInviteLinks()">
+        </div>
+        <div class="input-group">
+          <label for="customMessage">Message Template (English / Tamil)</label>
+          <textarea id="customMessage" rows="2" oninput="updateInviteLinks()">Vanakkam {NAME} AI ({SCHOOL}, {BLOCK}). Please join our official Thiruvarur District Hi-Tech Lab Warriors group for project updates & support: {LINK}</textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="stats-bar">
+      <div class="stat-box">
+        <div class="stat-info">
+          <div class="stat-num" id="totalCountDisplay">182</div>
+          <div class="stat-lbl">Total AI Members</div>
+        </div>
+        <div class="stat-icon-wrap" style="background: #e0f2fe; color: #0284c7;">
+          <i class="fas fa-users"></i>
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-info">
+          <div class="stat-num">10</div>
+          <div class="stat-lbl">Educational Blocks</div>
+        </div>
+        <div class="stat-icon-wrap" style="background: #fef3c7; color: #d97706;">
+          <i class="fas fa-map-location-dot"></i>
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-info">
+          <div class="stat-num">100%</div>
+          <div class="stat-lbl">Thiruvarur District</div>
+        </div>
+        <div class="stat-icon-wrap" style="background: #dcfce7; color: #16a34a;">
+          <i class="fas fa-shield-halved"></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- Controls Row -->
+    <section class="controls-row">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Search by name, school, block, emp ID, or phone..." oninput="filterDirectory()">
+      </div>
+      <div class="filter-pills" id="blockPills">
+        <button class="pill active" onclick="setBlockFilter('ALL')">All (182)</button>
+      </div>
+    </section>
+
+    <!-- Directory Table -->
+    <section class="table-container">
+      <div class="table-wrapper">
+        <table class="ai-table">
+          <thead>
+            <tr>
+              <th style="width: 40px;">#</th>
+              <th>AI Instructor / Admin</th>
+              <th>School & Udise</th>
+              <th>Block</th>
+              <th>Contact Number</th>
+              <th style="text-align: right;">WhatsApp Actions</th>
+            </tr>
+          </thead>
+          <tbody id="directoryTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <i class="fas fa-check-circle" style="color: #22c55e;"></i>
+    <span id="toastMsg">Action completed</span>
+  </div>
+
+  <script>
+    let members = [];
+    let currentBlock = 'ALL';
+    let searchQuery = '';
+
+    // Fetch JSON data
+    fetch('Hi-Tech_Lab_Warriors_Thiruvarur_Directory.json')
+      .then(res => res.json())
+      .then(data => {
+        members = data;
+        initBlocks();
+        renderTable();
+      })
+      .catch(err => {
+        console.error('Error loading data:', err);
+      });
+
+    function initBlocks() {
+      const blocks = [...new Set(members.map(m => m.block))].sort();
+      const container = document.getElementById('blockPills');
+      blocks.forEach(b => {
+        const count = members.filter(m => m.block === b).length;
+        const btn = document.createElement('button');
+        btn.className = 'pill';
+        btn.innerText = `${b} (${count})`;
+        btn.onclick = () => setBlockFilter(b, btn);
+        container.appendChild(btn);
+      });
+    }
+
+    function setBlockFilter(block, el) {
+      currentBlock = block;
+      document.querySelectorAll('.filter-pills .pill').forEach(p => p.classList.remove('active'));
+      if (el) el.classList.add('active');
+      else document.querySelector('.filter-pills .pill').classList.add('active');
+      renderTable();
+    }
+
+    function filterDirectory() {
+      searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+      renderTable();
+    }
+
+    function getFilteredList() {
+      return members.filter(m => {
+        const matchesBlock = currentBlock === 'ALL' || m.block === currentBlock;
+        if (!matchesBlock) return false;
+        if (!searchQuery) return true;
+        return (
+          m.name.toLowerCase().includes(searchQuery) ||
+          m.school.toLowerCase().includes(searchQuery) ||
+          m.block.toLowerCase().includes(searchQuery) ||
+          m.empId.toLowerCase().includes(searchQuery) ||
+          m.phone.includes(searchQuery) ||
+          m.udise.includes(searchQuery)
+        );
+      });
+    }
+
+    function renderTable() {
+      const list = getFilteredList();
+      document.getElementById('totalCountDisplay').innerText = list.length;
+      const tbody = document.getElementById('directoryTableBody');
+      tbody.innerHTML = '';
+
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem; color: var(--text-muted);">No members match your search criteria.</td></tr>`;
+        return;
+      }
+
+      const inviteLink = document.getElementById('groupInviteLink').value.trim();
+      const msgTemplate = document.getElementById('customMessage').value;
+
+      list.forEach((m, idx) => {
+        const tr = document.createElement('tr');
+        
+        let msg = msgTemplate
+          .replace('{NAME}', m.name)
+          .replace('{SCHOOL}', m.school)
+          .replace('{BLOCK}', m.block)
+          .replace('{LINK}', inviteLink);
+
+        const waUrl = `https://wa.me/${m.phone.replace('+', '')}?text=${encodeURIComponent(msg)}`;
+
+        tr.innerHTML = `
+          <td style="color: var(--text-muted); font-weight: 600;">${m.sno}</td>
+          <td>
+            <div class="person-name">${m.name} <span class="emp-tag">${m.empId}</span></div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Administrator Cum Instructor</div>
+          </td>
+          <td>
+            <div class="school-title">${m.school}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">UDISE: ${m.udise}</div>
+          </td>
+          <td><span class="block-badge">${m.block}</span></td>
+          <td><span class="phone-text">${m.phone}</span></td>
+          <td style="text-align: right;">
+            <div class="action-cell" style="justify-content: flex-end;">
+              <a href="${waUrl}" target="_blank" class="btn-action-wa" title="Open WhatsApp Chat">
+                <i class="fab fa-whatsapp"></i> Chat
+              </a>
+              <button class="btn-action-copy" onclick="copyText('${m.phone}', 'Phone number copied!')" title="Copy Phone Number">
+                <i class="fas fa-copy"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateInviteLinks() {
+      renderTable();
+    }
+
+    function copyText(text, msg) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(msg || 'Copied to clipboard!');
+      });
+    }
+
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMsg').innerText = text;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    function downloadVcf() {
+      window.location.href = 'Hi-Tech_Lab_Warriors_Thiruvarur_182_Contacts.vcf';
+      showToast('Downloading 182 Contacts (.vcf)...');
+    }
+
+    function downloadCsv() {
+      window.location.href = 'Hi-Tech_Lab_Warriors_Thiruvarur_Google_Contacts.csv';
+      showToast('Downloading CSV file...');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+[
+  {
+    "ticketId": "HTL-TVR-05301",
+    "createdAt": "19/8/2026, 2:09:12 pm",
+    "schoolId": "TVR-011",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "district": "Thiruvarur",
+    "block": "Koradachery",
+    "aiName": "Kothaibharathi Tamilmani",
+    "phone": "8248880683",
+    "issue": "UPS Not Powering ON / Completely Dead",
+    "duration": "More than 1 month",
+    "serialNo": "",
+    "priority": "Critical (Lab Down)",
+    "status": "Resolved Remotely",
+    "resolutionCategory": "Resolved Remotely",
+    "resolutionType": "",
+    "vendorName": "",
+    "vendorTicketNo": "",
+    "partsRequired": "",
+    "resolutionNotes": "",
+    "resolvedAt": "19/8/2026, 2:09:53 pm",
+    "photo1": "UPS_F_33200305301_GGHSS_KORADACHERY_1787128752160.jpg",
+    "photo1Url": "/uploads/UPS_F_33200305301_GGHSS_KORADACHERY_1787128752160.jpg",
+    "photo2": "UPS_B_33200305301_GGHSS_KORADACHERY_1787128752160.jpg",
+    "photo2Url": "/uploads/UPS_B_33200305301_GGHSS_KORADACHERY_1787128752160.jpg",
+    "remarks": "not working",
+    "timeline": [
+      {
+        "time": "19/8/2026, 2:09:53 pm",
+        "action": "Status updated: Resolved Remotely",
+        "note": "Updated by Field Engineer Mohamed Shameer (Resolved Remotely)"
+      },
+      {
+        "time": "19/8/2026, 2:09:12 pm",
+        "action": "Ticket Logged",
+        "note": "Issue reported by AI Kothaibharathi Tamilmani. Priority set to Critical (Lab Down)."
+      }
+    ]
+  }
+]
