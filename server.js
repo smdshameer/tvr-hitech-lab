@@ -1367,8 +1367,15 @@ function getITSMWorkbenchHtml() {
   </div>
 
   <!-- Image Modal -->
-  <div id="imgModal" class="modal" onclick="this.style.display='none'">
-    <img id="modalImg" class="modal-content">
+  <div id="imgModal" class="modal" onclick="this.style.display='none'" style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); cursor: zoom-out;">
+    <div style="background: white; padding: 16px; border-radius: 16px; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; align-items: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative;" onclick="event.stopPropagation()">
+      <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span style="font-size:14px; font-weight:700; color:#1e293b;">📸 UPS Visual Inspection Photo</span>
+        <button onclick="document.getElementById('imgModal').style.display='none'" style="background:#f1f5f9; border:none; padding:4px 10px; border-radius:6px; font-weight:700; cursor:pointer;">✕ Close</button>
+      </div>
+      <img id="modalImg" style="min-width: 320px; max-width: 85vw; max-height: 75vh; width: auto; height: auto; object-fit: contain; border-radius: 10px; box-shadow: 0 4px 14px rgba(0,0,0,0.15);">
+      <span style="margin-top:8px; font-size:12px; color:#64748b;">(Click anywhere outside or ✕ Close to return)</span>
+    </div>
   </div>
 
   <!-- ITSM Manage Modal with the 2 Categories -->
