@@ -5,16 +5,46 @@ const url = require('url');
 const crypto = require('crypto');
 
 // ========================================================
-// 1. CREDENTIALS & SECURITY CONFIGURATION
+// 1. CREDENTIALS & PRODUCTION STARTUP ENFORCEMENT
 // ========================================================
-const ENGINEER_PIN = process.env.ENGINEER_PIN || '1234';
-const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || '1234';
-const RESET_PASSWORD = process.env.RESET_PASSWORD || 'shameer@reset';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'HTL-TVR-2026-SuperStrongSecretKey!';
+const isProd = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+
+const REQUIRED_ENV_VARS = ['ENGINEER_PIN', 'LEADERSHIP_PIN', 'RESET_PASSWORD', 'SESSION_SECRET'];
+const missingVars = REQUIRED_ENV_VARS.filter(k => !process.env[k]);
+
+if (isProd && missingVars.length > 0) {
+  console.error('\n========================================================');
+  console.error(' [FATAL ERROR] PRODUCTION STARTUP REFUSED');
+  console.error(' Missing required production environment variables:');
+  missingVars.forEach(v => console.error('  - ' + v));
+  console.error(' Please configure these in your Render Environment Dashboard.');
+  console.error('========================================================\n');
+  process.exit(1);
+}
+
+if (!isProd && missingVars.length > 0) {
+  console.warn('\n========================================================');
+  console.warn(' [DEV WARNING] Running with DEV-ONLY INSECURE FALLBACKS:');
+  missingVars.forEach(v => console.warn('  - ' + v + ' -> DEV-ONLY-INSECURE-' + v + '-12345678'));
+  console.warn(' Set real environment variables before deploying to production.');
+  console.warn('========================================================\n');
+}
+
+const ENGINEER_PIN = process.env.ENGINEER_PIN || 'DEV-ONLY-INSECURE-ENGINEER_PIN-12345678';
+const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || 'DEV-ONLY-INSECURE-LEADERSHIP_PIN-12345678';
+const RESET_PASSWORD = process.env.RESET_PASSWORD || 'DEV-ONLY-INSECURE-RESET_PASSWORD-12345678';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'DEV-ONLY-INSECURE-SESSION_SECRET-12345678';
 
 // ========================================================
 // 2. DATA PERSISTENCE, BACKUP & STORAGE ENGINE
 // ========================================================
+// DATA PERSISTENCE ARCHITECTURE:
+// 1. Primary Tickets DB: Stored in './data/htl_itsm_tickets.json'
+// 2. Export Master CSV: Stored in './data/Thiruvarur_HTL_Service_Desk_Master.csv'
+// 3. Inspection Photos: Saved as physical files in './uploads/' AND embedded as
+//    compressed Base64 in each ticket record (photo1Url, photo2Url, photo3Url)
+//    ensuring images survive filesystem restarts.
+// 4. Automated Rolling Backups: './data/backups/htl_tickets_backup_YYYY-MM-DD.json'
 const DATA_DIR = path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
@@ -115,6 +145,26 @@ function createSnapshotBackup() {
 }
 createSnapshotBackup();
 setInterval(createSnapshotBackup, 12 * 60 * 60 * 1000); // every 12 hours
+
+// Retroactive Priority Migration
+(function migrateExistingData() {
+  try {
+    const tickets = loadTickets();
+    let changed = false;
+    tickets.forEach(t => {
+      const canonicalPrio = normalizePriority(t.priority, t.issue);
+      if (t.priority !== canonicalPrio) {
+        t.priority = canonicalPrio;
+        changed = true;
+      }
+      if (t.status === 'Open / Triage' || !t.status) {
+        t.status = 'New / Under Review';
+        changed = true;
+      }
+    });
+    if (changed) saveTickets(tickets);
+  } catch(e){}
+})();
 
 // ========================================================
 // 3. SECURITY, SESSION & RATE-LIMITING ENGINE
@@ -327,7 +377,7 @@ const server = http.createServer((req, res) => {
         const p = (password || '').trim();
 
         // Field Engineer Login
-        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === ENGINEER_PIN || p === '1234' || p === 'shameer' || p === 'Shameer@2026!')) {
+        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === ENGINEER_PIN || (!isProd && (p === '1234' || p === 'shameer')))) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
           logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
           setSessionCookie(res, { username: 'shameer', role: 'engineer', displayName: 'Mohamed Shameer' });
@@ -337,7 +387,7 @@ const server = http.createServer((req, res) => {
         }
 
         // Reporting Head Login
-        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === LEADERSHIP_PIN || p === '1234' || p === 'admin' || p === 'Leadership@2026!')) {
+        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === LEADERSHIP_PIN || (!isProd && (p === '1234' || p === 'admin')))) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
           logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Executive Reporting Head', role: 'District Authority' });
           setSessionCookie(res, { username: 'head', role: 'head', displayName: 'Executive Reporting Head' });
@@ -616,7 +666,7 @@ const server = http.createServer((req, res) => {
         const session = getAuthenticatedSession(req);
         const userIdentifier = session ? session.displayName : 'Anonymous / PIN Entry';
 
-        if (p === RESET_PASSWORD || p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123') {
+        if (p === RESET_PASSWORD || (!isProd && (p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123'))) {
           recordSuccessfulAttempt(clientIp, 'RESET');
           saveTickets([]);
           logAudit({ action: 'FULL_DATA_RESET_SUCCESS', ip: clientIp, user: userIdentifier, status: 'SUCCESS' });
