@@ -99,7 +99,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // API: Authentication Login
+  // 1. API: Login
   if (pathname === '/api/login' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -109,14 +109,12 @@ const server = http.createServer((req, res) => {
         const u = (username || '').trim().toLowerCase();
         const p = (password || '').trim();
 
-        // Engineer Creds: shameer / 1234 or shameer / engineer
         if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === '1234' || p === 'shameer' || p === 'tvr@123')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/engineer', user: 'Mohamed Shameer', role: 'Field Engineer' }));
           return;
         }
 
-        // Head / Admin Creds: head / 1234 or admin / 1234
         if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === '1234' || p === 'admin' || p === 'deo@123')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/head', user: 'Executive Reporting Head', role: 'District Authority' }));
@@ -133,7 +131,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 1. API: Create Ticket
+  // 2. API: Create Ticket (Teacher)
   if (pathname === '/api/tickets' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -216,7 +214,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. API: Update Ticket Status
+  // 3. API: Update Ticket Status (Engineer)
   if (pathname === '/api/tickets/update' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -267,7 +265,32 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. API: Data & Analytics
+  // 4. API: Password-Protected Reset All Data
+  if (pathname === '/api/reset-all' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { password } = JSON.parse(body || '{}');
+        const p = (password || '').trim();
+        // Master Protection Password: shameer@reset or 1234 or shameer2026
+        if (p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123') {
+          saveTickets([]);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'All incident data reset to clean slate!' }));
+        } else {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Incorrect Protection Password! Reset Denied.' }));
+        }
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid Request' }));
+      }
+    });
+    return;
+  }
+
+  // 5. API: Data & Analytics
   if (pathname === '/api/data' && req.method === 'GET') {
     const tickets = loadTickets();
     const totalSchools = masterSchools.length || 183;
@@ -309,7 +332,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 4. Download Excel CSV
+  // 6. Download Excel CSV
   if (pathname === '/download-excel' || pathname === '/export') {
     const tickets = loadTickets();
     saveTickets(tickets);
@@ -345,13 +368,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Default: Teacher Portal with Login Button
+  // Default: Teacher Portal
   res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
   res.end(getTeacherPortalHtml());
 });
 
 // ==========================================
-// LOGIN VIEW HTML
+// 1. LOGIN VIEW HTML
 // ==========================================
 function getLoginHtml() {
   return `<!DOCTYPE html>
@@ -463,7 +486,9 @@ function getLoginHtml() {
 </html>`;
 }
 
-// Teacher Portal HTML with Login Link
+// ==========================================
+// 2. TEACHER PORTAL HTML
+// ==========================================
 function getTeacherPortalHtml() {
   return `<!DOCTYPE html>
 <html lang="ta">
@@ -1017,7 +1042,9 @@ function getTeacherPortalHtml() {
 </html>`;
 }
 
-// Write the teacher view
+// ==========================================
+// 3. ENGINEER WORKBENCH HTML (WITH PASSWORD-PROTECTED RESET)
+// ==========================================
 function getITSMWorkbenchHtml() {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1044,6 +1071,8 @@ function getITSMWorkbenchHtml() {
     .btn-green:hover { background: #15803d; }
     .btn-blue { background: #2563eb; color: white; }
     .btn-blue:hover { background: #1d4ed8; }
+    .btn-reset { background: #dc2626; color: white; }
+    .btn-reset:hover { background: #b91c1c; }
     .btn-logout { background: #64748b; color: white; }
     .btn-logout:hover { background: #475569; }
     .btn-whatsapp { background: #22c55e; color: white; padding: 6px 12px; border-radius: 8px; font-size: 12px; }
@@ -1110,6 +1139,7 @@ function getITSMWorkbenchHtml() {
         <div class="header-sub">Logged in as: <strong>Mohamed Shameer</strong> • Incident Triage Hub (Thiruvarur - 183 Schools)</div>
       </div>
       <div class="actions">
+        <button onclick="openResetModal()" class="btn btn-reset">🔄 Reset All Data</button>
         <a href="/head" class="btn btn-blue">Executive Report View 📊</a>
         <a href="/download-excel" class="btn btn-green">📥 Export Master Excel (.CSV)</a>
         <a href="/login" class="btn btn-logout">🔒 Switch / Logout</a>
@@ -1231,8 +1261,8 @@ function getITSMWorkbenchHtml() {
 
       <div class="quick-fix-bar">
         <span style="font-size: 11px; font-weight: 700; color: #64748b; display: block; margin-bottom: 4px;">⚡ Quick Resolution Notes:</span>
-        <button class="quick-fix-btn" onclick="applyQuickFix('Guided AI to reset rear MCB breaker; UPS started normally on load.', 'Resolved Remotely')">Remote: MCB Reset</button>
-        <button class="quick-fix-btn" onclick="applyQuickFix('Switched Bypass mode to Normal Line; lab load operational.', 'Resolved Remotely')">Remote: Bypass Fix</button>
+        <button class="quick-fix-btn" onclick="applyQuickFix('Guided AI to reset top MCB breaker; UPS started normally on load.', 'Resolved Remotely')">Remote: Top MCB Reset</button>
+        <button class="quick-fix-btn" onclick="applyQuickFix('Switched Wall Circuit Breaker to ON; lab power active.', 'Resolved Remotely')">Remote: Circuit Breaker ON</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Visited school on-site. Replaced 15A input fuse and tightened loose battery terminal lug.', 'Solved by Direct Visit')">Direct Visit: Fuse & Lug Fix</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Visited school on-site. Replaced faulty MCB and re-calibrated inverter output voltage.', 'Solved by Direct Visit')">Direct Visit: MCB Replacement</button>
         <button class="quick-fix-btn" onclick="applyQuickFix('Inverter PCB blown / Battery dead. On-site vendor technician required.', 'Vendor Escalated')">Vendor Escalation</button>
@@ -1253,6 +1283,22 @@ function getITSMWorkbenchHtml() {
       <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
         <button onclick="closeActionModal()" class="btn" style="background:#e2e8f0; color:#475569;">Cancel</button>
         <button onclick="saveTicketUpdate()" class="btn btn-green">Save Resolution</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Protection Modal -->
+  <div id="resetModal" class="modal">
+    <div class="action-modal" style="width: 480px;">
+      <h2 style="color: #b91c1c; display:flex; align-items:center; gap:8px;">⚠️ Confirm Full Data Reset</h2>
+      <p style="font-size:13px; color:#475569; margin-bottom:14px;">This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.</p>
+      
+      <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Enter Master Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
+      <input type="password" id="resetPasswordInput" placeholder="Enter Protection Password" style="margin-bottom:14px;">
+      
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button onclick="closeResetModal()" class="btn" style="background:#e2e8f0; color:#475569;">Cancel</button>
+        <button onclick="executeSecureReset()" class="btn btn-reset">Confirm & Reset All</button>
       </div>
     </div>
   </div>
@@ -1442,6 +1488,289 @@ function getITSMWorkbenchHtml() {
         }
       } catch(e) {
         alert('Update failed.');
+      }
+    }
+
+    function openResetModal() {
+      document.getElementById('resetPasswordInput').value = '';
+      document.getElementById('resetModal').style.display = 'flex';
+    }
+
+    function closeResetModal() {
+      document.getElementById('resetModal').style.display = 'none';
+    }
+
+    async function executeSecureReset() {
+      const pwd = document.getElementById('resetPasswordInput').value.trim();
+      if (!pwd) {
+        alert('Please enter the Master Protection Password.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/reset-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const d = await res.json();
+        if (d.success) {
+          alert('✅ All data has been cleanly reset to 0 tickets!');
+          closeResetModal();
+          loadData();
+        } else {
+          alert('❌ ' + d.error);
+        }
+      } catch(e) {
+        alert('Reset request failed.');
+      }
+    }
+
+    loadData();
+    setInterval(loadData, 5000);
+  </script>
+</body>
+</html>`;
+}
+
+// ==========================================
+// 4. EXECUTIVE REPORTING PORTAL (WITH PASSWORD-PROTECTED RESET)
+// ==========================================
+function getITSMExecutiveHtml() {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Executive Reporting Portal - Thiruvarur District Hi-Tech Labs</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: #f8fafc; color: #0f172a; padding: 24px; line-height: 1.5; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    
+    .header-banner {
+      background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px;
+      margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
+    }
+    .header-banner h1 { font-size: 24px; font-weight: 800; color: #1e3a8a; }
+    .header-banner p { font-size: 14px; color: #64748b; margin-top: 4px; }
+    
+    .actions { display: flex; gap: 10px; }
+    .btn {
+      padding: 12px 20px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 14px;
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer; border: none;
+    }
+    .btn-excel { background: #16a34a; color: white; box-shadow: 0 4px 10px rgba(22, 163, 74, 0.2); }
+    .btn-excel:hover { background: #15803d; }
+    .btn-print { background: #1e293b; color: white; }
+    .btn-print:hover { background: #0f172a; }
+    .btn-reset { background: #dc2626; color: white; }
+    .btn-reset:hover { background: #b91c1c; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card { background: white; padding: 20px; border-radius: 14px; border: 1px solid #e2e8f0; }
+    .kpi-card span { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+    .kpi-card h3 { font-size: 28px; font-weight: 800; margin-top: 4px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1.6fr; gap: 20px; margin-bottom: 24px; }
+    .card { background: white; border-radius: 14px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .card-title { font-size: 16px; font-weight: 800; margin-bottom: 16px; color: #1e3a8a; }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+    th { background: #f8fafc; padding: 12px 14px; font-weight: 700; color: #475569; border-bottom: 1px solid #e2e8f0; }
+    td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:hover { background: #f8fafc; }
+
+    .thumb-img { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #cbd5e1; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+    .action-modal { background: white; padding: 24px; border-radius: 16px; width: 480px; max-width: 95%; }
+    .action-modal h2 { font-size: 18px; font-weight: 800; margin-bottom: 14px; color: #1e3a8a; }
+    .action-modal input { width: 100%; padding: 10px 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 13.5px; margin-bottom: 12px; }
+
+    @media print {
+      body { padding: 0; background: white; }
+      .actions, .btn { display: none !important; }
+      .header-banner { border: none; box-shadow: none; padding: 0; margin-bottom: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-banner">
+      <div>
+        <h1>Executive Service Desk & Resolution Action Center</h1>
+        <p>Tamil Nadu School ICT Project • Thiruvarur District (All 183 Hi-Tech Lab Schools)</p>
+      </div>
+      <div class="actions">
+        <button onclick="openResetModal()" class="btn btn-reset">🔄 Reset All Data</button>
+        <button onclick="window.print()" class="btn btn-print">🖨️ Print Executive Report</button>
+        <a href="/download-excel" class="btn btn-excel">📥 Export Master Excel (.CSV)</a>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <span>TOTAL SCHOOLS</span>
+        <h3 id="headTotal">183</h3>
+      </div>
+      <div class="kpi-card">
+        <span>TOTAL REPORTED</span>
+        <h3 id="headReported" style="color: #2563eb;">0</h3>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #16a34a;">
+        <span>1. RESOLVED REMOTELY</span>
+        <h3 id="headResolvedRemote" style="color: #16a34a;">0</h3>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #4f46e5;">
+        <span>2. SOLVED BY DIRECT VISIT</span>
+        <h3 id="headSolvedDirect" style="color: #4f46e5;">0</h3>
+      </div>
+      <div class="kpi-card" style="border-left: 4px solid #dc2626;">
+        <span>VENDOR ESCALATIONS</span>
+        <h3 id="headVendor" style="color: #dc2626;">0</h3>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">📍 10 Blocks Resolution Matrix</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Block</th>
+              <th>Total</th>
+              <th>Reported</th>
+              <th>Resolved Remote</th>
+              <th>Solved Direct</th>
+              <th>Vendor</th>
+            </tr>
+          </thead>
+          <tbody id="blockTableBody">
+            <tr><td colspan="6" style="text-align:center; padding: 20px; color:#94a3b8;">Loading blocks...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🚨 Actionable Hardware / Vendor Replacement Escalations</div>
+        <table>
+          <thead>
+            <tr>
+              <th>Ticket & Photo</th>
+              <th>School & Block</th>
+              <th>Fault & Serial No</th>
+              <th>Vendor & Call #</th>
+              <th>Parts Required</th>
+            </tr>
+          </thead>
+          <tbody id="vendorTableBody">
+            <tr><td colspan="5" style="text-align:center; padding: 20px; color:#94a3b8;">No pending vendor escalations.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Protection Modal -->
+  <div id="resetModal" class="modal">
+    <div class="action-modal">
+      <h2 style="color: #b91c1c; display:flex; align-items:center; gap:8px;">⚠️ Confirm Full Data Reset</h2>
+      <p style="font-size:13px; color:#475569; margin-bottom:14px;">This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.</p>
+      
+      <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Enter Master Security Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
+      <input type="password" id="resetPasswordInput" placeholder="Enter Protection Password" style="margin-bottom:14px;">
+      
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button onclick="closeResetModal()" class="btn" style="background:#e2e8f0; color:#475569;">Cancel</button>
+        <button onclick="executeSecureReset()" class="btn btn-reset">Confirm & Reset All</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch('/api/data');
+        const data = await res.json();
+
+        document.getElementById('headTotal').textContent = data.totalSchools;
+        document.getElementById('headReported').textContent = data.totalReported;
+        document.getElementById('headResolvedRemote').textContent = data.resolvedRemotelyCount;
+        document.getElementById('headSolvedDirect').textContent = data.solvedDirectVisitCount;
+        document.getElementById('headVendor').textContent = data.vendorCount;
+
+        const blockBody = document.getElementById('blockTableBody');
+        const blocks = data.blockStats || {};
+        blockBody.innerHTML = Object.keys(blocks).map(b => \`
+          <tr>
+            <td><strong>\${b}</strong></td>
+            <td>\${blocks[b].total}</td>
+            <td><strong>\${blocks[b].reported}</strong></td>
+            <td><span style="color:#16a34a; font-weight:700;">\${blocks[b].resolvedRemote}</span></td>
+            <td><span style="color:#4f46e5; font-weight:700;">\${blocks[b].solvedDirect}</span></td>
+            <td><span style="color:#dc2626; font-weight:700;">\${blocks[b].vendor}</span></td>
+          </tr>
+        \`).join('');
+
+        const vendorBody = document.getElementById('vendorTableBody');
+        const vendorList = (data.tickets || []).filter(t => t.status === 'Vendor Escalated');
+        if (vendorList.length === 0) {
+          vendorBody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 30px; color:#64748b;">No issues currently flagged for physical vendor replacement.</td></tr>';
+          return;
+        }
+
+        vendorBody.innerHTML = vendorList.map(t => \`
+          <tr>
+            <td>
+              <strong>\${t.ticketId}</strong><br>
+              \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="window.open('\${t.photo1Url}', '_blank')">\` : '<span style="color:#94a3b8;">No Photo</span>'}
+            </td>
+            <td><strong>\${t.schoolName}</strong><br><small style="color:#64748b;">\${t.block} • \${t.udise}</small></td>
+            <td><span style="font-weight:600; color:#dc2626;">\${t.issue}</span><br><small>S/N: \${t.serialNo || 'N/A'}</small></td>
+            <td><strong>\${t.vendorName || 'AVO / Vendor'}</strong><br><small>Call #: \${t.vendorTicketNo || 'Pending'}</small></td>
+            <td><small style="color:#b91c1c; font-weight:700;">\${t.partsRequired || 'On-site Inspection Required'}</small></td>
+          </tr>
+        \`).join('');
+
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    function openResetModal() {
+      document.getElementById('resetPasswordInput').value = '';
+      document.getElementById('resetModal').style.display = 'flex';
+    }
+
+    function closeResetModal() {
+      document.getElementById('resetModal').style.display = 'none';
+    }
+
+    async function executeSecureReset() {
+      const pwd = document.getElementById('resetPasswordInput').value.trim();
+      if (!pwd) {
+        alert('Please enter the Master Protection Password.');
+        return;
+      }
+      try {
+        const res = await fetch('/api/reset-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwd })
+        });
+        const d = await res.json();
+        if (d.success) {
+          alert('✅ All data has been cleanly reset to 0 tickets!');
+          closeResetModal();
+          loadData();
+        } else {
+          alert('❌ ' + d.error);
+        }
+      } catch(e) {
+        alert('Reset request failed.');
       }
     }
 
