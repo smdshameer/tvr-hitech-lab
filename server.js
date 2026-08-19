@@ -251,8 +251,10 @@ const server = http.createServer((req, res) => {
           );
           ticket.vendorName = data.vendorName || ticket.vendorName;
           ticket.vendorTicketNo = data.vendorTicketNo || ticket.vendorTicketNo;
-          ticket.partsRequired = data.partsRequired || ticket.partsRequired;
           ticket.resolutionNotes = data.resolutionNotes || ticket.resolutionNotes;
+          if (data.photo1Url) ticket.photo1Url = data.photo1Url;
+          if (data.photo2Url) ticket.photo2Url = data.photo2Url;
+          if (data.photo3Url) ticket.photo3Url = data.photo3Url;
 
           if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
             ticket.resolvedAt = dateStr;
