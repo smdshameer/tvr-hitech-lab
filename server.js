@@ -962,7 +962,7 @@ function getTeacherPortalHtml() {
       }
 
       suggestBox.innerHTML = matches.slice(0, 30).map(function(s) {
-        return '<div class="suggest-item" onpointerdown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')">' +
+        return '<div class="suggest-item" data-id="' + s.id + '">' +
           '<div class="suggest-title">🏫 ' + s.schoolName + '</div>' +
           '<div class="suggest-meta"><span>📍 ' + s.block + ' Block</span><span>🔢 UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></span></div>' +
           '<div class="suggest-ai">👤 AI: ' + (s.aiName || 'Not Assigned') + ' • 📞 ' + (s.aiPhone || '-') + '</div>' +
@@ -970,6 +970,20 @@ function getTeacherPortalHtml() {
       }).join('');
       suggestBox.style.display = 'block';
     }
+
+    suggestBox.addEventListener('pointerdown', function(e) {
+      const item = e.target.closest('.suggest-item');
+      if (item && item.dataset && item.dataset.id) {
+        chooseSchool(item.dataset.id);
+      }
+    });
+
+    suggestBox.addEventListener('click', function(e) {
+      const item = e.target.closest('.suggest-item');
+      if (item && item.dataset && item.dataset.id) {
+        chooseSchool(item.dataset.id);
+      }
+    });
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
@@ -1211,8 +1225,8 @@ function getTeacherPortalHtml() {
           return;
         }
 
-        document.getElementById('trackSchoolName').textContent = \`\${ticket.ticketId}: \${ticket.schoolName}\`;
-        document.getElementById('trackMeta').textContent = \`\${ticket.block} Block • UDISE: \${ticket.udise} • AI: \${ticket.aiName} (\${ticket.phone})\`;
+        document.getElementById('trackSchoolName').textContent = ticket.ticketId + ': ' + ticket.schoolName;
+        document.getElementById('trackMeta').textContent = ticket.block + ' Block • UDISE: ' + ticket.udise + ' • AI: ' + (ticket.aiName || '') + ' (' + (ticket.phone || '') + ')';
 
         const badge = document.getElementById('trackStatusBadge');
         badge.textContent = ticket.status;
@@ -1230,12 +1244,12 @@ function getTeacherPortalHtml() {
         catBadge.textContent = ticket.resolutionCategory || 'Pending';
 
         const tl = document.getElementById('trackTimeline');
-        tl.innerHTML = (ticket.timeline || []).map(e => \`
-          <div class="timeline-item">
-            <strong>\${e.action}</strong> <span style="color:#64748b; font-size:11px;">(\${e.time})</span>
-            <p style="color:#475569; margin-top:2px;">\${e.note}</p>
-          </div>
-        \`).join('');
+        tl.innerHTML = (ticket.timeline || []).map(function(e) {
+          return '<div class="timeline-item">' +
+            '<strong>' + e.action + '</strong> <span style="color:#64748b; font-size:11px;">(' + e.time + ')</span>' +
+            '<p style="color:#475569; margin-top:2px;">' + (e.note || '') + '</p>' +
+          '</div>';
+        }).join('');
 
         box.style.display = 'block';
       } catch (e) {
@@ -1653,43 +1667,41 @@ function getITSMWorkbenchHtml() {
         if (t.priority.includes('Critical')) prioClass = 'prio-crit';
         else if (t.priority.includes('High')) prioClass = 'prio-high';
 
-        const waText = encodeURIComponent(\`Hello \${t.aiName} teacher, I am Mohamed Shameer (Field Engineer, Hi-Tech Lab). I received your ticket \${t.ticketId} for \${t.schoolName}. Let us resolve the UPS issue.\`);
-        const waLink = \`https://wa.me/91\${t.phone}?text=\${waText}\`;
+        const waText = encodeURIComponent('Hello ' + (t.aiName || '') + ' teacher, I am Mohamed Shameer (Field Engineer, Hi-Tech Lab). I received your ticket ' + t.ticketId + ' for ' + t.schoolName + '. Let us resolve the UPS issue.');
+        const waLink = 'https://wa.me/91' + t.phone + '?text=' + waText;
 
-        return \`
-          <tr>
-            <td><strong>\${t.ticketId}</strong><br><small style="color:#64748b;">\${t.createdAt}</small></td>
-            <td>
-              <div style="display:flex;">
-                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="showImgModal(this.src)" title="1. Front Display" onerror="this.style.display='none'">\` : ''}
-                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS" onerror="this.style.display='none'">\` : ''}
-                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery / MCB" onerror="this.style.display='none'">\` : ''}
-                \${!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : ''}
-              </div>
-            </td>
-            <td><strong>\${t.schoolName}</strong><br><small style="color:#64748b;">\${t.block} • \${t.udise}</small></td>
-            <td>\${t.aiName}<br><strong>\${t.phone}</strong></td>
-            <td>
-              <span style="font-weight:600; color:#1e3a8a;">\${t.issue}</span><br>
-              <span class="prio-pill \${prioClass}">\${t.priority}</span>
-            </td>
-            <td>\${badgeHtml}</td>
-            <td>
-              <small>
-                \${t.resolutionNotes ? \`<strong>Notes:</strong> \${t.resolutionNotes}<br>\` : ''}
-                \${t.vendorName ? \`<strong style="color:#b91c1c;">Vendor:</strong> \${t.vendorName} (\${t.vendorTicketNo || 'Pending #'})\` : ''}
-                \${!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8;">Pending diagnosis</span>' : ''}
-              </small>
-            </td>
-            <td>
-              <div style="display:flex; flex-direction:column; gap:5px;">
-                <a href="\${waLink}" target="_blank" class="btn btn-whatsapp">💬 WhatsApp AI</a>
-                <button onclick="openActionModal('\${t.ticketId}')" class="btn btn-blue" style="padding:5px 8px; font-size:11.5px;">⚙️ Manage / Edit Photos</button>
-                <button onclick="printServiceSlip('\${t.ticketId}')" class="btn" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px;">📄 Service Slip</button>
-              </div>
-            </td>
-          </tr>
-        \`;
+        return '<tr>' +
+          '<td><strong>' + t.ticketId + '</strong><br><small style="color:#64748b;">' + t.createdAt + '</small></td>' +
+          '<td>' +
+            '<div style="display:flex;">' +
+              (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. Front Display" onerror="this.style.display=\'none\'">' : '') +
+              (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS" onerror="this.style.display=\'none\'">' : '') +
+              (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery / MCB" onerror="this.style.display=\'none\'">' : '') +
+              (!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : '') +
+            '</div>' +
+          '</td>' +
+          '<td><strong>' + t.schoolName + '</strong><br><small style="color:#64748b;">' + t.block + ' • ' + t.udise + '</small></td>' +
+          '<td>' + (t.aiName || '-') + '<br><strong>' + (t.phone || '-') + '</strong></td>' +
+          '<td>' +
+            '<span style="font-weight:600; color:#1e3a8a;">' + t.issue + '</span><br>' +
+            '<span class="prio-pill ' + prioClass + '">' + t.priority + '</span>' +
+          '</td>' +
+          '<td>' + badgeHtml + '</td>' +
+          '<td>' +
+            '<small>' +
+              (t.resolutionNotes ? '<strong>Notes:</strong> ' + t.resolutionNotes + '<br>' : '') +
+              (t.vendorName ? '<strong style="color:#b91c1c;">Vendor:</strong> ' + t.vendorName + ' (' + (t.vendorTicketNo || 'Pending #') + ')' : '') +
+              (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8;">Pending diagnosis</span>' : '') +
+            '</small>' +
+          '</td>' +
+          '<td>' +
+            '<div style="display:flex; flex-direction:column; gap:5px;">' +
+              '<a href="' + waLink + '" target="_blank" class="btn btn-whatsapp">💬 WhatsApp AI</a>' +
+              '<button onclick="openActionModal(\'' + t.ticketId + '\')" class="btn btn-blue" style="padding:5px 8px; font-size:11.5px;">⚙️ Manage / Edit Photos</button>' +
+              '<button onclick="printServiceSlip(\'' + t.ticketId + '\')" class="btn" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px;">📄 Service Slip</button>' +
+            '</div>' +
+          '</td>' +
+        '</tr>';
       }).join('');
     }
 
@@ -1760,15 +1772,15 @@ function getITSMWorkbenchHtml() {
       const t = allTickets.find(i => i.ticketId === currentEditingTicketId);
       if (!t) return;
 
-      const msg = encodeURIComponent(\`வணக்கம் \${t.aiName} ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). \${t.schoolName} பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\\n\\n1. UPS முன்புற டிஸ்ப்ளே (Front Display Panel)\\n2. ஆய்வக UPS முழுத் தோற்றம் (Overall Lab Setup)\\n3. பேட்டரி வங்கி மற்றும் MCB பிரேக்கர் (Battery Bank & MCB)\\n\\nநன்றி!\`);
-      window.open(\`https://wa.me/91\${t.phone}?text=\${msg}\`, '_blank');
+      const msg = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). ' + t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\n\n1. UPS முன்புற டிஸ்ப்ளே (Front Display Panel)\n2. ஆய்வக UPS முழுத் தோற்றம் (Overall Lab Setup)\n3. பேட்டரி வங்கி மற்றும் MCB பிரேக்கர் (Battery Bank & MCB)\n\nநன்றி!');
+      window.open('https://wa.me/91' + t.phone + '?text=' + msg, '_blank');
     }
 
     function openActionModal(ticketId) {
       currentEditingTicketId = ticketId;
       const t = allTickets.find(i => i.ticketId === ticketId);
       if (t) {
-        document.getElementById('modalTicketTitle').textContent = \`Manage Ticket: \${t.ticketId} (\${t.schoolName})\`;
+        document.getElementById('modalTicketTitle').textContent = 'Manage Ticket: ' + t.ticketId + ' (' + t.schoolName + ')';
         document.getElementById('modalStatus').value = t.status || 'Open / Triage';
         document.getElementById('modalPriority').value = t.priority || 'Medium';
         document.getElementById('modalVendorName').value = t.vendorName || '';
@@ -1843,83 +1855,77 @@ function getITSMWorkbenchHtml() {
       if (!t) return;
 
       const w = window.open('', '_blank');
-      w.document.write(\`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Field Service Slip - \${t.ticketId}</title>
-          <style>
-            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5; }
-            .header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; }
-            .header h1 { font-size: 20px; color: #1e3a8a; margin: 0 0 4px 0; }
-            .header h2 { font-size: 15px; color: #475569; margin: 0; }
-            .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-            .field { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; }
-            .field-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }
-            .field-val { font-size: 13.5px; font-weight: 600; color: #0f172a; margin-top: 2px; }
-            .photo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 16px 0; }
-            .photo-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; text-align: center; background: #fafafa; }
-            .photo-card img { width: 100%; height: 130px; object-fit: cover; border-radius: 4px; }
-            .photo-label { font-size: 11px; font-weight: 700; color: #475569; margin-top: 4px; }
-            .sig-box { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 20px; }
-            .sig-line { border-top: 1.5px dashed #64748b; text-align: center; padding-top: 8px; font-size: 12px; font-weight: 700; }
-            @media print { .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="no-print" style="margin-bottom: 16px; text-align: right;">
-            <button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:700; cursor:pointer;">🖨️ Print Service Slip</button>
-          </div>
-          <div class="header">
-            <h1>DIRECTORATE OF SCHOOL EDUCATION • GOVERNMENT OF TAMIL NADU</h1>
-            <h2>Hi-Tech Lab UPS Maintenance & Incident Resolution Service Slip (Thiruvarur District)</h2>
-          </div>
-          
-          <div class="grid">
-            <div class="field"><div class="field-label">Ticket ID</div><div class="field-val">\${t.ticketId}</div></div>
-            <div class="field"><div class="field-label">Logged Date & Time</div><div class="field-val">\${t.createdAt}</div></div>
-            <div class="field"><div class="field-label">School Name</div><div class="field-val">\${t.schoolName}</div></div>
-            <div class="field"><div class="field-label">Block & UDISE</div><div class="field-val">\${t.block} • \${t.udise}</div></div>
-            <div class="field"><div class="field-label">AI Incharge Name</div><div class="field-val">\${t.aiName}</div></div>
-            <div class="field"><div class="field-label">Contact Number</div><div class="field-val">\${t.phone}</div></div>
-            <div class="field"><div class="field-label">Reported Issue</div><div class="field-val">\${t.issue}</div></div>
-            <div class="field"><div class="field-label">Resolution Status</div><div class="field-val">\${t.status} (\${t.resolutionCategory || 'Standard'})</div></div>
-          </div>
-
-          <div class="field" style="margin-bottom: 16px;">
-            <div class="field-label">Engineer Diagnosis & Action Notes:</div>
-            <div class="field-val" style="font-weight: normal; margin-top: 4px;">\${t.resolutionNotes || 'Guided AI Teacher to inspect breaker/isolation switches and perform safe restart.'}</div>
-          </div>
-
-          <div class="field-label" style="margin-bottom: 6px;">Visual Inspection Photos:</div>
-          <div class="photo-grid">
-            <div class="photo-card">
-              \${t.photo1Url ? \`<img src="\${t.photo1Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
-              <div class="photo-label">1. Front Display Panel</div>
-            </div>
-            <div class="photo-card">
-              \${t.photo2Url ? \`<img src="\${t.photo2Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
-              <div class="photo-label">2. Overall UPS & Lab</div>
-            </div>
-            <div class="photo-card">
-              \${t.photo3Url ? \`<img src="\${t.photo3Url}">\` : '<div style=\"height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;\">No Image</div>'}
-              <div class="photo-label">3. Battery Bank & MCB</div>
-            </div>
-          </div>
-
-          <div class="sig-box">
-            <div class="sig-line">
-              Signature of School AI Incharge / Headmaster<br>
-              <small style="font-weight:normal; color:#64748b;">(\${t.aiName})</small>
-            </div>
-            <div class="sig-line">
-              Signature of Field Engineer<br>
-              <small style="font-weight:normal; color:#64748b;">(Mohamed Shameer • Hi-Tech Lab)</small>
-            </div>
-          </div>
-        </body>
-        </html>
-      \`);
+      w.document.write('<!DOCTYPE html>' +
+        '<html>' +
+        '<head>' +
+          '<title>Field Service Slip - ' + t.ticketId + '</title>' +
+          '<style>' +
+            'body { font-family: \'Segoe UI\', Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5; }' +
+            '.header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; }' +
+            '.header h1 { font-size: 20px; color: #1e3a8a; margin: 0 0 4px 0; }' +
+            '.header h2 { font-size: 15px; color: #475569; margin: 0; }' +
+            '.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }' +
+            '.field { background: #f8fafc; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; }' +
+            '.field-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; }' +
+            '.field-val { font-size: 13.5px; font-weight: 600; color: #0f172a; margin-top: 2px; }' +
+            '.photo-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 16px 0; }' +
+            '.photo-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px; text-align: center; background: #fafafa; }' +
+            '.photo-card img { width: 100%; height: 130px; object-fit: cover; border-radius: 4px; }' +
+            '.photo-label { font-size: 11px; font-weight: 700; color: #475569; margin-top: 4px; }' +
+            '.sig-box { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; padding-top: 20px; }' +
+            '.sig-line { border-top: 1.5px dashed #64748b; text-align: center; padding-top: 8px; font-size: 12px; font-weight: 700; }' +
+            '@media print { .no-print { display: none; } }' +
+          '</style>' +
+        '</head>' +
+        '<body>' +
+          '<div class="no-print" style="margin-bottom: 16px; text-align: right;">' +
+            '<button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; border-radius:6px; font-weight:700; cursor:pointer;">🖨️ Print Service Slip</button>' +
+          '</div>' +
+          '<div class="header">' +
+            '<h1>DIRECTORATE OF SCHOOL EDUCATION • GOVERNMENT OF TAMIL NADU</h1>' +
+            '<h2>Hi-Tech Lab UPS Maintenance & Incident Resolution Service Slip (Thiruvarur District)</h2>' +
+          '</div>' +
+          '<div class="grid">' +
+            '<div class="field"><div class="field-label">Ticket ID</div><div class="field-val">' + t.ticketId + '</div></div>' +
+            '<div class="field"><div class="field-label">Logged Date & Time</div><div class="field-val">' + t.createdAt + '</div></div>' +
+            '<div class="field"><div class="field-label">School Name</div><div class="field-val">' + t.schoolName + '</div></div>' +
+            '<div class="field"><div class="field-label">Block & UDISE</div><div class="field-val">' + t.block + ' • ' + t.udise + '</div></div>' +
+            '<div class="field"><div class="field-label">AI Incharge Name</div><div class="field-val">' + (t.aiName || '-') + '</div></div>' +
+            '<div class="field"><div class="field-label">Contact Number</div><div class="field-val">' + (t.phone || '-') + '</div></div>' +
+            '<div class="field"><div class="field-label">Reported Issue</div><div class="field-val">' + t.issue + '</div></div>' +
+            '<div class="field"><div class="field-label">Resolution Status</div><div class="field-val">' + t.status + ' (' + (t.resolutionCategory || 'Standard') + ')</div></div>' +
+          '</div>' +
+          '<div class="field" style="margin-bottom: 16px;">' +
+            '<div class="field-label">Engineer Diagnosis & Action Notes:</div>' +
+            '<div class="field-val" style="font-weight: normal; margin-top: 4px;">' + (t.resolutionNotes || 'Guided AI Teacher to inspect breaker/isolation switches and perform safe restart.') + '</div>' +
+          '</div>' +
+          '<div class="field-label" style="margin-bottom: 6px;">Visual Inspection Photos:</div>' +
+          '<div class="photo-grid">' +
+            '<div class="photo-card">' +
+              (t.photo1Url ? '<img src="' + t.photo1Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
+              '<div class="photo-label">1. Front Display Panel</div>' +
+            '</div>' +
+            '<div class="photo-card">' +
+              (t.photo2Url ? '<img src="' + t.photo2Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
+              '<div class="photo-label">2. Overall UPS & Lab</div>' +
+            '</div>' +
+            '<div class="photo-card">' +
+              (t.photo3Url ? '<img src="' + t.photo3Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
+              '<div class="photo-label">3. Battery Bank & MCB</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sig-box">' +
+            '<div class="sig-line">' +
+              'Signature of School AI Incharge / Headmaster<br>' +
+              '<small style="font-weight:normal; color:#64748b;">(' + (t.aiName || 'AI Incharge') + ')</small>' +
+            '</div>' +
+            '<div class="sig-line">' +
+              'Signature of Field Engineer<br>' +
+              '<small style="font-weight:normal; color:#64748b;">(Mohamed Shameer • Hi-Tech Lab)</small>' +
+            '</div>' +
+          '</div>' +
+        '</body>' +
+        '</html>');
       w.document.close();
     }
 
@@ -2158,16 +2164,16 @@ function getITSMExecutiveHtml() {
 
         const blockBody = document.getElementById('blockTableBody');
         const blocks = data.blockStats || {};
-        blockBody.innerHTML = Object.keys(blocks).map(b => \`
-          <tr>
-            <td><strong>\${b}</strong></td>
-            <td>\${blocks[b].total}</td>
-            <td><strong>\${blocks[b].reported}</strong></td>
-            <td><span style="color:#16a34a; font-weight:700;">\${blocks[b].resolvedRemote}</span></td>
-            <td><span style="color:#4f46e5; font-weight:700;">\${blocks[b].solvedDirect}</span></td>
-            <td><span style="color:#dc2626; font-weight:700;">\${blocks[b].vendor}</span></td>
-          </tr>
-        \`).join('');
+        blockBody.innerHTML = Object.keys(blocks).map(function(b) {
+          return '<tr>' +
+            '<td><strong>' + b + '</strong></td>' +
+            '<td>' + blocks[b].total + '</td>' +
+            '<td><strong>' + blocks[b].reported + '</strong></td>' +
+            '<td><span style="color:#16a34a; font-weight:700;">' + blocks[b].resolvedRemote + '</span></td>' +
+            '<td><span style="color:#4f46e5; font-weight:700;">' + blocks[b].solvedDirect + '</span></td>' +
+            '<td><span style="color:#dc2626; font-weight:700;">' + blocks[b].vendor + '</span></td>' +
+          '</tr>';
+        }).join('');
 
         const vendorBody = document.getElementById('vendorTableBody');
         const vendorList = (data.tickets || []).filter(t => t.status === 'Vendor Escalated');
@@ -2176,22 +2182,22 @@ function getITSMExecutiveHtml() {
           return;
         }
 
-        vendorBody.innerHTML = vendorList.map(t => \`
-          <tr>
-            <td>
-              <strong>\${t.ticketId}</strong><br>
-              <div style="display:flex; margin-top:4px;">
-                \${t.photo1Url ? \`<img src="\${t.photo1Url}" class="thumb-img" onclick="window.open('\${t.photo1Url}', '_blank')" title="Front Display">\` : ''}
-                \${t.photo2Url ? \`<img src="\${t.photo2Url}" class="thumb-img" onclick="window.open('\${t.photo2Url}', '_blank')" title="Overall UPS">\` : ''}
-                \${t.photo3Url ? \`<img src="\${t.photo3Url}" class="thumb-img" onclick="window.open('\${t.photo3Url}', '_blank')" title="Battery/MCB">\` : ''}
-              </div>
-            </td>
-            <td><strong>\${t.schoolName}</strong><br><small style="color:#64748b;">\${t.block} • \${t.udise}</small></td>
-            <td><span style="font-weight:600; color:#dc2626;">\${t.issue}</span><br><small>S/N: \${t.serialNo || 'N/A'}</small></td>
-            <td><strong>\${t.vendorName || 'AVO / Vendor'}</strong><br><small>Call #: \${t.vendorTicketNo || 'Pending'}</small></td>
-            <td><small style="color:#b91c1c; font-weight:700;">\${t.partsRequired || 'On-site Inspection Required'}</small></td>
-          </tr>
-        \`).join('');
+        vendorBody.innerHTML = vendorList.map(function(t) {
+          return '<tr>' +
+            '<td>' +
+              '<strong>' + t.ticketId + '</strong><br>' +
+              '<div style="display:flex; margin-top:4px;">' +
+                (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="window.open(\'' + t.photo1Url + '\', \'_blank\')" title="Front Display">' : '') +
+                (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="window.open(\'' + t.photo2Url + '\', \'_blank\')" title="Overall UPS">' : '') +
+                (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="window.open(\'' + t.photo3Url + '\', \'_blank\')" title="Battery/MCB">' : '') +
+              '</div>' +
+            '</td>' +
+            '<td><strong>' + t.schoolName + '</strong><br><small style="color:#64748b;">' + t.block + ' • ' + t.udise + '</small></td>' +
+            '<td><span style="font-weight:600; color:#dc2626;">' + t.issue + '</span><br><small>S/N: ' + (t.serialNo || 'N/A') + '</small></td>' +
+            '<td><strong>' + (t.vendorName || 'AVO / Vendor') + '</strong><br><small>Call #: ' + (t.vendorTicketNo || 'Pending') + '</small></td>' +
+            '<td><small style="color:#b91c1c; font-weight:700;">' + (t.partsRequired || 'On-site Inspection Required') + '</small></td>' +
+          '</tr>';
+        }).join('');
 
       } catch(e) {
         console.error(e);
