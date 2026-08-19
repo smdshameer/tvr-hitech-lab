@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const crypto = require('crypto');
+const db = require('./db.js');
 
 // ========================================================
 // 1. CREDENTIALS & PRODUCTION STARTUP ENFORCEMENT
@@ -36,135 +37,13 @@ const RESET_PASSWORD = process.env.RESET_PASSWORD || 'DEV-ONLY-INSECURE-RESET_PA
 const SESSION_SECRET = process.env.SESSION_SECRET || 'DEV-ONLY-INSECURE-SESSION_SECRET-12345678';
 
 // ========================================================
-// 2. DATA PERSISTENCE, BACKUP & STORAGE ENGINE
+// 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
 // ========================================================
-// DATA PERSISTENCE ARCHITECTURE:
-// 1. Primary Tickets DB: Stored in './data/htl_itsm_tickets.json'
-// 2. Export Master CSV: Stored in './data/Thiruvarur_HTL_Service_Desk_Master.csv'
-// 3. Inspection Photos: Saved as physical files in './uploads/' AND embedded as
-//    compressed Base64 in each ticket record (photo1Url, photo2Url, photo3Url)
-//    ensuring images survive filesystem restarts.
-// 4. Automated Rolling Backups: './data/backups/htl_tickets_backup_YYYY-MM-DD.json'
-const DATA_DIR = path.join(__dirname, 'data');
-const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const AUDIT_LOG_FILE = path.join(DATA_DIR, 'audit_log.json');
-
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
-const CSV_FILE = path.join(DATA_DIR, 'Thiruvarur_HTL_Service_Desk_Master.csv');
-const SCHOOLS_FILE = path.join(DATA_DIR, 'master_schools_182.json');
-
-// Canonical Priority Normalizer
-function normalizePriority(val, issueText) {
-  const v = (val || '').trim().toLowerCase();
-  const issue = (issueText || '').toLowerCase();
-
-  if (v.includes('crit') || issue.includes('dead') || issue.includes('not power') || issue.includes('lab off')) {
-    return 'Critical';
-  }
-  if (v.includes('high') || issue.includes('no battery') || issue.includes('no backup') || issue.includes('trip') || issue.includes('swollen') || issue.includes('smell')) {
-    return 'High';
-  }
-  if (v.includes('low') || issue.includes('minor') || issue.includes('display only')) {
-    return 'Low';
-  }
-  return 'Medium';
-}
-
-function loadTickets() {
-  if (fs.existsSync(DB_FILE)) {
-    try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch(e) { return []; }
-  }
-  return [];
-}
-
-let masterSchools = [];
-if (fs.existsSync(SCHOOLS_FILE)) {
-  try { masterSchools = JSON.parse(fs.readFileSync(SCHOOLS_FILE, 'utf8')); } catch(e) { masterSchools = []; }
-}
-
-function saveTickets(list) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
-
-  // Field Consistency: AI Instructor Name & AI Instructor Mobile Number
-  const headers = [
-    'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
-    'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
-    'Resolution Type', 'Vendor Name', 'Vendor Ticket No', 'Parts Required', 'Resolution Notes',
-    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Activity Log History'
-  ];
-
-  const rows = list.map(t => [
-    `"${t.ticketId || ''}"`,
-    `"${t.createdAt || ''}"`,
-    `"${normalizePriority(t.priority, t.issue)}"`,
-    `"${t.status || 'New / Under Review'}"`,
-    `"${t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'))}"`,
-    `"${t.district || 'Thiruvarur'}"`,
-    `"${t.block || ''}"`,
-    `"${(t.schoolName || '').replace(/"/g, '""')}"`,
-    `"${t.udise || ''}"`,
-    `"${(t.aiName || '').replace(/"/g, '""')}"`,
-    `"${t.phone || ''}"`,
-    `"${(t.issue || '').replace(/"/g, '""')}"`,
-    `"${t.duration || ''}"`,
-    `"${t.serialNo || ''}"`,
-    `"${t.resolutionType || ''}"`,
-    `"${t.vendorName || ''}"`,
-    `"${t.vendorTicketNo || ''}"`,
-    `"${(t.partsRequired || '').replace(/"/g, '""')}"`,
-    `"${(t.resolutionNotes || '').replace(/"/g, '""')}"`,
-    `"${t.resolvedAt || ''}"`,
-    `"${t.photo1 || 'No Photo'}"`,
-    `"${t.photo2 || 'No Photo'}"`,
-    `"${t.photo3 || 'No Photo'}"`,
-    `"${(t.timeline || []).map(e => `[${e.time}] ${e.action}: ${e.note}`).join(' | ').replace(/"/g, '""')}"`
-  ]);
-
-  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  fs.writeFileSync(CSV_FILE, csvContent, 'utf8');
-
-  try {
-    fs.writeFileSync('C:/Users/acer/Downloads/Thiruvarur_HTL_Service_Desk_Master.csv', csvContent, 'utf8');
-  } catch(e){}
-}
-
-// Automated Rolling Snapshot Backup (runs at startup and periodically)
-function createSnapshotBackup() {
-  try {
-    const dateTag = new Date().toISOString().split('T')[0];
-    const backupJson = path.join(BACKUPS_DIR, `htl_tickets_backup_${dateTag}.json`);
-    const backupCsv = path.join(BACKUPS_DIR, `htl_master_backup_${dateTag}.csv`);
-    if (fs.existsSync(DB_FILE)) fs.copyFileSync(DB_FILE, backupJson);
-    if (fs.existsSync(CSV_FILE)) fs.copyFileSync(CSV_FILE, backupCsv);
-  } catch(e){}
-}
-createSnapshotBackup();
-setInterval(createSnapshotBackup, 12 * 60 * 60 * 1000); // every 12 hours
-
-// Retroactive Priority Migration
-(function migrateExistingData() {
-  try {
-    const tickets = loadTickets();
-    let changed = false;
-    tickets.forEach(t => {
-      const canonicalPrio = normalizePriority(t.priority, t.issue);
-      if (t.priority !== canonicalPrio) {
-        t.priority = canonicalPrio;
-        changed = true;
-      }
-      if (t.status === 'Open / Triage' || !t.status) {
-        t.status = 'New / Under Review';
-        changed = true;
-      }
-    });
-    if (changed) saveTickets(tickets);
-  } catch(e){}
-})();
+// Initialize Database (Schema & One-Time JSON Migration)
+db.initDatabase();
 
 // ========================================================
 // 3. SECURITY, SESSION & RATE-LIMITING ENGINE
@@ -262,25 +141,6 @@ function recordSuccessfulAttempt(ip, action) {
   rateLimitStore.delete(`${action}:${ip}`);
 }
 
-function logAudit(event) {
-  const entry = {
-    timestamp: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-    isoTime: new Date().toISOString(),
-    ...event
-  };
-  try {
-    let list = [];
-    if (fs.existsSync(AUDIT_LOG_FILE)) {
-      try { list = JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, 'utf8')); } catch(e) { list = []; }
-    }
-    list.unshift(entry);
-    if (list.length > 500) list = list.slice(0, 500);
-    fs.writeFileSync(AUDIT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
-  } catch(e) {
-    console.error('Audit log write error:', e.message);
-  }
-}
-
 // Photo Magic Bytes & Size Validation
 function validateAndExtractPhoto(base64Str, photoNum) {
   if (!base64Str || typeof base64Str !== 'string') {
@@ -325,7 +185,7 @@ function validateAndExtractPhoto(base64Str, photoNum) {
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -359,7 +219,7 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/login' && req.method === 'POST') {
     const rl = checkRateLimit(clientIp, 'LOGIN');
     if (!rl.allowed) {
-      logAudit({ action: 'LOGIN_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
+      await db.logAudit({ action: 'LOGIN_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
       res.writeHead(429, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: false,
@@ -370,7 +230,7 @@ const server = http.createServer((req, res) => {
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { username, password, role } = JSON.parse(body || '{}');
         const u = (username || '').trim().toLowerCase();
@@ -379,7 +239,7 @@ const server = http.createServer((req, res) => {
         // Field Engineer Login
         if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === ENGINEER_PIN || (!isProd && (p === '1234' || p === 'shameer')))) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
-          logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
+          await db.logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
           setSessionCookie(res, { username: 'shameer', role: 'engineer', displayName: 'Mohamed Shameer' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/engineer', user: 'Mohamed Shameer', role: 'Field Engineer' }));
@@ -389,7 +249,7 @@ const server = http.createServer((req, res) => {
         // Reporting Head Login
         if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === LEADERSHIP_PIN || (!isProd && (p === '1234' || p === 'admin')))) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
-          logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Executive Reporting Head', role: 'District Authority' });
+          await db.logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Executive Reporting Head', role: 'District Authority' });
           setSessionCookie(res, { username: 'head', role: 'head', displayName: 'Executive Reporting Head' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, redirect: '/head', user: 'Executive Reporting Head', role: 'District Authority' }));
@@ -398,7 +258,7 @@ const server = http.createServer((req, res) => {
 
         // Invalid Credentials
         recordFailedAttempt(clientIp, 'LOGIN');
-        logAudit({ action: 'LOGIN_FAILED', ip: clientIp, username: u, role: role, status: 'INVALID_CREDENTIALS' });
+        await db.logAudit({ action: 'LOGIN_FAILED', ip: clientIp, username: u, role: role, status: 'INVALID_CREDENTIALS' });
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Invalid Username or Security PIN.' }));
       } catch(e) {
@@ -412,7 +272,7 @@ const server = http.createServer((req, res) => {
   // Logout Handler
   if (pathname === '/logout' || pathname === '/api/logout') {
     const session = getAuthenticatedSession(req);
-    if (session) logAudit({ action: 'LOGOUT', ip: clientIp, user: session.displayName || session.username });
+    if (session) await db.logAudit({ action: 'LOGOUT', ip: clientIp, user: session.displayName || session.username });
     clearSessionCookie(res);
     res.writeHead(302, { Location: '/login' });
     res.end();
@@ -423,10 +283,9 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/tickets' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const data = JSON.parse(body || '{}');
-        const tickets = loadTickets();
 
         // 1. Strict Server-Side Photo Presence & Magic Byte Check
         const p1Res = validateAndExtractPhoto(data.photo1Base64, 1);
@@ -453,12 +312,7 @@ const server = http.createServer((req, res) => {
         // 2. Duplicate Active Ticket Prevention (Same UDISE)
         const cleanUdise = String(data.udise || '').replace(/\D/g, '');
         if (cleanUdise && cleanUdise.length >= 6) {
-          const existingOpen = tickets.find(t => {
-            const tUdise = String(t.udise || '').replace(/\D/g, '');
-            const isOpen = t.status === 'New / Under Review' || t.status === 'Open / Triage' || t.status === 'In Progress (Remote)' || t.status === 'Field Visit Scheduled';
-            return tUdise === cleanUdise && isOpen;
-          });
-
+          const existingOpen = await db.checkOpenTicketByUdise(cleanUdise);
           if (existingOpen) {
             res.writeHead(409, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
@@ -482,8 +336,9 @@ const server = http.createServer((req, res) => {
         fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        const ticketId = 'HTL-TVR-' + (data.udise ? data.udise.slice(-5) : String(tickets.length + 1).padStart(4, '0'));
-        const canonicalPriority = normalizePriority(data.priority, data.issue);
+        const allTickets = await db.getAllTickets();
+        const ticketId = 'HTL-TVR-' + (data.udise ? data.udise.slice(-5) : String(allTickets.length + 1).padStart(4, '0'));
+        const canonicalPriority = db.normalizePriority(data.priority, data.issue);
 
         const newTicket = {
           ticketId: ticketId,
@@ -520,9 +375,8 @@ const server = http.createServer((req, res) => {
           ]
         };
 
-        tickets.unshift(newTicket);
-        saveTickets(tickets);
-        logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
+        await db.createTicket(newTicket);
+        await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, ticketId: ticketId, message: 'Ticket logged successfully!' }));
@@ -535,7 +389,6 @@ const server = http.createServer((req, res) => {
   }
 
   // 3. API: Update Ticket Status (Engineer - Protected with Vendor Validation)
-  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/tickets/update' && req.method === 'POST') {
     const session = getAuthenticatedSession(req);
     if (!session) {
@@ -546,17 +399,9 @@ const server = http.createServer((req, res) => {
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const data = JSON.parse(body || '{}');
-        const tickets = loadTickets();
-        const ticket = tickets.find(t => t.ticketId === data.ticketId);
-
-        if (!ticket) {
-          res.writeHead(404, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Ticket not found.' }));
-          return;
-        }
 
         // Server-Side Validation: Vendor Escalated requires Vendor Name, Call Log #, and Parts Required
         if (data.status === 'Vendor Escalated' || data.resolutionCategory === 'Vendor Escalated') {
@@ -574,38 +419,15 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-        const oldStatus = ticket.status;
-
-        ticket.status = data.status || ticket.status;
-        ticket.priority = normalizePriority(data.priority, ticket.issue);
-        ticket.resolutionCategory = data.resolutionCategory || (
-          data.status === 'Resolved Remotely' ? 'Resolved Remotely' : 
-          (data.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : ticket.resolutionCategory)
-        );
-        ticket.vendorName = data.vendorName || ticket.vendorName;
-        ticket.vendorTicketNo = data.vendorTicketNo || ticket.vendorTicketNo;
-        ticket.partsRequired = data.partsRequired || ticket.partsRequired;
-        ticket.resolutionNotes = data.resolutionNotes || ticket.resolutionNotes;
-        if (data.photo1Url !== undefined) ticket.photo1Url = data.photo1Url;
-        if (data.photo2Url !== undefined) ticket.photo2Url = data.photo2Url;
-        if (data.photo3Url !== undefined) ticket.photo3Url = data.photo3Url;
-
-        if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
-          ticket.resolvedAt = dateStr;
+        const updateRes = await db.updateTicket(data.ticketId, data);
+        if (updateRes.success) {
+          await db.logAudit({ action: 'TICKET_UPDATED', ip: clientIp, user: session.displayName, ticketId: data.ticketId, status: data.status });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: 'Ticket updated successfully.' }));
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: updateRes.error || 'Ticket not found.' }));
         }
-
-        if (!ticket.timeline) ticket.timeline = [];
-        ticket.timeline.unshift({
-          time: dateStr,
-          action: data.status !== oldStatus ? `Status updated: ${data.status}` : 'Details Updated',
-          note: data.resolutionNotes || `Updated by Field Engineer Mohamed Shameer (${ticket.resolutionCategory})`
-        });
-
-        saveTickets(tickets);
-        logAudit({ action: 'TICKET_UPDATED', ip: clientIp, user: session.displayName, ticketId: data.ticketId, status: ticket.status });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Ticket updated successfully.' }));
       } catch(err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
@@ -615,7 +437,6 @@ const server = http.createServer((req, res) => {
   }
 
   // 4. API: Delete Single Ticket (Protected)
-  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
   if (pathname === '/api/tickets/delete' && req.method === 'POST') {
     const session = getAuthenticatedSession(req);
     if (!session) {
@@ -626,13 +447,11 @@ const server = http.createServer((req, res) => {
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { ticketId } = JSON.parse(body || '{}');
-        let tickets = loadTickets();
-        tickets = tickets.filter(t => t.ticketId !== ticketId);
-        saveTickets(tickets);
-        logAudit({ action: 'TICKET_DELETED', ip: clientIp, user: session.displayName, ticketId: ticketId });
+        await db.deleteTicket(ticketId);
+        await db.logAudit({ action: 'TICKET_DELETED', ip: clientIp, user: session.displayName, ticketId: ticketId });
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: `Ticket ${ticketId} deleted successfully.` }));
       } catch(e) {
@@ -643,12 +462,11 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 5. API: Password-Protected Reset All Data with Rate-Limiting & Audit Log
-  // CSRF NOTE: SameSite=Lax provides baseline CSRF protection for this app's threat model.
+  // 5. API: Password-Protected Reset All Data with Rate-Limiting & Safe Table Backup
   if (pathname === '/api/reset-all' && req.method === 'POST') {
     const rl = checkRateLimit(clientIp, 'RESET');
     if (!rl.allowed) {
-      logAudit({ action: 'RESET_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
+      await db.logAudit({ action: 'RESET_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
       res.writeHead(429, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: false,
@@ -659,7 +477,7 @@ const server = http.createServer((req, res) => {
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { password } = JSON.parse(body || '{}');
         const p = (password || '').trim();
@@ -668,13 +486,13 @@ const server = http.createServer((req, res) => {
 
         if (p === RESET_PASSWORD || (!isProd && (p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123'))) {
           recordSuccessfulAttempt(clientIp, 'RESET');
-          saveTickets([]);
-          logAudit({ action: 'FULL_DATA_RESET_SUCCESS', ip: clientIp, user: userIdentifier, status: 'SUCCESS' });
+          await db.resetAllTickets(userIdentifier, clientIp);
+          await db.logAudit({ action: 'FULL_DATA_RESET_SUCCESS', ip: clientIp, user: userIdentifier, status: 'SUCCESS' });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, message: 'All incident data has been completely reset.' }));
         } else {
           recordFailedAttempt(clientIp, 'RESET');
-          logAudit({ action: 'FULL_DATA_RESET_DENIED', ip: clientIp, user: userIdentifier, status: 'INCORRECT_PASSWORD' });
+          await db.logAudit({ action: 'FULL_DATA_RESET_DENIED', ip: clientIp, user: userIdentifier, status: 'INCORRECT_PASSWORD' });
           res.writeHead(403, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Incorrect Protection Password! Reset Denied.' }));
         }
@@ -688,9 +506,9 @@ const server = http.createServer((req, res) => {
 
   // 6. API: Data & Analytics (Strictly Scoped for Privacy)
   if (pathname === '/api/data' && req.method === 'GET') {
-    const tickets = loadTickets();
+    const tickets = await db.getAllTickets();
     const session = getAuthenticatedSession(req);
-    const totalSchools = masterSchools.length || 183;
+    const totalSchools = db.masterSchools.length || 183;
     const totalReported = tickets.length;
     const resolvedRemotelyCount = tickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
     const solvedDirectVisitCount = tickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
@@ -699,7 +517,7 @@ const server = http.createServer((req, res) => {
     const openCount = tickets.filter(t => t.status === 'New / Under Review').length;
 
     const blockStats = {};
-    masterSchools.forEach(s => {
+    db.masterSchools.forEach(s => {
       if (!blockStats[s.block]) blockStats[s.block] = { total: 0, reported: 0, resolvedRemote: 0, solvedDirect: 0, vendor: 0 };
       blockStats[s.block].total++;
     });
@@ -747,12 +565,12 @@ const server = http.createServer((req, res) => {
       openCount,
       blockStats,
       tickets: ticketsResponse,
-      masterSchools: masterSchools
+      masterSchools: db.masterSchools
     }));
     return;
   }
 
-  // 7. Download Master CSV (Protected with Route Guard)
+  // 7. Download Master CSV (Generated dynamically from database)
   if (pathname === '/download-excel' || pathname === '/export') {
     const session = getAuthenticatedSession(req);
     if (!session) {
@@ -760,18 +578,13 @@ const server = http.createServer((req, res) => {
       res.end();
       return;
     }
-    const tickets = loadTickets();
-    saveTickets(tickets);
-    if (fs.existsSync(CSV_FILE)) {
-      res.writeHead(200, {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': 'attachment; filename="Thiruvarur_HTL_Service_Desk_Master.csv"'
-      });
-      fs.createReadStream(CSV_FILE).pipe(res);
-    } else {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('No tickets logged yet.');
-    }
+
+    const csvContent = await db.generateCsvExport();
+    res.writeHead(200, {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': 'attachment; filename="Thiruvarur_HTL_Service_Desk_Master.csv"'
+    });
+    res.end(csvContent);
     return;
   }
 

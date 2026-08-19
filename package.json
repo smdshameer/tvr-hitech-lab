@@ -7,10 +7,18 @@
     "start": "node server.js",
     "dev": "node server.js"
   },
-  "keywords": ["hitech-lab", "tamilnadu-education", "itsm", "service-desk"],
+  "keywords": [
+    "hitech-lab",
+    "tamilnadu-education",
+    "itsm",
+    "service-desk"
+  ],
   "author": "Mohamed Shameer",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
   }
 }
