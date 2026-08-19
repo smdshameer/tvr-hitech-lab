@@ -1,3 +1,13 @@
 node_modules/
 .DS_Store
 *.log
+uploads/
+ALL_EXTRACTED_MEDIA/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+live_dump.html
+old_server.js
+old_4dc35ea.js
+scratch/

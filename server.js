@@ -1272,7 +1272,7 @@ function getTeacherPortalHtml() {
             </div>
             <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
               <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">👨‍🔧 களப் பொறியாளர் (Field Engineer):</span>
-              <div style="font-weight:700; color:#1e3a8a; margin-top:3px;">Mohamed Shameer • 8248880683</div>
+              <div style="font-weight:700; color:#1e3a8a; margin-top:3px;"><a href="tel:9042489993" style="color:#1e3a8a; text-decoration:none;">Mohamed Shameer • 9042489993</a></div>
             </div>
             <div style="background:#ffffff; padding:10px 12px; border-radius:8px; border:1px solid #e2e8f0;">
               <span style="color:#64748b; font-weight:600; font-size:11.5px; display:block;">🛠️ பொறியாளர் குறிப்புகள்:</span>
