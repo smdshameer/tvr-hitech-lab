@@ -1540,7 +1540,7 @@ function getITSMWorkbenchHtml() {
 
     async function deleteCurrentTicket() {
       if (!currentEditingTicketId) return;
-      if (!confirm(`Are you sure you want to delete ticket ${currentEditingTicketId}?`)) return;
+      if (!confirm('Are you sure you want to delete this ticket?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
