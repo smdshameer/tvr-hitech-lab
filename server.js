@@ -570,8 +570,13 @@ function getTeacherPortalHtml() {
     .tab-btn {
       flex: 1; padding: 12px; background: white; border: 1.5px solid var(--border); border-radius: 10px;
       font-weight: 700; font-size: 13px; color: var(--text-muted); cursor: pointer; text-align: center;
+      user-select: none; transition: all 0.2s ease;
     }
-    .tab-btn.active { background: #eff6ff; border-color: var(--primary); color: var(--primary); }
+    .tab-btn:hover { background: #f8fafc; border-color: #93c5fd; color: #1e3a8a; }
+    .tab-btn.active {
+      background: #eff6ff; border-color: var(--primary); color: var(--primary);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
+    }
 
     .card {
       background: var(--card); border: 1px solid var(--border); border-radius: 16px;
@@ -1249,7 +1254,7 @@ function getTeacherPortalHtml() {
         <label class="form-label">டிக்கெட் எண் / UDISE எண் / பள்ளிப் பெயர்: <span class="req">*</span></label>
         <div style="display:flex; gap:10px;">
           <input type="text" id="trackInput" class="form-control" placeholder="எ.கா: HTL-TVR-XXXX அல்லது 33201000507..." onkeydown="if(event.key==='Enter'){event.preventDefault();trackTicket();}">
-          <button type="button" onclick="trackTicket()" class="btn-submit" style="width:auto; padding:0 24px; white-space:nowrap; margin-top:0;">🔍 தேடுக (Search)</button>
+          <button type="button" id="btnTrackSearch" onclick="trackTicket()" class="btn-submit" style="width:auto; padding:0 24px; white-space:nowrap; margin-top:0;">🔍 தேடுக (Search)</button>
         </div>
       </div>
 
@@ -1330,8 +1335,13 @@ function getTeacherPortalHtml() {
         document.getElementById('formContainer').style.display = 'none';
         document.getElementById('trackContainer').style.display = 'block';
         document.getElementById('successBox').style.display = 'none';
+        setTimeout(function() {
+          const inp = document.getElementById('trackInput');
+          if (inp) inp.focus();
+        }, 50);
       }
     }
+    window.switchTab = switchTab;
 
     function findBestMatch(val) {
       const q = (val || '').trim().toLowerCase();
@@ -1737,6 +1747,17 @@ function getTeacherPortalHtml() {
         alert('டிக்கெட் விவரங்களை எடுப்பதில் பிழை ஏற்பட்டது. இணைய இணைப்பைச் சரிபார்க்கவும்.');
       }
     }
+
+    window.trackTicket = trackTicket;
+
+    // Explicit listeners for immediate reliability
+    const tLogEl = document.getElementById('tabLog');
+    const tTrackEl = document.getElementById('tabTrack');
+    const btnTrackSearchEl = document.getElementById('btnTrackSearch');
+
+    if (tLogEl) tLogEl.addEventListener('click', function() { switchTab('log'); });
+    if (tTrackEl) tTrackEl.addEventListener('click', function() { switchTab('track'); });
+    if (btnTrackSearchEl) btnTrackSearchEl.addEventListener('click', trackTicket);
   </script>
 </body>
 </html>`;
