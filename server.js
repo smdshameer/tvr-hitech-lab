@@ -637,20 +637,44 @@ function getTeacherPortalHtml() {
       display: inline-block; background: #16a34a; color: white; padding: 6px 16px;
       border-radius: 999px; font-size: 15px; font-weight: 800; margin: 12px 0; letter-spacing: 0.5px;
     }
-
-    .school-search-wrap { position: relative; margin-bottom: 8px; }
+    .school-search-wrap { position: relative; margin-bottom: 10px; }
+    .school-search-input {
+      width: 100%; padding: 14px 16px; border: 2.5px solid #2563eb; border-radius: 12px;
+      font-size: 15px; font-weight: 600; color: #0f172a; background: #f8fafc;
+      box-shadow: 0 4px 12px rgba(37,99,235,0.08); outline: none; transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    .school-search-input:focus {
+      background: white; border-color: #1d4ed8; box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
+    }
     .school-suggest-box {
-      display: none; position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
-      background: white; border: 2px solid #2563eb; border-radius: 12px;
-      max-height: 250px; overflow-y: auto; box-shadow: 0 12px 28px rgba(0,0,0,0.18);
-      margin-top: 4px;
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 1000;
+      background: white; border: 2px solid #2563eb; border-radius: 14px;
+      max-height: 280px; overflow-y: auto; box-shadow: 0 16px 36px rgba(15,23,42,0.22);
     }
     .suggest-item {
-      padding: 10px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
+      padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
+      transition: background 0.15s ease;
     }
-    .suggest-item:hover { background: #eff6ff; }
-    .suggest-item strong { color: #1e3a8a; font-size: 13.5px; display: block; }
-    .suggest-item span { font-size: 11.5px; color: #64748b; }
+    .suggest-item:hover, .suggest-item:active { background: #eff6ff; }
+    .suggest-title { color: #1e3a8a; font-size: 14px; font-weight: 800; }
+    .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
+
+    .verified-school-card {
+      display: none; background: #ecfdf5; border: 2px solid #10b981; border-radius: 14px;
+      padding: 16px 18px; margin-bottom: 14px; position: relative;
+    }
+    .verified-school-card .badge-ver {
+      display: inline-block; background: #10b981; color: white; font-size: 11px; font-weight: 800;
+      padding: 3px 10px; border-radius: 999px; margin-bottom: 6px;
+    }
+    .verified-school-name { font-size: 16px; font-weight: 800; color: #065f46; margin-bottom: 6px; }
+    .verified-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12.5px; color: #047857; margin-bottom: 10px; }
+    .btn-reselect {
+      background: white; color: #065f46; border: 1.5px solid #10b981; padding: 6px 12px;
+      border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -672,39 +696,32 @@ function getTeacherPortalHtml() {
         
         <div class="form-group">
           <label class="form-label">
-            பள்ளியின் பெயரைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span>
-            <span class="sub-label">பள்ளியின் பெயர், UDISE அல்லது வட்டாரத்தைத் தட்டச்சு செய்து எளிதில் தேர்ந்தெடுக்கலாம்:</span>
+            பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span>
+            <span class="sub-label">பள்ளியின் பெயர், 11 இலக்க UDISE எண் அல்லது வட்டாரத்தைத் தட்டச்சு செய்யவும்:</span>
           </label>
           
-          <div class="school-search-wrap">
-            <input type="text" id="schoolSearchInput" class="form-control" style="border: 2px solid #2563eb; font-weight: 600; background: #eff6ff;" placeholder="🔍 பள்ளியின் பெயர் / UDISE எண் / வட்டாரத்தைத் தட்டச்சு செய்யவும்..." autocomplete="off">
+          <div class="school-search-wrap" id="searchWrap">
+            <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33200305301 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
             <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
           </div>
 
-          <select id="schoolSelect" class="form-select" required>
-            <option value="">-- Choose School (183 Schools across 10 Blocks) --</option>
+          <div id="verifiedSchoolCard" class="verified-school-card">
+            <span class="badge-ver">✅ பள்ளி தேர்வு செய்யப்பட்டது (School Selected)</span>
+            <div class="verified-school-name" id="verSchoolName">-</div>
+            <div class="verified-grid">
+              <div>📍 வட்டாரம்: <strong id="verBlock">-</strong></div>
+              <div>🔢 UDISE: <strong id="verUdise">-</strong></div>
+              <div>👤 AI பொறுப்பாளர்: <strong id="verAiName">-</strong></div>
+              <div>📞 தொடர்பு எண்: <strong id="verPhone">-</strong></div>
+            </div>
+            <button type="button" onclick="resetSchoolSelection()" class="btn-reselect">🔄 வேறு பள்ளியைத் தேர்வு செய்ய (Change School)</button>
+          </div>
+
+          <select id="schoolSelect" class="form-select" required style="margin-top: 6px;">
+            <option value="">-- அல்லது பட்டியலிலிருந்து தேர்ந்தெடுக்கவும் (Choose from Dropdown) --</option>
             ${masterSchools.map(s => `<option value="${s.id}">${s.block} • ${s.schoolName} (${s.udise})</option>`).join('')}
             <option value="OTHER">➕ [+ மற்ற பள்ளி / Other School]</option>
           </select>
-
-          <div class="auto-fill-grid" id="autoBox" style="display:none;">
-            <div class="auto-item">
-              <span>UDISE CODE (குறியீடு)</span>
-              <strong id="dispUdise">-</strong>
-            </div>
-            <div class="auto-item">
-              <span>BLOCK (வட்டாரம்)</span>
-              <strong id="dispBlock">-</strong>
-            </div>
-            <div class="auto-item">
-              <span>AI INSTRUCTOR (பொறுப்பாளர்)</span>
-              <strong id="dispAi">-</strong>
-            </div>
-            <div class="auto-item">
-              <span>MOBILE NO (தொடர்பு எண்)</span>
-              <strong id="dispPhone">-</strong>
-            </div>
-          </div>
         </div>
 
         <div id="customSchoolBox" style="display:none;">
@@ -732,7 +749,7 @@ function getTeacherPortalHtml() {
           <input type="tel" id="aiPhone" class="form-control" placeholder="10-digit mobile number" pattern="[0-9]{10}" required>
         </div>
 
-        <div class="section-title" style="margin-top: 22px;">2. UPS பழுது & தொழில்நுட்ப நிலை (Technical Diagnosis)</div>
+        <div class="section-title" style="margin-top: 24px;">2. UPS பழுது & தொழில்நுட்ப நிலை (Technical Diagnosis)</div>
         
         <div class="checklist-box">
           <div class="checklist-title">💡 விரைவு சுய சரிபார்ப்பு (Quick Pre-Checks before submitting):</div>
@@ -894,8 +911,12 @@ function getTeacherPortalHtml() {
   <script>
     const schoolsData = ${JSON.stringify(masterSchools)};
     const select = document.getElementById('schoolSelect');
-    const autoBox = document.getElementById('autoBox');
     const customBox = document.getElementById('customSchoolBox');
+    const searchInput = document.getElementById('schoolSearchInput');
+    const suggestBox = document.getElementById('schoolSuggestionsBox');
+    const searchWrap = document.getElementById('searchWrap');
+    const verCard = document.getElementById('verifiedSchoolCard');
+
     let base64Photo1 = '';
     let base64Photo2 = '';
     let base64Photo3 = '';
@@ -916,9 +937,6 @@ function getTeacherPortalHtml() {
       }
     }
 
-    const searchInput = document.getElementById('schoolSearchInput');
-    const suggestBox = document.getElementById('schoolSuggestionsBox');
-
     function filterSchools(query) {
       const q = (query || '').trim().toLowerCase();
       if (!q) return [];
@@ -932,16 +950,31 @@ function getTeacherPortalHtml() {
         const block = (s.block || '').toLowerCase();
         const ai = (s.aiName || '').toLowerCase();
 
-        // 1. If searching with digits, check UDISE first
         if (digits.length >= 2 && u.includes(digits)) {
           return true;
         }
 
-        // 2. Check all words in query match either school name, block, or AI teacher
         return terms.every(function(term) {
           return name.includes(term) || block.includes(term) || ai.includes(term) || u.includes(term);
         });
       });
+    }
+
+    function renderSuggestions(matches) {
+      if (matches.length === 0) {
+        suggestBox.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை (No Matching School Found).<br><small style="color:#94a3b8;">UDISE எண் அல்லது பள்ளியின் பெயரைச் சரிபார்க்கவும்</small></div>';
+        suggestBox.style.display = 'block';
+        return;
+      }
+
+      suggestBox.innerHTML = matches.slice(0, 30).map(function(s) {
+        return '<div class="suggest-item" onpointerdown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')">' +
+          '<div class="suggest-title">🏫 ' + s.schoolName + '</div>' +
+          '<div class="suggest-meta"><span>📍 ' + s.block + ' Block</span><span>🔢 UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></span></div>' +
+          '<div class="suggest-ai">👤 AI: ' + (s.aiName || 'Not Assigned') + ' • 📞 ' + (s.aiPhone || '-') + '</div>' +
+        '</div>';
+      }).join('');
+      suggestBox.style.display = 'block';
     }
 
     searchInput.addEventListener('input', function() {
@@ -952,9 +985,6 @@ function getTeacherPortalHtml() {
       }
 
       const digits = q.replace(/\D/g, '');
-      const matches = filterSchools(q);
-
-      // Exact 11-digit UDISE match: Auto select immediately
       if (digits.length === 11) {
         const exact = schoolsData.find(function(s) {
           return String(s.udise || '').replace(/\D/g, '') === digits;
@@ -965,28 +995,14 @@ function getTeacherPortalHtml() {
         }
       }
 
-      if (matches.length === 0) {
-        suggestBox.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி அல்லது UDISE எண் கிடைக்கவில்லை.<br><small style="color:#94a3b8;">(தயவுசெய்து சரியான UDISE எண் அல்லது பள்ளியின் பெயரை டைப் செய்யவும்)</small></div>';
-        suggestBox.style.display = 'block';
-        return;
-      }
-
-      suggestBox.innerHTML = matches.slice(0, 25).map(function(s) {
-        return '<div class="suggest-item" onpointerdown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')">' +
-          '<div style="font-weight:700; color:#1e3a8a; font-size:13.5px;">🏫 ' + s.schoolName + '</div>' +
-          '<div style="font-size:12px; color:#475569; margin-top:2px;">📍 வட்டாரம்: <strong>' + s.block + '</strong> | UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></div>' +
-          '<div style="font-size:11.5px; color:#16a34a; margin-top:2px;">👤 AI பொறுப்பாளர்: ' + (s.aiName || 'Not Assigned') + ' (' + (s.aiPhone || '-') + ')</div>' +
-        '</div>';
-      }).join('');
-      suggestBox.style.display = 'block';
+      const matches = filterSchools(q);
+      renderSuggestions(matches);
     });
 
     searchInput.addEventListener('focus', function() {
       if (this.value.trim().length > 0) {
         const matches = filterSchools(this.value.trim());
-        if (matches.length > 0) {
-          suggestBox.style.display = 'block';
-        }
+        renderSuggestions(matches);
       }
     });
 
@@ -995,16 +1011,29 @@ function getTeacherPortalHtml() {
       suggestBox.style.display = 'none';
       const item = schoolsData.find(function(s) { return s.id === id; });
       if (item) {
-        searchInput.value = item.schoolName + ' (' + item.udise + ')';
-        document.getElementById('dispUdise').textContent = item.udise;
-        document.getElementById('dispBlock').textContent = item.block;
-        document.getElementById('dispAi').textContent = item.aiName || '-';
-        document.getElementById('dispPhone').textContent = item.aiPhone || '-';
-        autoBox.style.display = 'grid';
+        document.getElementById('verSchoolName').textContent = item.schoolName;
+        document.getElementById('verBlock').textContent = item.block;
+        document.getElementById('verUdise').textContent = item.udise;
+        document.getElementById('verAiName').textContent = item.aiName || '-';
+        document.getElementById('verPhone').textContent = item.aiPhone || '-';
+
+        verCard.style.display = 'block';
+        searchWrap.style.display = 'none';
+        select.style.display = 'none';
+
         if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
         if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
       }
       select.dispatchEvent(new Event('change'));
+    }
+
+    function resetSchoolSelection() {
+      select.value = '';
+      verCard.style.display = 'none';
+      searchWrap.style.display = 'block';
+      select.style.display = 'block';
+      searchInput.value = '';
+      searchInput.focus();
     }
 
     document.addEventListener('click', function(e) {
