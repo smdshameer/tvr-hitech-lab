@@ -606,12 +606,7 @@ function getTeacherPortalHtml() {
 </head>
 <body>
   <div class="container">
-    <div class="nav-bar">
-      <span style="font-weight:700; color:#64748b;">ICT Service Desk • Thiruvarur</span>
-      <div>
-        <a href="/login" class="btn-login-nav">🔐 Staff & Engineer Login</a>
-      </div>
-    </div>
+    <!-- 100% Dedicated Teacher Portal -->
 
     <div class="header-card">
       <span class="badge">Hi-Tech Lab ITSM Service Desk</span>
