@@ -1071,6 +1071,7 @@ function getTeacherPortalHtml() {
     const suggestBox = document.getElementById('schoolSuggestionsBox');
     const searchWrap = document.getElementById('searchWrap');
     const verCard = document.getElementById('verifiedSchoolCard');
+    const customBox = document.getElementById('customSchoolBox');
 
     let base64Photo1 = '';
     let base64Photo2 = '';
@@ -1224,17 +1225,16 @@ function getTeacherPortalHtml() {
 
         verCard.style.display = 'block';
         searchWrap.style.display = 'none';
-        select.style.display = 'none';
+        if (customBox) customBox.style.display = 'none';
 
         if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
         if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
       }
-      select.dispatchEvent(new Event('change'));
     }
 
     function openOtherSchool() {
       select.value = 'OTHER';
-      customBox.style.display = 'block';
+      if (customBox) customBox.style.display = 'block';
       verCard.style.display = 'none';
       searchWrap.style.display = 'none';
       document.getElementById('custSchool').required = true;
@@ -1245,7 +1245,7 @@ function getTeacherPortalHtml() {
     function resetSchoolSelection() {
       select.value = '';
       verCard.style.display = 'none';
-      customBox.style.display = 'none';
+      if (customBox) customBox.style.display = 'none';
       document.getElementById('custSchool').required = false;
       document.getElementById('custUdise').required = false;
       document.getElementById('custBlock').required = false;
@@ -1263,33 +1263,9 @@ function getTeacherPortalHtml() {
 
     select.addEventListener('change', function() {
       if (this.value === 'OTHER') {
-        customBox.style.display = 'block';
-        verCard.style.display = 'none';
-        searchWrap.style.display = 'none';
-        document.getElementById('custSchool').required = true;
-        document.getElementById('custUdise').required = true;
-        document.getElementById('custBlock').required = true;
-        return;
-      }
-      customBox.style.display = 'none';
-      document.getElementById('custSchool').required = false;
-      document.getElementById('custUdise').required = false;
-      document.getElementById('custBlock').required = false;
-
-      if (this.value) {
-        const item = schoolsData.find(s => s.id === this.value);
-        if (item) {
-          document.getElementById('verSchoolName').textContent = item.schoolName;
-          document.getElementById('verBlock').textContent = item.block;
-          document.getElementById('verUdise').textContent = item.udise;
-          document.getElementById('verAiName').textContent = item.aiName || '-';
-          document.getElementById('verPhone').textContent = item.aiPhone || '-';
-          verCard.style.display = 'block';
-          searchWrap.style.display = 'none';
-
-          if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
-          if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
-        }
+        openOtherSchool();
+      } else if (this.value) {
+        chooseSchool(this.value);
       }
     });
 
