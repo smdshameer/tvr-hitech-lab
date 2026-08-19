@@ -1608,19 +1608,19 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\n\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\\n\\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox1').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\n\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\\n\\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox2').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\n\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\\n\\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
@@ -1746,7 +1746,7 @@ function getTeacherPortalHtml() {
           badgeColor = 'background:#dbeafe; color:#1e40af; border:1px solid #93c5fd;';
         }
 
-        return '<div onclick="showTrackDetails(\'' + t.ticketId + '\')" style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; cursor:pointer; transition:all 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.02);" onmouseover="this.style.borderColor=\'#2563eb\'; this.style.background=\'#f8fafc\';" onmouseout="this.style.borderColor=\'#e2e8f0\'; this.style.background=\'#ffffff\';">' +
+        return '<div data-tid="' + t.ticketId + '" onclick="showTrackDetails(this.dataset.tid)" style="background:#ffffff; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; cursor:pointer; transition:all 0.15s ease; box-shadow:0 1px 3px rgba(0,0,0,0.02);">' +
           '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px;">' +
             '<strong style="color:#1e3a8a; font-size:13.5px;">' + (t.ticketId || '') + ' - ' + (t.schoolName || '') + '</strong>' +
             '<span style="font-size:11px; font-weight:800; padding:3px 8px; border-radius:999px; ' + badgeColor + '">' + st + '</span>' +
@@ -1835,7 +1835,7 @@ function getTeacherPortalHtml() {
       });
 
       if (!ticket) {
-        alert('மன்னிக்கவும்! "' + q + '" என்ற விவரத்திற்கான டிக்கெட் எதுவும் கிடைக்கவில்லை.\n\nதயவுசெய்து டிக்கெட் எண் (எ.கா: HTL-TVR-XXXX) அல்லது 11-இலக்க UDISE எண்ணைச் சரிபார்த்து மீண்டும் தேடவும்.');
+        alert('மன்னிக்கவும்! "' + q + '" என்ற விவரத்திற்கான டிக்கெட் எதுவும் கிடைக்கவில்லை.\\n\\nதயவுசெய்து டிக்கெட் எண் (எ.கா: HTL-TVR-XXXX) அல்லது 11-இலக்க UDISE எண்ணைச் சரிபார்த்து மீண்டும் தேடவும்.');
         return;
       }
 
@@ -2269,9 +2269,9 @@ function getITSMWorkbenchHtml() {
           '<td><strong>' + t.ticketId + '</strong><br><small style="color:#64748b;">' + t.createdAt + '</small></td>' +
           '<td>' +
             '<div style="display:flex;">' +
-              (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. Front Display" onerror="this.style.display=\'none\'">' : '') +
-              (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS" onerror="this.style.display=\'none\'">' : '') +
-              (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery / MCB" onerror="this.style.display=\'none\'">' : '') +
+              (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. Front Display" onerror="this.remove()">' : '') +
+              (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS" onerror="this.remove()">' : '') +
+              (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery / MCB" onerror="this.remove()">' : '') +
               (!t.photo1Url && !t.photo2Url && !t.photo3Url ? '<span style="color:#94a3b8; font-size:11px;">No Photo</span>' : '') +
             '</div>' +
           '</td>' +
@@ -2292,8 +2292,8 @@ function getITSMWorkbenchHtml() {
           '<td>' +
             '<div style="display:flex; flex-direction:column; gap:5px;">' +
               '<a href="' + waLink + '" target="_blank" class="btn btn-whatsapp">💬 WhatsApp AI</a>' +
-              '<button onclick="openActionModal(\'' + t.ticketId + '\')" class="btn btn-blue" style="padding:5px 8px; font-size:11.5px;">⚙️ Manage / Edit Photos</button>' +
-              '<button onclick="printServiceSlip(\'' + t.ticketId + '\')" class="btn" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px;">📄 Service Slip</button>' +
+              '<button data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn btn-blue" style="padding:5px 8px; font-size:11.5px;">⚙️ Manage / Edit Photos</button>' +
+              '<button data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; padding:4px 8px; font-size:11px;">📄 Service Slip</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -2367,7 +2367,7 @@ function getITSMWorkbenchHtml() {
       const t = allTickets.find(i => i.ticketId === currentEditingTicketId);
       if (!t) return;
 
-      const msg = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). ' + t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\n\n1. UPS டிஸ்ப்ளே (UPS Display)\n2. முழுமையான UPS அமைப்பு (Overall UPS Setup Photo)\n3. பேட்டரி சிங்கிள் MCB (Battery Single MCB Photo)\n\nநன்றி!');
+      const msg = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). ' + t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\\n\\n1. UPS டிஸ்ப்ளே (UPS Display)\\n2. முழுமையான UPS அமைப்பு (Overall UPS Setup Photo)\\n3. பேட்டரி சிங்கிள் MCB (Battery Single MCB Photo)\\n\\nநன்றி!');
       window.open('https://wa.me/91' + t.phone + '?text=' + msg, '_blank');
     }
 
@@ -2455,7 +2455,7 @@ function getITSMWorkbenchHtml() {
         '<head>' +
           '<title>Field Service Slip - ' + t.ticketId + '</title>' +
           '<style>' +
-            'body { font-family: \'Segoe UI\', Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5; }' +
+            'body { font-family: Segoe UI, Arial, sans-serif; padding: 24px; color: #1e293b; max-width: 800px; margin: 0 auto; line-height: 1.5; }' +
             '.header { text-align: center; border-bottom: 2px solid #1e3a8a; padding-bottom: 12px; margin-bottom: 20px; }' +
             '.header h1 { font-size: 20px; color: #1e3a8a; margin: 0 0 4px 0; }' +
             '.header h2 { font-size: 15px; color: #475569; margin: 0; }' +
@@ -2782,9 +2782,9 @@ function getITSMExecutiveHtml() {
             '<td>' +
               '<strong>' + t.ticketId + '</strong><br>' +
               '<div style="display:flex; margin-top:4px;">' +
-                (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="window.open(\'' + t.photo1Url + '\', \'_blank\')" title="Front Display">' : '') +
-                (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="window.open(\'' + t.photo2Url + '\', \'_blank\')" title="Overall UPS">' : '') +
-                (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="window.open(\'' + t.photo3Url + '\', \'_blank\')" title="Battery/MCB">' : '') +
+                (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="window.open(this.src)" title="Front Display">' : '') +
+                (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="window.open(this.src)" title="Overall UPS">' : '') +
+                (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="window.open(this.src)" title="Battery/MCB">' : '') +
               '</div>' +
             '</td>' +
             '<td><strong>' + t.schoolName + '</strong><br><small style="color:#64748b;">' + t.block + ' • ' + t.udise + '</small></td>' +
