@@ -1047,7 +1047,11 @@ function getTeacherPortalHtml() {
             <option value="Today (இன்று முதல்)">Today (இன்று முதல்)</option>
             <option value="1-3 Days (1-3 நாட்கள்)">1-3 Days (1-3 நாட்கள்)</option>
             <option value="1 Week (1 வாரம்)">1 Week (1 வாரம்)</option>
-            <option value="More than 2 Weeks (2 வாரங்களுக்கு மேல்)">More than 2 Weeks (2 வாரங்களுக்கு மேல்)</option>
+            <option value="2 Weeks (2 வாரங்கள்)">2 Weeks (2 வாரங்கள்)</option>
+            <option value="1 Month (1 மாதம்)">1 Month (1 மாதம்)</option>
+            <option value="3 Months (3 மாதங்கள்)">3 Months (3 மாதங்கள்)</option>
+            <option value="6 Months (6 மாதங்கள்)">6 Months (6 மாதங்கள்)</option>
+            <option value="More than 6 Months / 1 Year+ (6 மாதங்களுக்கும் மேல் / 1 வருடத்திற்கு மேல்)">More than 6 Months / 1 Year+ (6 மாதங்களுக்கும் மேல் / 1 வருடத்திற்கு மேல்)</option>
           </select>
         </div>
 
