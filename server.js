@@ -1141,8 +1141,8 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox1">
             <div class="photo-header-area">
               <span class="photo-badge-num">📷 Photo 1</span>
-              <div class="photo-title-text">Front Display Panel <span class="req">*</span></div>
-              <span class="photo-sub-text">UPS முன்புற டிஸ்ப்ளே நிலை</span>
+              <div class="photo-title-text">UPS Display <span class="req">*</span></div>
+              <span class="photo-sub-text">UPS டிஸ்ப்ளே நிலை</span>
             </div>
 
             <div id="btnGroup1" class="photo-drop-zone">
@@ -1165,7 +1165,7 @@ function getTeacherPortalHtml() {
             </div>
 
             <div id="previewWrap1" class="photo-preview-wrap">
-              <img id="preview1" class="photo-preview-img" alt="Front Display Preview">
+              <img id="preview1" class="photo-preview-img" alt="UPS Display Preview">
               <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
               <button type="button" onclick="retakePhoto(1)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
@@ -1175,8 +1175,8 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox2">
             <div class="photo-header-area">
               <span class="photo-badge-num">🏢 Photo 2</span>
-              <div class="photo-title-text">Overall Lab Setup <span class="req">*</span></div>
-              <span class="photo-sub-text">ஆய்வகத்தின் முழு அமைப்பு</span>
+              <div class="photo-title-text">Overall UPS Setup Photo <span class="req">*</span></div>
+              <span class="photo-sub-text">முழுமையான UPS அமைப்பு</span>
             </div>
 
             <div id="btnGroup2" class="photo-drop-zone">
@@ -1197,7 +1197,7 @@ function getTeacherPortalHtml() {
             </div>
 
             <div id="previewWrap2" class="photo-preview-wrap">
-              <img id="preview2" class="photo-preview-img" alt="Overall Lab Preview">
+              <img id="preview2" class="photo-preview-img" alt="Overall UPS Setup Preview">
               <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
               <button type="button" onclick="retakePhoto(2)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
@@ -1207,8 +1207,8 @@ function getTeacherPortalHtml() {
           <div class="photo-upload-box" id="photoBox3">
             <div class="photo-header-area">
               <span class="photo-badge-num">⚡ Photo 3</span>
-              <div class="photo-title-text">Battery Bank & MCB <span class="req">*</span></div>
-              <span class="photo-sub-text">பேட்டரி அடுக்கு & மெயின் MCB</span>
+              <div class="photo-title-text">Battery Single MCB Photo <span class="req">*</span></div>
+              <span class="photo-sub-text">பேட்டரி சிங்கிள் MCB</span>
             </div>
 
             <div id="btnGroup3" class="photo-drop-zone">
@@ -1229,7 +1229,7 @@ function getTeacherPortalHtml() {
             </div>
 
             <div id="previewWrap3" class="photo-preview-wrap">
-              <img id="preview3" class="photo-preview-img" alt="Battery MCB Preview">
+              <img id="preview3" class="photo-preview-img" alt="Battery Single MCB Preview">
               <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
               <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
@@ -1548,19 +1548,19 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\n\nதயவுசெய்து "1. Front Display Panel (UPS முன்புற டிஸ்ப்ளே)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 1 கட்டாயம்!\n\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox1').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\n\nதயவுசெய்து "2. Overall Lab Setup (ஆய்வக அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 2 கட்டாயம்!\n\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox2').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\n\nதயவுசெய்து "3. Battery Bank & MCB (பேட்டரி அடுக்கு மற்றும் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        alert('⚠️ புகைப்படம் 3 கட்டாயம்!\n\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
         document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
@@ -2189,7 +2189,7 @@ function getITSMWorkbenchHtml() {
       const t = allTickets.find(i => i.ticketId === currentEditingTicketId);
       if (!t) return;
 
-      const msg = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). ' + t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\n\n1. UPS முன்புற டிஸ்ப்ளே (Front Display Panel)\n2. ஆய்வக UPS முழுத் தோற்றம் (Overall Lab Setup)\n3. பேட்டரி வங்கி மற்றும் MCB பிரேக்கர் (Battery Bank & MCB)\n\nநன்றி!');
+      const msg = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). ' + t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:\n\n1. UPS டிஸ்ப்ளே (UPS Display)\n2. முழுமையான UPS அமைப்பு (Overall UPS Setup Photo)\n3. பேட்டரி சிங்கிள் MCB (Battery Single MCB Photo)\n\nநன்றி!');
       window.open('https://wa.me/91' + t.phone + '?text=' + msg, '_blank');
     }
 
@@ -2320,15 +2320,15 @@ function getITSMWorkbenchHtml() {
           '<div class="photo-grid">' +
             '<div class="photo-card">' +
               (t.photo1Url ? '<img src="' + t.photo1Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
-              '<div class="photo-label">1. Front Display Panel</div>' +
+              '<div class="photo-label">1. UPS Display</div>' +
             '</div>' +
             '<div class="photo-card">' +
               (t.photo2Url ? '<img src="' + t.photo2Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
-              '<div class="photo-label">2. Overall UPS & Lab</div>' +
+              '<div class="photo-label">2. Overall UPS Setup</div>' +
             '</div>' +
             '<div class="photo-card">' +
               (t.photo3Url ? '<img src="' + t.photo3Url + '">' : '<div style="height:130px; display:flex; align-items:center; justify-content:center; color:#94a3b8;">No Image</div>') +
-              '<div class="photo-label">3. Battery Bank & MCB</div>' +
+              '<div class="photo-label">3. Battery Single MCB</div>' +
             '</div>' +
           '</div>' +
           '<div class="sig-box">' +
