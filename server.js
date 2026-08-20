@@ -2578,9 +2578,19 @@ function getITSMWorkbenchHtml() {
           <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Spare Parts Required (தேவைப்படும் உதிரிபாகங்கள்) <span style="color:#dc2626;">*</span></label>
           <input type="text" id="modalParts" class="modal-input" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery" style="border-color:#fca5a5;">
         </div>
-          <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Spare Parts Required (தேவைப்படும் உதிரிபாகங்கள்) <span style="color:#dc2626;">*</span></label>
-          <input type="text" id="modalParts" class="modal-input" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery" style="border-color:#fca5a5;">
+
+        <!-- 4. Resolution Notes -->
+        <div style="margin-bottom:16px;">
+          <label class="modal-label">பொறியாளர் கள ஆய்வுக் குறிப்புகள் (Engineer Inspection & Action Taken Notes):</label>
+          <textarea id="modalNotes" class="modal-textarea" rows="4" placeholder="பழுது நீக்கிய முறை அல்லது தற்போதைய நிலை குறித்த விரிவான குறிப்புகளை எழுதவும்..."></textarea>
         </div>
+      </div>
+
+      <!-- Sticky Modal Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-logout" onclick="closeActionModal()">✕ ரத்து செய் (Cancel)</button>
+        <button type="button" class="btn btn-blue" id="btnSaveResolution" onclick="saveTicketUpdate()" style="background:#1d4ed8; color:white; font-weight:700;">💾 Save & Update Ticket</button>
+      </div>
     </div>
   </div>
 
@@ -2820,14 +2830,16 @@ function getITSMWorkbenchHtml() {
         const val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : editPhoto3);
         const img = document.getElementById('editPreview' + i);
         const noImg = document.getElementById('noImg' + i);
-        if (val && val.length > 50) {
-          img.src = val;
-          img.style.display = 'block';
-          noImg.style.display = 'none';
-        } else {
-          img.src = '';
-          img.style.display = 'none';
-          noImg.style.display = 'block';
+        if (img && noImg) {
+          if (val && val.length > 50) {
+            img.src = val;
+            img.style.display = 'block';
+            noImg.style.display = 'none';
+          } else {
+            img.src = '';
+            img.style.display = 'none';
+            noImg.style.display = 'block';
+          }
         }
       }
     }
@@ -2893,17 +2905,22 @@ function getITSMWorkbenchHtml() {
       currentEditingTicketId = ticketId;
       const t = allTickets.find(i => i.ticketId === ticketId);
       if (t) {
-        document.getElementById('modalTicketBadge').textContent = t.ticketId || 'TICKET';
-        document.getElementById('modalTicketTitle').textContent = 'Manage Incident: ' + (t.ticketId || '');
-        document.getElementById('modalTicketSub').textContent = (t.schoolName || '') + ' • ' + (t.block || '') + ' Block (UDISE: ' + (t.udise || '') + ')';
+        const setElText = function(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; };
+        const setElVal = function(id, v) { const el = document.getElementById(id); if (el) el.value = v; };
+
+        setElText('modalTicketBadge', t.ticketId || 'TICKET');
+        setElText('modalTicketTitle', 'Manage Incident: ' + (t.ticketId || ''));
+        setElText('modalTicketSub', (t.schoolName || '') + ' • ' + (t.block || '') + ' Block (UDISE: ' + (t.udise || '') + ')');
         
-        document.getElementById('modalStatus').value = t.status || 'New / Under Review';
-        document.getElementById('modalPriority').value = t.priority || 'Medium';
-        document.getElementById('modalVendorName').value = t.vendorName || '';
-        document.getElementById('modalVendorTicket').value = t.vendorTicketNo || '';
-        document.getElementById('modalParts').value = t.partsRequired || '';
-        document.getElementById('modalNotes').value = t.resolutionNotes || '';
-        document.getElementById('vendorBox').style.display = (t.status === 'Vendor Escalated') ? 'block' : 'none';
+        setElVal('modalStatus', t.status || 'New / Under Review');
+        setElVal('modalPriority', t.priority || 'Medium');
+        setElVal('modalVendorName', t.vendorName || '');
+        setElVal('modalVendorTicket', t.vendorTicketNo || '');
+        setElVal('modalParts', t.partsRequired || '');
+        setElVal('modalNotes', t.resolutionNotes || '');
+
+        const vBox = document.getElementById('vendorBox');
+        if (vBox) vBox.style.display = (t.status === 'Vendor Escalated') ? 'block' : 'none';
 
         editPhoto1 = t.photo1Url || '';
         editPhoto2 = t.photo2Url || '';
@@ -2913,7 +2930,8 @@ function getITSMWorkbenchHtml() {
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
         selectCategory(tCat);
 
-        document.getElementById('actionModal').style.display = 'flex';
+        const m = document.getElementById('actionModal');
+        if (m) m.style.display = 'flex';
       }
     }
 
