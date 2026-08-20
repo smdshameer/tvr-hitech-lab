@@ -4,6 +4,7 @@ const path = require('path');
 const url = require('url');
 const crypto = require('crypto');
 const db = require('./db.js');
+const masterSchools = db.masterSchools || [];
 
 // ========================================================
 // 1. CREDENTIALS & SECURITY CONFIGURATION
