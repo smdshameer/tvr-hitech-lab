@@ -320,6 +320,13 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        const p4Res = validateAndExtractPhoto(data.photo4Base64, 4);
+        if (!p4Res.valid) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: p4Res.error }));
+          return;
+        }
+
         // 2. Duplicate Active Ticket Prevention (Same UDISE)
         const cleanUdise = String(data.udise || '').replace(/\D/g, '');
         if (cleanUdise && cleanUdise.length >= 6) {
@@ -341,10 +348,12 @@ const server = http.createServer(async (req, res) => {
         const p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p1Res.ext}`;
         const p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p2Res.ext}`;
         const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
+        const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
 
         fs.writeFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
         fs.writeFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
         fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
+        fs.writeFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const allTickets = await db.getAllTickets();
@@ -380,6 +389,8 @@ const server = http.createServer(async (req, res) => {
           photo2Url: data.photo2Base64 || `/uploads/${p2Name}`,
           photo3: p3Name,
           photo3Url: data.photo3Base64 || `/uploads/${p3Name}`,
+          photo4: p4Name,
+          photo4Url: data.photo4Base64 || `/uploads/${p4Name}`,
           remarks: data.remarks || '',
           timeline: [
             { time: dateStr, action: 'Ticket Logged by School AI', note: `புகார் பதிவு செய்யப்பட்டு களப் பொறியாளர் பார்வைக்கு அனுப்பப்பட்டது. (Priority: ${canonicalPriority})` }
@@ -1390,8 +1401,8 @@ function getTeacherPortalHtml() {
           <input type="text" id="serialNo" class="form-control" placeholder="e.g. EM-10KVA-2021-XXXX">
         </div>
 
-        <div class="section-title" style="margin-top: 24px;">3. UPS ஆய்வகப் புகைப்படங்கள் (Visual Verification - 3 Photos) <span class="req">*</span></div>
-        <p style="font-size: 12.5px; color: #dc2626; font-weight: 700; margin-bottom: 12px;">⚠️ கவனத்திற்கு: பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்து சரிசெய்ய 3 புகைப்படங்களையும் இணைப்பது கட்டாயமாகும் (All 3 Photos are Mandatory).</p>
+        <div class="section-title" style="margin-top: 24px;">3. UPS ஆய்வகப் புகைப்படங்கள் (Visual Verification - 4 Photos) <span class="req">*</span></div>
+        <p style="font-size: 12.5px; color: #dc2626; font-weight: 700; margin-bottom: 12px;">⚠️ கவனத்திற்கு: பொறியாளர் விரைவாகப் பழுதை உறுதிசெய்து சரிசெய்ய 4 புகைப்படங்களையும் இணைப்பது கட்டாயமாகும் (All 4 Photos are Mandatory).</p>
 
         <div class="photo-upload-grid">
           <!-- Photo 1 -->
@@ -1483,6 +1494,36 @@ function getTeacherPortalHtml() {
               <img id="preview3" class="photo-preview-img" alt="Battery Single MCB Preview">
               <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
               <button type="button" onclick="retakePhoto(3)" class="btn-retake">🔄 மாற்ற / Retake</button>
+            </div>
+          </div>
+
+          <!-- Photo 4 -->
+          <div class="photo-upload-box" id="photoBox4">
+            <div class="photo-header-area">
+              <span class="photo-badge-num">⚡ Photo 4</span>
+              <div class="photo-title-text">Isolation Transformer Photo&nbsp;<span class="req">*</span></div>
+              <span class="photo-sub-text">ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு</span>
+            </div>
+
+            <div id="btnGroup4" class="photo-drop-zone">
+              <div class="photo-icon-circle">🔌</div>
+              <div class="photo-btn-group">
+                <input type="file" id="photoCam4" accept="image/*" capture="environment" class="file-input">
+                <label for="photoCam4" class="btn-camera-snap">
+                  <span>📷 Take Live Photo (கேமரா)</span>
+                </label>
+
+                <input type="file" id="photoFile4" accept="image/*" class="file-input">
+                <label for="photoFile4" class="btn-gallery-pick">
+                  <span>📁 Choose from Gallery (கேலரி)</span>
+                </label>
+              </div>
+            </div>
+
+            <div id="previewWrap4" class="photo-preview-wrap">
+              <img id="preview4" class="photo-preview-img" alt="Isolation Transformer Preview">
+              <span class="photo-success-badge">✅ இணைக்கப்பட்டது</span>
+              <button type="button" onclick="retakePhoto(4)" class="btn-retake">🔄 மாற்ற / Retake</button>
             </div>
           </div>
         </div>
@@ -1834,11 +1875,13 @@ function getTeacherPortalHtml() {
       if (index === 1) base64Photo1 = '';
       else if (index === 2) base64Photo2 = '';
       else if (index === 3) base64Photo3 = '';
+      else if (index === 4) base64Photo4 = '';
     }
 
     setupPhotoInputs(1, data => { base64Photo1 = data; });
     setupPhotoInputs(2, data => { base64Photo2 = data; });
     setupPhotoInputs(3, data => { base64Photo3 = data; });
+    setupPhotoInputs(4, data => { base64Photo4 = data; });
 
     document.getElementById('incidentForm').addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -1873,6 +1916,12 @@ function getTeacherPortalHtml() {
         document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
+
+      if (!base64Photo4) {
+        alert('⚠️ புகைப்படம் 4 கட்டாயம்! தயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
+        document.getElementById('photoBox4').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       const btn = document.getElementById('btnSubmit');
       btn.disabled = true;
       btn.textContent = 'டிக்கெட் பதிவாகிறது...';
@@ -1905,6 +1954,7 @@ function getTeacherPortalHtml() {
         photo1Base64: base64Photo1,
         photo2Base64: base64Photo2,
         photo3Base64: base64Photo3,
+        photo4Base64: base64Photo4,
         remarks: document.getElementById('remarks').value
       };
 
@@ -2523,6 +2573,20 @@ function getITSMWorkbenchHtml() {
               </label>
               <button type="button" onclick="clearPhoto(3)" class="btn-clear-photo">✕ Clear</button>
             </div>
+
+            <!-- Photo 4 -->
+            <div class="modal-photo-card">
+              <span class="modal-photo-label">4. Isolation Transformer</span>
+              <div class="modal-photo-preview-wrap" onclick="viewPhotoInModal(4)">
+                <img id="editPreview4" class="modal-photo-preview-img" style="display:none;" alt="Isolation Transformer">
+                <span id="noImg4" class="modal-photo-empty">🔌 No Photo</span>
+              </div>
+              <label class="btn-choose-file">
+                📁 Replace
+                <input type="file" id="editFile4" accept="image/*" style="display:none;" onchange="handlePhotoUpload(4, event)">
+              </label>
+              <button type="button" onclick="clearPhoto(4)" class="btn-clear-photo">✕ Clear</button>
+            </div>
           </div>
         </div>
 
@@ -2637,6 +2701,7 @@ function getITSMWorkbenchHtml() {
     let editPhoto1 = '';
     let editPhoto2 = '';
     let editPhoto3 = '';
+    let editPhoto4 = '';
 
     // Keyboard navigation (Esc key closes modals)
     document.addEventListener('keydown', function(e) {
@@ -2774,6 +2839,7 @@ function getITSMWorkbenchHtml() {
               (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
               (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
               (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
+              (t.photo4Url ? '<img src="' + t.photo4Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
             '</div>' +
           '</td>' +
           '<td>' +
@@ -2819,15 +2885,15 @@ function getITSMWorkbenchHtml() {
     }
 
     function viewPhotoInModal(index) {
-      const val = (index === 1) ? editPhoto1 : ((index === 2) ? editPhoto2 : editPhoto3);
+      const val = (index === 1) ? editPhoto1 : ((index === 2) ? editPhoto2 : ((index === 3) ? editPhoto3 : editPhoto4));
       if (val && val.length > 50) {
         showImgModal(val);
       }
     }
 
     function updatePhotoPreviews() {
-      for (let i = 1; i <= 3; i++) {
-        const val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : editPhoto3);
+      for (let i = 1; i <= 4; i++) {
+        const val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : ((i === 3) ? editPhoto3 : editPhoto4));
         const img = document.getElementById('editPreview' + i);
         const noImg = document.getElementById('noImg' + i);
         if (img && noImg) {
@@ -2869,6 +2935,7 @@ function getITSMWorkbenchHtml() {
           if (index === 1) editPhoto1 = compressed;
           else if (index === 2) editPhoto2 = compressed;
           else if (index === 3) editPhoto3 = compressed;
+          else if (index === 4) editPhoto4 = compressed;
 
           updatePhotoPreviews();
         };
@@ -2881,6 +2948,7 @@ function getITSMWorkbenchHtml() {
       if (index === 1) editPhoto1 = '';
       else if (index === 2) editPhoto2 = '';
       else if (index === 3) editPhoto3 = '';
+      else if (index === 4) editPhoto4 = '';
       updatePhotoPreviews();
     }
 
@@ -2894,7 +2962,8 @@ function getITSMWorkbenchHtml() {
         t.schoolName + ' பள்ளியின் Hi-Tech Lab UPS பழுது நீக்கப் பணிகளுக்காக, கீழ்க்கண்ட 3 புகைப்படங்களை இந்த வாட்ஸ்அப் எண்ணிற்கு அனுப்பி உதவவும்:' + nl +
         '1. UPS Display (UPS டிஸ்ப்ளே நிலை)' + nl +
         '2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)' + nl +
-        '3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)' + nl + nl +
+        '3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)' + nl +
+        '4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர்)' + nl + nl +
         'நன்றி!';
       const msg = encodeURIComponent(text);
       const cleanPhone = String(t.phone || '').replace(/\D/g, '');
@@ -2925,6 +2994,7 @@ function getITSMWorkbenchHtml() {
         editPhoto1 = t.photo1Url || '';
         editPhoto2 = t.photo2Url || '';
         editPhoto3 = t.photo3Url || '';
+        editPhoto4 = t.photo4Url || '';
         updatePhotoPreviews();
 
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
@@ -2979,7 +3049,8 @@ function getITSMWorkbenchHtml() {
         resolutionNotes: document.getElementById('modalNotes').value,
         photo1Url: editPhoto1,
         photo2Url: editPhoto2,
-        photo3Url: editPhoto3
+        photo3Url: editPhoto3,
+        photo4Url: editPhoto4
       };
 
       try {
@@ -3375,6 +3446,7 @@ function getITSMExecutiveHtml() {
                 (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="window.open(this.src)" title="Front Display">' : '') +
                 (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="window.open(this.src)" title="Overall UPS">' : '') +
                 (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="window.open(this.src)" title="Battery/MCB">' : '') +
+              (t.photo4Url ? '<img src="' + t.photo4Url + '" class="thumb-img" onclick="window.open(this.src)" title="Isolation Transformer">' : '') +
               '</div>' +
             '</td>' +
             '<td><strong>' + t.schoolName + '</strong><br><small style="color:#64748b;">' + t.block + ' • ' + t.udise + '</small></td>' +

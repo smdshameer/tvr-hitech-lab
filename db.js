@@ -59,7 +59,7 @@ function saveTicketsToJson(list) {
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
     'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
     'Resolution Type', 'Vendor Name', 'Vendor Ticket No', 'Parts Required', 'Resolution Notes',
-    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Activity Log History'
+    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Photo 4 (Isolation Transformer)', 'Activity Log History'
   ];
   const rows = list.map(t => [
     '"' + (t.ticketId || '') + '"',
@@ -85,6 +85,8 @@ function saveTicketsToJson(list) {
     '"' + (t.photo1 || 'No Photo') + '"',
     '"' + (t.photo2 || 'No Photo') + '"',
     '"' + (t.photo3 || 'No Photo') + '"',
+    '"' + (t.photo4 || 'No Photo') + '"',
+    '"' + (t.photo4 || 'No Photo') + '"',
     '"' + (t.timeline || []).map(e => '[' + e.time + '] ' + e.action + ': ' + e.note).join(' | ').replace(/"/g, '""') + '"'
   ]);
   const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
@@ -119,6 +121,7 @@ function mapRowToTicket(r) {
     photo1Url: r.photo1_data || '',
     photo2Url: r.photo2_data || '',
     photo3Url: r.photo3_data || '',
+    photo4Url: r.photo4_data || '',
     remarks: r.remarks || '',
     timeline: r.activity_log || []
   };
@@ -154,11 +157,13 @@ async function initDatabase() {
         photo1_data TEXT,
         photo2_data TEXT,
         photo3_data TEXT,
+        photo4_data TEXT,
         remarks TEXT,
         activity_log JSONB DEFAULT '[]'::jsonb
       );
       CREATE INDEX IF NOT EXISTS idx_tickets_udise ON tickets(udise_code);
       CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photo4_data TEXT;
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -196,8 +201,8 @@ async function initDatabase() {
             ai_instructor_name, ai_instructor_mobile, reported_issue,
             duration, ups_serial_number, resolution_type, vendor_name,
             vendor_ticket_no, parts_required, resolution_notes,
-            resolved_at, photo1_data, photo2_data, photo3_data, remarks, activity_log
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+            resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
           ON CONFLICT (ticket_id) DO NOTHING
         `, [
           t.ticketId,
@@ -224,6 +229,7 @@ async function initDatabase() {
           t.photo1Url || '',
           t.photo2Url || '',
           t.photo3Url || '',
+          t.photo4Url || '',
           t.remarks || '',
           JSON.stringify(t.timeline || [])
         ]);
@@ -282,8 +288,8 @@ async function createTicket(ticketData) {
           ai_instructor_name, ai_instructor_mobile, reported_issue,
           duration, ups_serial_number, resolution_type, vendor_name,
           vendor_ticket_no, parts_required, resolution_notes,
-          resolved_at, photo1_data, photo2_data, photo3_data, remarks, activity_log
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
+          resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
       `, [
         ticketData.ticketId,
         ticketData.createdAt,
@@ -309,6 +315,7 @@ async function createTicket(ticketData) {
         ticketData.photo1Url,
         ticketData.photo2Url,
         ticketData.photo3Url,
+        ticketData.photo4Url,
         ticketData.remarks,
         JSON.stringify(ticketData.timeline || [])
       ]);
@@ -342,6 +349,7 @@ async function updateTicket(ticketId, updateData) {
         const newPhoto1 = updateData.photo1Url !== undefined ? updateData.photo1Url : existing.photo1_data;
         const newPhoto2 = updateData.photo2Url !== undefined ? updateData.photo2Url : existing.photo2_data;
         const newPhoto3 = updateData.photo3Url !== undefined ? updateData.photo3Url : existing.photo3_data;
+        const newPhoto4 = updateData.photo4Url !== undefined ? updateData.photo4Url : existing.photo4_data;
         let resolvedAt = existing.resolved_at;
         if (newStatus === 'Resolved Remotely' || newStatus === 'Solved by Direct Visit' || newStatus === 'Closed / Verified') {
           resolvedAt = dateStr;
@@ -357,11 +365,11 @@ async function updateTicket(ticketId, updateData) {
             status = $1, priority = $2, resolution_category = $3,
             vendor_name = $4, vendor_ticket_no = $5, parts_required = $6,
             resolution_notes = $7, photo1_data = $8, photo2_data = $9,
-            photo3_data = $10, resolved_at = $11, activity_log = $12
-          WHERE ticket_id = $13
+            photo3_data = $10, photo4_data = $11, resolved_at = $12, activity_log = $13
+          WHERE ticket_id = $14
         `, [
           newStatus, newPriority, newResolutionCat, newVendor, newVendorTicket,
-          newParts, newNotes, newPhoto1, newPhoto2, newPhoto3, resolvedAt,
+          newParts, newNotes, newPhoto1, newPhoto2, newPhoto3, newPhoto4, resolvedAt,
           JSON.stringify(timeline), ticketId
         ]);
       }
@@ -387,6 +395,7 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.photo1Url !== undefined) ticket.photo1Url = updateData.photo1Url;
     if (updateData.photo2Url !== undefined) ticket.photo2Url = updateData.photo2Url;
     if (updateData.photo3Url !== undefined) ticket.photo3Url = updateData.photo3Url;
+    if (updateData.photo4Url !== undefined) ticket.photo4Url = updateData.photo4Url;
     if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
       ticket.resolvedAt = dateStr;
     }
@@ -538,6 +547,7 @@ async function generateExcelExport() {
     { header: 'Photo 1 (Front Panel)', key: 'photo1', width: 25, hidden: true },
     { header: 'Photo 2 (Overall UPS)', key: 'photo2', width: 25, hidden: true },
     { header: 'Photo 3 (Battery/MCB)', key: 'photo3', width: 25, hidden: true },
+    { header: 'Photo 4 (Isolation Transformer)', key: 'photo4', width: 25, hidden: true },
     { header: 'Activity Log History', key: 'timeline', width: 45, hidden: true }
   ];
 
@@ -597,6 +607,7 @@ async function generateExcelExport() {
       photo1: t.photo1 || 'No Photo',
       photo2: t.photo2 || 'No Photo',
       photo3: t.photo3 || 'No Photo',
+      photo4: t.photo4 || 'No Photo',
       timeline: timelineStr
     });
 
@@ -668,6 +679,7 @@ async function generateExcelExport() {
     { header: 'Photo 1 (Front Panel)', key: 'photo1', width: 28 },
     { header: 'Photo 2 (Overall UPS)', key: 'photo2', width: 28 },
     { header: 'Photo 3 (Battery/MCB)', key: 'photo3', width: 28 },
+    { header: 'Photo 4 (Isolation Transformer)', key: 'photo4', width: 28 },
     { header: 'Activity Log History', key: 'timeline', width: 55 }
   ];
 
@@ -700,6 +712,7 @@ async function generateExcelExport() {
       photo1: t.photo1 || 'No Photo',
       photo2: t.photo2 || 'No Photo',
       photo3: t.photo3 || 'No Photo',
+      photo4: t.photo4 || 'No Photo',
       timeline: timelineStr
     });
 
@@ -735,7 +748,7 @@ async function generateCsvExport() {
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
     'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
     'Resolution Type', 'Vendor Name', 'Vendor Ticket No', 'Parts Required', 'Resolution Notes',
-    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Activity Log History'
+    'Resolved At', 'Photo 1 (Front Panel)', 'Photo 2 (Overall UPS)', 'Photo 3 (Battery/MCB)', 'Photo 4 (Isolation Transformer)', 'Activity Log History'
   ];
   const rows = list.map(t => [
     '"' + (t.ticketId || '') + '"',
