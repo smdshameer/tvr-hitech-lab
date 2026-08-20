@@ -43,14 +43,18 @@ function verifyToken(tokenStr) {
   const parts = tokenStr.split('.');
   if (parts.length !== 2) return null;
   const [b64Data, signature] = parts;
-  const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(b64Data).digest('base64url');
-  if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
-    try {
+  try {
+    const expectedSig = crypto.createHmac('sha256', SESSION_SECRET).update(b64Data).digest('base64url');
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
       const payload = JSON.parse(Buffer.from(b64Data, 'base64url').toString('utf8'));
       if (payload.exp && payload.exp > Date.now()) {
         return payload;
       }
-    } catch(e) { return null; }
+    }
+  } catch(e) {
+    return null;
   }
   return null;
 }
@@ -610,44 +614,54 @@ const server = http.createServer(async (req, res) => {
   // ========================================================
   // 5. VIEW ROUTING & AUTHENTICATION GUARDS
   // ========================================================
+  const NO_CACHE_HEADERS = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
+    'Surrogate-Control': 'no-store'
+  };
+
   if (pathname === '/login') {
     const session = getAuthenticatedSession(req);
+    console.log(`[AUTH GUARD] /login | IP: ${clientIp} | Session: ${session ? session.role : 'NONE'}`);
     if (session) {
-      res.writeHead(302, { Location: session.role === 'head' ? '/head' : '/engineer' });
+      res.writeHead(302, { ...NO_CACHE_HEADERS, Location: session.role === 'head' ? '/head' : '/engineer' });
       res.end();
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getLoginHtml());
     return;
   }
 
   if (pathname === '/engineer' || pathname === '/dashboard') {
     const session = getAuthenticatedSession(req);
+    console.log(`[AUTH GUARD] /engineer | IP: ${clientIp} | Session: ${session ? session.role : 'NONE'}`);
     if (!session) {
-      res.writeHead(302, { Location: '/login?redirect=/engineer' });
+      res.writeHead(302, { ...NO_CACHE_HEADERS, Location: '/login?redirect=/engineer' });
       res.end();
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml());
     return;
   }
 
   if (pathname === '/head' || pathname === '/report' || pathname === '/admin') {
     const session = getAuthenticatedSession(req);
+    console.log(`[AUTH GUARD] /head | IP: ${clientIp} | Session: ${session ? session.role : 'NONE'}`);
     if (!session) {
-      res.writeHead(302, { Location: '/login?redirect=/head' });
+      res.writeHead(302, { ...NO_CACHE_HEADERS, Location: '/login?redirect=/head' });
       res.end();
       return;
     }
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml());
     return;
   }
 
   // Default: Teacher Incident Portal (Public)
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
   res.end(getTeacherPortalHtml());
 });
 
