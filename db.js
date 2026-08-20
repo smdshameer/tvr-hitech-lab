@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const ExcelJS = require('exceljs');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
@@ -477,6 +478,257 @@ async function logAudit(event) {
   } catch(e) {}
 }
 
+function parseExcelDate(val) {
+  if (!val) return null;
+  if (val instanceof Date && !isNaN(val)) return val;
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) return d;
+
+  const m = String(val).match(/(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{1,2}):?(\d{1,2})?\s*(am|pm)?/i);
+  if (m) {
+    let day = parseInt(m[1], 10);
+    let month = parseInt(m[2], 10) - 1;
+    let year = parseInt(m[3], 10);
+    let hour = parseInt(m[4], 10);
+    let min = parseInt(m[5], 10);
+    let sec = m[6] ? parseInt(m[6], 10) : 0;
+    let ampm = (m[7] || '').toLowerCase();
+    if (ampm === 'pm' && hour < 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+    const parsed = new Date(year, month, day, hour, min, sec);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return val;
+}
+
+async function generateExcelExport() {
+  const tickets = await getAllTickets();
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'TVR Hi-Tech Lab ITSM';
+  workbook.lastModifiedBy = 'TVR Hi-Tech Lab ITSM';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  // 1. MASTER TICKETS SHEET
+  const ws = workbook.addWorksheet('Master Tickets', {
+    views: [{ state: 'frozen', ySplit: 1 }]
+  });
+
+  const columns = [
+    { header: 'Ticket ID', key: 'ticketId', width: 16 },
+    { header: 'Created At', key: 'createdAt', width: 20 },
+    { header: 'Priority', key: 'priority', width: 14 },
+    { header: 'Status', key: 'status', width: 14 },
+    { header: 'Resolution Category', key: 'resolutionCategory', width: 14 },
+    { header: 'District', key: 'district', width: 14 },
+    { header: 'Block', key: 'block', width: 14 },
+    { header: 'School Name', key: 'schoolName', width: 30 },
+    { header: 'UDISE Code', key: 'udise', width: 14 },
+    { header: 'AI Instructor Name', key: 'aiName', width: 22 },
+    { header: 'AI Instructor Mobile Number', key: 'phone', width: 16 },
+    { header: 'Reported UPS Issue', key: 'issue', width: 35 },
+    { header: 'Duration', key: 'duration', width: 18 },
+    { header: 'UPS Serial Number', key: 'serialNo', width: 20 },
+    { header: 'Resolution Type', key: 'resolutionType', width: 20 },
+    { header: 'Vendor Name', key: 'vendorName', width: 20 },
+    { header: 'Vendor Ticket No', key: 'vendorTicketNo', width: 20 },
+    { header: 'Parts Required', key: 'partsRequired', width: 20 },
+    { header: 'Resolution Notes', key: 'resolutionNotes', width: 35 },
+    { header: 'Resolved At', key: 'resolvedAt', width: 20 },
+    { header: 'Photo 1 (Front Panel)', key: 'photo1', width: 25, hidden: true },
+    { header: 'Photo 2 (Overall UPS)', key: 'photo2', width: 25, hidden: true },
+    { header: 'Photo 3 (Battery/MCB)', key: 'photo3', width: 25, hidden: true },
+    { header: 'Activity Log History', key: 'timeline', width: 45, hidden: true }
+  ];
+
+  ws.columns = columns;
+
+  // Header Styling
+  const headerRow = ws.getRow(1);
+  headerRow.height = 28;
+  headerRow.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  headerRow.border = {
+    top: { style: 'medium', color: { argb: 'FF1E3A8A' } },
+    bottom: { style: 'medium', color: { argb: 'FF1E3A8A' } },
+    left: { style: 'thin', color: { argb: 'FF3B82F6' } },
+    right: { style: 'thin', color: { argb: 'FF3B82F6' } }
+  };
+
+  ws.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: columns.length }
+  };
+
+  const thinBorder = {
+    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+  };
+
+  tickets.forEach((t, idx) => {
+    const rawCreated = parseExcelDate(t.createdAt);
+    const rawResolved = parseExcelDate(t.resolvedAt);
+    const timelineStr = (t.timeline || []).map(e => `[${e.time}] ${e.action}: ${e.note}`).join('\n');
+
+    const row = ws.addRow({
+      ticketId: t.ticketId || '',
+      createdAt: rawCreated,
+      priority: normalizePriority(t.priority, t.issue),
+      status: t.status || 'New / Under Review',
+      resolutionCategory: t.resolutionCategory || 'Pending',
+      district: t.district || 'Thiruvarur',
+      block: t.block || '',
+      schoolName: t.schoolName || '',
+      udise: String(t.udise || ''),
+      aiName: t.aiName || '',
+      phone: String(t.phone || ''),
+      issue: t.issue || '',
+      duration: t.duration || '',
+      serialNo: t.serialNo || '',
+      resolutionType: t.resolutionType || '',
+      vendorName: t.vendorName || '',
+      vendorTicketNo: t.vendorTicketNo || '',
+      partsRequired: t.partsRequired || '',
+      resolutionNotes: t.resolutionNotes || '',
+      resolvedAt: rawResolved,
+      photo1: t.photo1 || 'No Photo',
+      photo2: t.photo2 || 'No Photo',
+      photo3: t.photo3 || 'No Photo',
+      timeline: timelineStr
+    });
+
+    row.height = 24;
+
+    const isEven = idx % 2 === 0;
+    const rowFill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF8FAFC' }
+    };
+
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = rowFill;
+      cell.border = thinBorder;
+      cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF0F172A' } };
+
+      const colKey = columns[colNumber - 1]?.key;
+
+      if (colKey === 'createdAt' || colKey === 'resolvedAt') {
+        if (cell.value instanceof Date) {
+          cell.numFmt = 'dd/mm/yyyy hh:mm AM/PM';
+        }
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else if (colKey === 'udise' || colKey === 'phone') {
+        cell.numFmt = '@';
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      } else if (colKey === 'ticketId' || colKey === 'priority' || colKey === 'status' || colKey === 'resolutionCategory' || colKey === 'district' || colKey === 'block') {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else if (colKey === 'issue' || colKey === 'resolutionNotes' || colKey === 'timeline') {
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      } else {
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      }
+
+      // Highlight Priority
+      if (colKey === 'priority') {
+        const val = String(cell.value || '').toLowerCase();
+        if (val.includes('critical')) cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFDC2626' } };
+        else if (val.includes('high')) cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFEA580C' } };
+        else if (val.includes('medium')) cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFD97706' } };
+        else if (val.includes('low')) cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF16A34A' } };
+      }
+
+      // Highlight Status
+      if (colKey === 'status') {
+        const st = String(cell.value || '');
+        if (st.includes('Resolved') || st.includes('Solved')) {
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF15803D' } };
+        } else if (st.includes('Vendor')) {
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+        } else if (st.includes('Progress') || st.includes('Visit')) {
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF1D4ED8' } };
+        }
+      }
+    });
+  });
+
+  // 2. DETAIL SHEET: "Photo & Activity Detail"
+  const wsDetail = workbook.addWorksheet('Photo & Activity Detail', {
+    views: [{ state: 'frozen', ySplit: 1 }]
+  });
+
+  const detailCols = [
+    { header: 'Ticket ID', key: 'ticketId', width: 16 },
+    { header: 'School Name', key: 'schoolName', width: 30 },
+    { header: 'UDISE Code', key: 'udise', width: 14 },
+    { header: 'Status', key: 'status', width: 16 },
+    { header: 'Photo 1 (Front Panel)', key: 'photo1', width: 28 },
+    { header: 'Photo 2 (Overall UPS)', key: 'photo2', width: 28 },
+    { header: 'Photo 3 (Battery/MCB)', key: 'photo3', width: 28 },
+    { header: 'Activity Log History', key: 'timeline', width: 55 }
+  ];
+
+  wsDetail.columns = detailCols;
+
+  const dHeader = wsDetail.getRow(1);
+  dHeader.height = 28;
+  dHeader.font = { name: 'Segoe UI', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+  dHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }; // Teal Green
+  dHeader.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+  dHeader.border = {
+    top: { style: 'medium', color: { argb: 'FF0F766E' } },
+    bottom: { style: 'medium', color: { argb: 'FF0F766E' } },
+    left: { style: 'thin', color: { argb: 'FF14B8A6' } },
+    right: { style: 'thin', color: { argb: 'FF14B8A6' } }
+  };
+
+  wsDetail.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: detailCols.length }
+  };
+
+  tickets.forEach((t, idx) => {
+    const timelineStr = (t.timeline || []).map(e => `[${e.time}] ${e.action}: ${e.note}`).join('\n');
+    const dRow = wsDetail.addRow({
+      ticketId: t.ticketId || '',
+      schoolName: t.schoolName || '',
+      udise: String(t.udise || ''),
+      status: t.status || 'New / Under Review',
+      photo1: t.photo1 || 'No Photo',
+      photo2: t.photo2 || 'No Photo',
+      photo3: t.photo3 || 'No Photo',
+      timeline: timelineStr
+    });
+
+    dRow.height = timelineStr.includes('\n') ? 55 : 28;
+    const isEven = idx % 2 === 0;
+
+    dRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: isEven ? 'FFFFFFFF' : 'FFF0FDFA' }
+      };
+      cell.border = thinBorder;
+      cell.font = { name: 'Segoe UI', size: 10, color: { argb: 'FF0F172A' } };
+
+      const colKey = detailCols[colNumber - 1]?.key;
+      if (colKey === 'ticketId' || colKey === 'udise' || colKey === 'status') {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else if (colKey === 'timeline') {
+        cell.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      } else {
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      }
+    });
+  });
+
+  return await workbook.xlsx.writeBuffer();
+}
+
 async function generateCsvExport() {
   const list = await getAllTickets();
   const headers = [
@@ -530,6 +782,7 @@ module.exports = {
   resetAllTickets,
   logAudit,
   generateCsvExport,
+  generateExcelExport,
   normalizePriority,
   masterSchools,
   getDatabaseType

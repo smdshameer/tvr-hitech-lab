@@ -582,7 +582,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 7. Download Master CSV (Generated dynamically from database)
+  // 7. Download Master Excel .xlsx Workbook (Generated server-side via ExcelJS)
   if (pathname === '/download-excel' || pathname === '/export') {
     const session = getAuthenticatedSession(req);
     if (!session) {
@@ -591,12 +591,19 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const csvContent = await db.generateCsvExport();
-    res.writeHead(200, {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="Thiruvarur_HTL_Service_Desk_Master.csv"'
-    });
-    res.end(csvContent);
+    try {
+      const excelBuffer = await db.generateExcelExport();
+      res.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment; filename="Thiruvarur_HTL_Service_Desk_Master.xlsx"',
+        'Content-Length': excelBuffer.length
+      });
+      res.end(excelBuffer);
+    } catch(err) {
+      console.error('Failed to generate Excel export:', err.message);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Failed to generate Excel workbook.' }));
+    }
     return;
   }
 
