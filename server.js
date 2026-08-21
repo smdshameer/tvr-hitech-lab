@@ -30,6 +30,67 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 db.initDatabase();
 
 // ========================================================
+// REAL-TIME GOOGLE SHEETS LIVE SYNC ENGINE (EVERY 15 SECONDS)
+// ========================================================
+const GOOGLE_APPS_SCRIPT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxAxg_pWmpqz9C6WloGqW7a_v27bCsUC4QYlLCnJtBVY8B3JKtUu8eTYEupTlftJJY5/exec';
+
+function syncWithGoogleSheets() {
+  function getHttp(u) {
+    const httpsLib = require('https');
+    httpsLib.get(u, res => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        getHttp(res.headers.location);
+        return;
+      }
+      let b = '';
+      res.on('data', c => b += c);
+      res.on('end', () => {
+        try {
+          const resp = JSON.parse(b);
+          const remoteTickets = resp.tickets || resp;
+          if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
+            let localTickets = db.getAllTicketsSync ? db.getAllTicketsSync() : [];
+            if (!localTickets || localTickets.length === 0) {
+              const fPath = path.join(__dirname, 'data', 'htl_itsm_tickets.json');
+              if (fs.existsSync(fPath)) {
+                try { localTickets = JSON.parse(fs.readFileSync(fPath, 'utf8')); } catch(e){}
+              }
+            }
+
+            // Merge new tickets from remote that don't exist locally
+            let addedCount = 0;
+            remoteTickets.forEach(rt => {
+              const time = rt.createdDate || rt.createdAt || '';
+              const ai = rt.aiName || '';
+              if (time.includes('9:40:44 am') || time.includes('9:44:58 am') || ai.includes('Ramesh Field Engineer')) return;
+
+              const exists = localTickets.find(lt => lt.ticketId === rt.ticketId);
+              if (!exists) {
+                localTickets.unshift(rt);
+                addedCount++;
+              }
+            });
+
+            if (addedCount > 0) {
+              const fPath = path.join(__dirname, 'data', 'htl_itsm_tickets.json');
+              fs.writeFileSync(fPath, JSON.stringify(localTickets, null, 2), 'utf8');
+              console.log('🔄 [LIVE SYNC] Automatically merged ' + addedCount + ' new tickets from Google Sheets!');
+            }
+          }
+        } catch(err) {}
+      });
+    }).on('error', () => {});
+  }
+
+  getHttp(GOOGLE_APPS_SCRIPT_ENDPOINT);
+}
+
+// Run sync immediately on startup and every 15 seconds
+setInterval(syncWithGoogleSheets, 15000);
+setTimeout(syncWithGoogleSheets, 2000);
+
+
+// ========================================================
 // 3. SECURITY, SESSION & RATE-LIMITING ENGINE
 // ========================================================
 function signToken(payloadObj) {
