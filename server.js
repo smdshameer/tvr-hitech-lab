@@ -714,8 +714,9 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    const tickets = await db.getAllTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(getITSMWorkbenchHtml());
+    res.end(getITSMWorkbenchHtml(tickets));
     return;
   }
 
@@ -727,8 +728,9 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    const tickets = await db.getAllTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(getITSMExecutiveHtml());
+    res.end(getITSMExecutiveHtml(tickets));
     return;
   }
 
@@ -2152,7 +2154,11 @@ function getTeacherPortalHtml() {
 </html>`;
 }
 
-function getITSMWorkbenchHtml() {
+function getITSMWorkbenchHtml(initialTickets = []) {
+  const totalReported = initialTickets.length;
+  const resolvedRemote = initialTickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
+  const solvedDirect = initialTickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
+  const vendorEsc = initialTickets.filter(t => t.status === 'Vendor Escalated').length;
   return `<!DOCTYPE html>
 <html lang="ta">
 <head>
@@ -2478,28 +2484,28 @@ function getITSMWorkbenchHtml() {
           <span>REPORTED INCIDENTS</span>
           <span style="font-size: 16px;">📋</span>
         </div>
-        <h3 id="kpiReported" style="color: #2563eb;">0</h3>
+        <h3 id="kpiReported" style="color: #2563eb;">${totalReported}</h3>
       </div>
       <div class="kpi-card" style="border-left: 4px solid #16a34a;">
         <div class="kpi-top">
           <span>1. RESOLVED REMOTELY</span>
           <span style="font-size: 16px;">🟢</span>
         </div>
-        <h3 id="kpiResolvedRemote" style="color: #16a34a;">0</h3>
+        <h3 id="kpiResolvedRemote" style="color: #16a34a;">${resolvedRemote}</h3>
       </div>
       <div class="kpi-card" style="border-left: 4px solid #4f46e5;">
         <div class="kpi-top">
           <span>2. SOLVED BY DIRECT VISIT</span>
           <span style="font-size: 16px;">🔵</span>
         </div>
-        <h3 id="kpiSolvedDirect" style="color: #4f46e5;">0</h3>
+        <h3 id="kpiSolvedDirect" style="color: #4f46e5;">${solvedDirect}</h3>
       </div>
       <div class="kpi-card" style="border-left: 4px solid #dc2626;">
         <div class="kpi-top">
           <span>VENDOR ESCALATIONS</span>
           <span style="font-size: 16px;">🔴</span>
         </div>
-        <h3 id="kpiVendor" style="color: #dc2626;">0</h3>
+        <h3 id="kpiVendor" style="color: #dc2626;">${vendorEsc}</h3>
       </div>
     </div>
 
@@ -2761,8 +2767,16 @@ function getITSMWorkbenchHtml() {
     </div>
   </div>
 
+  <script id="initialTicketsData" type="application/json">${JSON.stringify(initialTickets)}</script>
   <script>
     let allTickets = [];
+    try {
+      const initEl = document.getElementById('initialTicketsData');
+      if (initEl && initEl.textContent) {
+        allTickets = JSON.parse(initEl.textContent) || [];
+      }
+    } catch(e) {}
+
     let currentEditingTicketId = null;
     let selectedCategory = 'Pending';
     let editPhoto1 = '';
@@ -3310,6 +3324,7 @@ function getITSMWorkbenchHtml() {
         renderTable();
       }
     }
+    if (allTickets && allTickets.length > 0) { renderTable(); }
     loadData();
     setInterval(loadData, 5000);
     window.addEventListener('load', purgeAutofill);
@@ -3338,7 +3353,11 @@ function getITSMWorkbenchHtml() {
 </html>`;
 }
 
-function getITSMExecutiveHtml() {
+function getITSMExecutiveHtml(initialTickets = []) {
+  const totalReported = initialTickets.length;
+  const resolvedRemote = initialTickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
+  const solvedDirect = initialTickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
+  const vendorEsc = initialTickets.filter(t => t.status === 'Vendor Escalated').length;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
