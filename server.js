@@ -3001,7 +3001,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         const searchInputEl = document.getElementById('searchInput');
         let rawVal = searchInputEl ? (searchInputEl.value || '') : '';
         // Sanitize invisible unicode, non-breaking spaces, zero-width chars from copied WhatsApp/Excel text
-        let search = rawVal.replace(/[\u200B-\u200D\uFEFF\u00A0\r\n\t]/g, ' ').trim().toLowerCase();
+        let search = (rawVal || '').replace(new RegExp('[\\s\\u200B-\\u200D\\uFEFF\\u00A0]+', 'g'), ' ').trim().toLowerCase();
         
         // Ignore autofilled credential names
         if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
