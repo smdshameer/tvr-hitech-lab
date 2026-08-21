@@ -584,6 +584,15 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/data' && req.method === 'GET') {
     const tickets = await db.getAllTickets();
     const session = getAuthenticatedSession(req);
+    const trackQ = (parsedUrl.query.track || parsedUrl.query.q || '').trim().toLowerCase();
+    const cleanTrackQ = trackQ.replace(/\D/g, '');
+
+    // Guard: Unauthenticated requests without a specific search query get 401 to trigger login
+    if (!session && !trackQ) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Session expired or authentication required.', tickets: [] }));
+      return;
+    }
     const totalSchools = db.masterSchools.length || 183;
     const totalReported = tickets.length;
     const resolvedRemotelyCount = tickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
@@ -605,9 +614,6 @@ const server = http.createServer(async (req, res) => {
       if (t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit') blockStats[b].solvedDirect++;
       if (t.status === 'Vendor Escalated') blockStats[b].vendor++;
     });
-
-    const trackQ = (parsedUrl.query.track || parsedUrl.query.q || '').trim().toLowerCase();
-    const cleanTrackQ = trackQ.replace(/\D/g, '');
 
     let ticketsResponse = [];
     if (session) {
@@ -2807,7 +2813,7 @@ function getITSMWorkbenchHtml() {
       const controller = new AbortController();
       const timeoutId = setTimeout(function() { controller.abort(); }, 9000);
       try {
-        const res = await fetch('/api/data?v=' + Date.now(), { signal: controller.signal });
+        const res = await fetch('/api/data?v=' + Date.now(), { credentials: 'same-origin', signal: controller.signal });
         clearTimeout(timeoutId);
         if (res.status === 401) {
           window.location.href = '/login?redirect=/engineer';
