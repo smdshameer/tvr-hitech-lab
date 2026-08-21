@@ -2155,6 +2155,35 @@ function getTeacherPortalHtml() {
 }
 
 
+
+function normalizeImageUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const u = url.trim();
+  if (!u || u === 'No Photo') return '';
+  if (u.startsWith('data:image') || u.startsWith('/uploads/')) return u;
+  
+  // Convert drive.google.com/file/d/FILE_ID/...
+  if (u.includes('drive.google.com/file/d/')) {
+    const parts = u.split('drive.google.com/file/d/')[1];
+    const fileId = parts.split('/')[0].split('?')[0];
+    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+  }
+  
+  // Convert drive.google.com/open?id=FILE_ID
+  if (u.includes('drive.google.com/open?id=')) {
+    const fileId = u.split('drive.google.com/open?id=')[1].split('&')[0];
+    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+  }
+
+  // Convert drive.google.com/uc?id=FILE_ID
+  if (u.includes('drive.google.com/uc?id=')) {
+    const fileId = u.split('drive.google.com/uc?id=')[1].split('&')[0];
+    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+  }
+
+  return u;
+}
+
 function generateTableRowsHtml(list) {
   if (!list || list.length === 0) {
     return '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 No complaints registered yet.</td></tr>';
@@ -2183,10 +2212,10 @@ function generateTableRowsHtml(list) {
       '</td>' +
       '<td>' +
         '<div class="thumb-grid">' +
-          (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
-          (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
-          (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
-          (t.photo4Url ? '<img src="' + t.photo4Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
+          (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
+          (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
+          (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
+          (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
         '</div>' +
       '</td>' +
       '<td>' +
@@ -2924,6 +2953,24 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
     }
 
+
+    function normalizeImageUrl(url) {
+      if (!url || typeof url !== 'string') return '';
+      const u = url.trim();
+      if (!u || u === 'No Photo') return '';
+      if (u.startsWith('data:image') || u.startsWith('/uploads/')) return u;
+      if (u.includes('drive.google.com/file/d/')) {
+        const parts = u.split('drive.google.com/file/d/')[1];
+        const fileId = parts.split('/')[0].split('?')[0];
+        return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+      }
+      if (u.includes('drive.google.com/open?id=')) {
+        const fileId = u.split('drive.google.com/open?id=')[1].split('&')[0];
+        return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+      }
+      return u;
+    }
+
     function renderTable() {
       const searchInputEl = document.getElementById('searchInput');
       let search = (searchInputEl.value || '').trim().toLowerCase();
@@ -2984,10 +3031,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           '</td>' +
           '<td>' +
             '<div class="thumb-grid">' +
-              (t.photo1Url ? '<img src="' + t.photo1Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
-              (t.photo2Url ? '<img src="' + t.photo2Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
-              (t.photo3Url ? '<img src="' + t.photo3Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
-              (t.photo4Url ? '<img src="' + t.photo4Url + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
+              (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
+              (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
+              (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
+              (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
             '</div>' +
           '</td>' +
           '<td>' +
