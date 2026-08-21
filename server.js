@@ -3534,9 +3534,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       w.document.close();
     }
 
-    async function deleteSingleTicket(tid) {
+    async async function deleteSingleTicket(tid) {
       if (!tid) return;
-      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்த தவறான புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
+      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்தப் புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
@@ -3546,16 +3546,20 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         });
         const d = await res.json();
         if (d.success) {
+          allTickets = allTickets.filter(function(t) { return t.ticketId !== tid; });
+          renderTable();
           loadData();
         } else {
           alert('Delete failed: ' + (d.error || 'Unknown error'));
         }
       } catch(e) {
-        alert('Delete request failed.');
+        alert('Delete request failed: ' + e.message);
       }
     }
+    window.deleteSingleTicket = deleteSingleTicket;
 
     async function deleteCurrentTicket() {
+      const tid = currentEditingTicketId;
       if (!currentEditingTicketId) return;
       if (!confirm('Are you sure you want to permanently delete ticket ' + currentEditingTicketId + '?\nஇந்த தவறான புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
 
@@ -3568,6 +3572,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         const d = await res.json();
         if (d.success) {
           closeActionModal();
+          allTickets = allTickets.filter(function(t) { return t.ticketId !== tid; });
+          renderTable();
           loadData();
         } else {
           alert('Delete failed: ' + (d.error || 'Unknown error'));
