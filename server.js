@@ -2992,13 +2992,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       const block = (document.getElementById('blockFilter').value || '').trim().toLowerCase();
       const cat = (document.getElementById('categoryFilter').value || '').trim();
 
+      const cleanSearchDigits = search.replace(/\D/g, '');
       const filtered = allTickets.filter(function(t) {
+        const tSchool = (t.schoolName || '').toLowerCase();
+        const tUdise = String(t.udise || '').toLowerCase();
+        const tCleanUdise = String(t.udise || '').replace(/\D/g, '');
+        const tAi = (t.aiName || '').toLowerCase();
+        const tPhone = String(t.phone || '').replace(/\D/g, '');
+        const tTid = (t.ticketId || '').toLowerCase();
+        const tIssue = (t.issue || '').toLowerCase();
+        const tBlock = (t.block || '').toLowerCase();
+
         const matchSearch = !search || 
-          (t.schoolName || '').toLowerCase().includes(search) || 
-          String(t.udise || '').includes(search) || 
-          (t.aiName || '').toLowerCase().includes(search) ||
-          (t.ticketId || '').toLowerCase().includes(search) ||
-          (t.issue || '').toLowerCase().includes(search);
+          tSchool.includes(search) || 
+          tUdise.includes(search) || 
+          (cleanSearchDigits.length >= 3 && tCleanUdise.includes(cleanSearchDigits)) ||
+          tAi.includes(search) || 
+          (cleanSearchDigits.length >= 4 && tPhone.includes(cleanSearchDigits)) ||
+          tTid.includes(search) || 
+          tIssue.includes(search) ||
+          tBlock.includes(search);
 
         const matchBlock = !block || (t.block || '').toLowerCase().includes(block);
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
@@ -3006,6 +3019,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         return matchSearch && matchBlock && matchCat;
       });
+
+      const kpiRepEl = document.getElementById('kpiReported');
+      if (kpiRepEl) kpiRepEl.textContent = filtered.length;
 
       const tbody = document.getElementById('tableBody');
       if (filtered.length === 0) {
@@ -3479,6 +3495,16 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
     }
     if (allTickets && allTickets.length > 0) { renderTable(); }
+    
+    const sInput = document.getElementById('searchInput');
+    if (sInput) {
+      ['input', 'keyup', 'change', 'paste', 'search'].forEach(function(evt) {
+        sInput.addEventListener(evt, function() {
+          setTimeout(renderTable, 20);
+        });
+      });
+    }
+
     loadData();
     setInterval(loadData, 5000);
     window.addEventListener('load', purgeAutofill);
