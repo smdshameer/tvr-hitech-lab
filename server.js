@@ -3539,7 +3539,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         alert('Ticket ID is missing.');
         return;
       }
-      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்தப் புகாரை (' + tid + ') நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
+      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nConfirm Delete (நீக்கவா)?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
@@ -3570,7 +3570,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     async function deleteCurrentTicket() {
       const tid = currentEditingTicketId;
       if (!currentEditingTicketId) return;
-      if (!confirm('Are you sure you want to permanently delete ticket ' + currentEditingTicketId + '?\nஇந்த தவறான புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
+      if (!confirm('Are you sure you want to permanently delete ticket ' + currentEditingTicketId + '?\nConfirm Delete (நீக்கவா)?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
