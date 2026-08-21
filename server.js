@@ -3898,3 +3898,6 @@ function getITSMExecutiveHtml(initialTickets = []) {
 </body>
 </html>`;
 }
+
+
+module.exports = server;
