@@ -2974,170 +2974,198 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       return u;
     }
 
+    
     let masterDirectory = [];
     try {
       const mEl = document.getElementById('masterSchoolsData');
       if (mEl && mEl.textContent) masterDirectory = JSON.parse(mEl.textContent) || [];
     } catch(e) {}
 
-
     function clearSearchFilter() {
       const sInput = document.getElementById('searchInput');
-      if (sInput) sInput.value = '';
+      if (sInput) {
+        sInput.value = '';
+        sInput.focus();
+      }
       const bClear = document.getElementById('btnClearSearch');
       if (bClear) bClear.style.display = 'none';
       renderTable();
     }
 
+    window.clearSearchFilter = clearSearchFilter;
+
     function renderTable() {
-      const searchInputEl = document.getElementById('searchInput');
-      let search = (searchInputEl ? (searchInputEl.value || '') : '').trim().toLowerCase();
-      if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
-        search = '';
-        searchInputEl.value = '';
-      }
-      // If browser autofills username into search box, ignore it so all tickets stay visible
-      if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
-        search = '';
-      }
-      const block = (document.getElementById('blockFilter').value || '').trim().toLowerCase();
-      const cat = (document.getElementById('categoryFilter').value || '').trim();
-
-      const cleanSearchDigits = search.replace(/\D/g, '');
-      const filtered = allTickets.filter(function(t) {
-        const tSchool = (t.schoolName || '').toLowerCase();
-        const tUdise = String(t.udise || '').toLowerCase();
-        const tCleanUdise = String(t.udise || '').replace(/\D/g, '');
-        const tAi = (t.aiName || '').toLowerCase();
-        const tPhone = String(t.phone || '').replace(/\D/g, '');
-        const tTid = (t.ticketId || '').toLowerCase();
-        const tIssue = (t.issue || '').toLowerCase();
-        const tBlock = (t.block || '').toLowerCase();
-
-        const matchSearch = !search || 
-          tSchool.includes(search) || 
-          tUdise.includes(search) || 
-          (cleanSearchDigits.length >= 3 && tCleanUdise.includes(cleanSearchDigits)) ||
-          tAi.includes(search) || 
-          (cleanSearchDigits.length >= 4 && tPhone.includes(cleanSearchDigits)) ||
-          tTid.includes(search) || 
-          tIssue.includes(search) ||
-          tBlock.includes(search);
-
-        const matchBlock = !block || (t.block || '').toLowerCase().includes(block);
-        const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-        const matchCat = !cat || tCat === cat;
-
-        return matchSearch && matchBlock && matchCat;
-      });
-
-      const kpiRepEl = document.getElementById('kpiReported');
-      if (kpiRepEl) kpiRepEl.textContent = filtered.length;
-
-      const bClear = document.getElementById('btnClearSearch');
-      if (bClear) bClear.style.display = search ? 'block' : 'none';
-
-      const tbody = document.getElementById('tableBody');
-      if (filtered.length === 0) {
-        let smartMatch = null;
-        if (search && search.length >= 3) {
-          const cleanS = search.replace(/\D/g, '');
-          smartMatch = masterDirectory.find(function(m) {
-            const mUdise = String(m.udise || '');
-            const mName = (m.school || m.schoolName || '').toLowerCase();
-            const mTeacher = (m.name || m.aiName || '').toLowerCase();
-            if (cleanS && cleanS.length >= 3 && mUdise.includes(cleanS)) return true;
-            if (mName.includes(search)) return true;
-            if (mTeacher.includes(search)) return true;
-            return false;
-          });
+      try {
+        const searchInputEl = document.getElementById('searchInput');
+        let search = (searchInputEl ? (searchInputEl.value || '') : '').trim().toLowerCase();
+        
+        // Ignore autofilled credential names
+        if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
+          search = '';
+          if (searchInputEl) searchInputEl.value = '';
         }
 
-        if (smartMatch) {
-          const sName = smartMatch.school || smartMatch.schoolName || 'School';
-          const sUdise = smartMatch.udise || '-';
-          const sBlock = smartMatch.block || '-';
-          const sTeacher = smartMatch.name || smartMatch.aiName || 'AI Teacher';
-          const sPhone = smartMatch.phone || '-';
-          const cleanP = String(sPhone).replace(/\D/g, '');
+        const bEl = document.getElementById('blockFilter');
+        const block = (bEl ? (bEl.value || '') : '').trim().toLowerCase();
+        
+        const cEl = document.getElementById('categoryFilter');
+        const cat = (cEl ? (cEl.value || '') : '').trim();
 
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; background:#f8fafc;">' +
-            '<div style="font-size:32px; margin-bottom:8px;">🏫</div>' +
-            '<strong style="font-size:16px; color:#0f172a; display:block;">' + sName + ' (' + sUdise + ')</strong>' +
-            '<div style="font-size:13px; color:#475569; margin-top:4px;">வட்டாரம்: <strong>' + sBlock + '</strong> Block • AI ஆசிரியர்: <strong>' + sTeacher + '</strong> (<a href="tel:' + cleanP + '" style="color:#2563eb; font-weight:700;">📞 ' + sPhone + '</a>)</div>' +
-            '<div style="margin-top:14px; display:inline-block; padding:8px 18px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:20px; font-weight:700; font-size:13px;">' +
-              '✅ இந்தப் பள்ளியிலிருந்து இதுவரை எந்தப் புகாரும் பதிவு செய்யப்படவில்லை (No Complaints Registered - Lab Normal)' +
-            '</div>' +
-          '</td></tr>';
+        const bClear = document.getElementById('btnClearSearch');
+        if (bClear) bClear.style.display = search ? 'block' : 'none';
+
+        const cleanSearchDigits = search.replace(/\D/g, '');
+        
+        const filtered = allTickets.filter(function(t) {
+          const tSchool = (t.schoolName || '').toLowerCase();
+          const tUdise = String(t.udise || '').toLowerCase();
+          const tCleanUdise = String(t.udise || '').replace(/\D/g, '');
+          const tAi = (t.aiName || '').toLowerCase();
+          const tPhone = String(t.phone || '').replace(/\D/g, '');
+          const tTid = (t.ticketId || '').toLowerCase();
+          const tIssue = (t.issue || '').toLowerCase();
+          const tBlock = (t.block || '').toLowerCase();
+
+          const matchSearch = !search || 
+            tSchool.includes(search) || 
+            tUdise.includes(search) || 
+            (cleanSearchDigits.length >= 3 && tCleanUdise.includes(cleanSearchDigits)) ||
+            tAi.includes(search) || 
+            (cleanSearchDigits.length >= 4 && tPhone.includes(cleanSearchDigits)) ||
+            tTid.includes(search) || 
+            tIssue.includes(search) ||
+            tBlock.includes(search);
+
+          const matchBlock = !block || tBlock.includes(block);
+          const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
+          const matchCat = !cat || tCat === cat;
+
+          return matchSearch && matchBlock && matchCat;
+        });
+
+        const kpiRepEl = document.getElementById('kpiReported');
+        if (kpiRepEl) kpiRepEl.textContent = filtered.length;
+
+        const tbody = document.getElementById('tableBody');
+        if (!tbody) return;
+
+        if (filtered.length === 0) {
+          let smartMatch = null;
+          if (search && search.length >= 3) {
+            const cleanS = search.replace(/\D/g, '');
+            smartMatch = masterDirectory.find(function(m) {
+              const mUdise = String(m.udise || '');
+              const mName = (m.school || m.schoolName || '').toLowerCase();
+              const mTeacher = (m.name || m.aiName || '').toLowerCase();
+              if (cleanS && cleanS.length >= 3 && mUdise.includes(cleanS)) return true;
+              if (mName.includes(search)) return true;
+              if (mTeacher.includes(search)) return true;
+              return false;
+            });
+          }
+
+          if (smartMatch) {
+            const sName = smartMatch.school || smartMatch.schoolName || 'School';
+            const sUdise = smartMatch.udise || '-';
+            const sBlock = smartMatch.block || '-';
+            const sTeacher = smartMatch.name || smartMatch.aiName || 'AI Teacher';
+            const sPhone = smartMatch.phone || '-';
+            const cleanP = String(sPhone).replace(/\D/g, '');
+
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; background:#f8fafc;">' +
+              '<div style="font-size:32px; margin-bottom:8px;">🏫</div>' +
+              '<strong style="font-size:16px; color:#0f172a; display:block;">' + sName + ' (' + sUdise + ')</strong>' +
+              '<div style="font-size:13px; color:#475569; margin-top:4px;">வட்டாரம்: <strong>' + sBlock + '</strong> Block • AI ஆசிரியர்: <strong>' + sTeacher + '</strong> (<a href="tel:' + cleanP + '" style="color:#2563eb; font-weight:700;">📞 ' + sPhone + '</a>)</div>' +
+              '<div style="margin-top:14px; display:inline-block; padding:8px 18px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:20px; font-weight:700; font-size:13px;">' +
+                '✅ இந்தப் பள்ளியிலிருந்து இதுவரை எந்தப் புகாரும் பதிவு செய்யப்படவில்லை (No Complaints Registered - Lab Normal)' +
+              '</div>' +
+            '</td></tr>';
+            return;
+          }
+
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 "' + (search || '') + '" தொடர்பான புகார்கள் ஏதும் காணப்படவில்லை.</td></tr>';
           return;
         }
 
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 "' + (search || '') + '" தொடர்பான புகார்கள் ஏதும் காணப்படவில்லை.</td></tr>';
-        return;
+        tbody.innerHTML = filtered.map(function(t) {
+          const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
+          
+          let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
+          if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
+          else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
+          else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
+
+          let prioClass = 'prio-med';
+          const p = t.priority || 'Medium';
+          if (p.includes('Critical')) prioClass = 'prio-crit';
+          else if (p.includes('High')) prioClass = 'prio-high';
+          else if (p.includes('Low')) prioClass = 'prio-low';
+
+          const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
+          const cleanPhone = String(t.phone || '').replace(/\D/g, '');
+          const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
+
+          return '<tr>' +
+            '<td>' +
+              '<strong style="color:#1e3a8a; font-size:13.5px;">' + t.ticketId + '</strong>' +
+              '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + (t.createdDate || t.createdAt || '-') + '</div>' +
+            '</td>' +
+            '<td>' +
+              '<div class="thumb-grid">' +
+                (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
+                (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
+                (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
+                (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
+              '</div>' +
+            '</td>' +
+            '<td>' +
+              '<strong style="color:#0f172a; font-size:13.5px;">' + t.schoolName + '</strong>' +
+              '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + t.block + ' Block • <strong style="color:#2563eb;">' + t.udise + '</strong></div>' +
+            '</td>' +
+            '<td>' +
+              '<div style="font-weight:700; color:#0f172a;">' + (t.aiName || '-') + '</div>' +
+              '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + (t.phone || '-') + '</a>' +
+            '</td>' +
+            '<td>' +
+              '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + t.issue + '</div>' +
+              '<span class="prio-pill ' + prioClass + '">' + p + '</span>' +
+            '</td>' +
+            '<td>' + badgeHtml + '</td>' +
+            '<td>' +
+              '<div style="font-size:12px; max-width:240px;">' +
+                (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + t.resolutionNotes + '</div>' : '') +
+                (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + t.vendorName + ' (' + (t.vendorTicketNo || 'Pending #') + ')</div>' : '') +
+                (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
+              '</div>' +
+            '</td>' +
+            '<td>' +
+              '<div class="action-col">' +
+                '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
+                '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
+                '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
+                '<button type="button" data-tid="' + t.ticketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
+              '</div>' +
+            '</td>' +
+          '</tr>';
+        }).join('');
+      } catch (err) {
+        console.error('renderTable error:', err);
       }
-
-      tbody.innerHTML = filtered.map(function(t) {
-        const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-        
-        let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
-        if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
-        else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
-        else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
-
-        let prioClass = 'prio-med';
-        const p = t.priority || 'Medium';
-        if (p.includes('Critical')) prioClass = 'prio-crit';
-        else if (p.includes('High')) prioClass = 'prio-high';
-        else if (p.includes('Low')) prioClass = 'prio-low';
-
-        const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
-        const cleanPhone = String(t.phone || '').replace(/\D/g, '');
-        const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
-
-        return '<tr>' +
-          '<td>' +
-            '<strong style="color:#1e3a8a; font-size:13.5px;">' + t.ticketId + '</strong>' +
-            '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + (t.createdDate || t.createdAt || '-') + '</div>' +
-          '</td>' +
-          '<td>' +
-            '<div class="thumb-grid">' +
-              (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
-              (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
-              (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
-              (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
-            '</div>' +
-          '</td>' +
-          '<td>' +
-            '<strong style="color:#0f172a; font-size:13.5px;">' + t.schoolName + '</strong>' +
-            '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + t.block + ' Block • <strong style="color:#2563eb;">' + t.udise + '</strong></div>' +
-          '</td>' +
-          '<td>' +
-            '<div style="font-weight:700; color:#0f172a;">' + (t.aiName || '-') + '</div>' +
-            '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + (t.phone || '-') + '</a>' +
-          '</td>' +
-          '<td>' +
-            '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + t.issue + '</div>' +
-            '<span class="prio-pill ' + prioClass + '">' + p + '</span>' +
-          '</td>' +
-          '<td>' + badgeHtml + '</td>' +
-          '<td>' +
-            '<div style="font-size:12px; max-width:240px;">' +
-              (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + t.resolutionNotes + '</div>' : '') +
-              (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + t.vendorName + ' (' + (t.vendorTicketNo || 'Pending #') + ')</div>' : '') +
-              (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
-            '</div>' +
-          '</td>' +
-          '<td>' +
-            '<div class="action-col">' +
-              '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
-              '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
-              '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-              '<button type="button" data-tid="' + t.ticketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
-            '</div>' +
-          '</td>' +
-        '</tr>';
-      }).join('');
     }
+
+    window.renderTable = renderTable;
+
+    // Attach immediate event handlers on DOM load
+    document.addEventListener('DOMContentLoaded', function() {
+      const sInput = document.getElementById('searchInput');
+      if (sInput) {
+        sInput.addEventListener('input', renderTable);
+        sInput.addEventListener('keyup', renderTable);
+        sInput.addEventListener('change', renderTable);
+        sInput.addEventListener('paste', function() { setTimeout(renderTable, 20); });
+      }
+    });
+
 
     function showImgModal(src) {
       if (!src) return;
