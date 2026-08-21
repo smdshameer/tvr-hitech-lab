@@ -815,9 +815,11 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 10000;
-server.listen(PORT, () => {
+if (!process.env.VERCEL) {
+  server.listen(PORT, () => {
   console.log(`🚀 TVR Hi-Tech Lab Service Desk running on port ${PORT}`);
-});
+  });
+}
 
 function getLoginHtml() {
   return `<!DOCTYPE html>
