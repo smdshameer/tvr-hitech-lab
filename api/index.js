@@ -1,3 +1,6 @@
+const http = require('http');
 const server = require('../server.js');
 
-module.exports = server;
+module.exports = (req, res) => {
+  server.emit('request', req, res);
+};

@@ -23,8 +23,11 @@ if (process.env.ENGINEER_PIN) {
 // ========================================================
 // 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
 // ========================================================
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const UPLOADS_DIR = isServerless ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+} catch (e) {}
 
 // Initialize Database (Schema & One-Time JSON Migration)
 db.initDatabase();
@@ -85,9 +88,11 @@ function syncWithGoogleSheets() {
   getHttp(GOOGLE_APPS_SCRIPT_ENDPOINT);
 }
 
-// Run sync immediately on startup and every 15 seconds
-setInterval(syncWithGoogleSheets, 15000);
-setTimeout(syncWithGoogleSheets, 2000);
+// Run sync immediately on startup if not serverless
+if (!isServerless) {
+  setInterval(syncWithGoogleSheets, 15000);
+  setTimeout(syncWithGoogleSheets, 2000);
+}
 
 
 // ========================================================
