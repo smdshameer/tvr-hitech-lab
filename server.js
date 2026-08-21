@@ -2609,7 +2609,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     <div class="filter-bar">
       <div class="filter-search-wrap">
         <span class="filter-search-icon">🔍</span>
-        <input type="text" id="searchInput" name="itsm_search_query_nocache" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly');">
+        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" onkeyup="renderTable()" onchange="renderTable()" onpaste="setTimeout(renderTable, 30)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <select id="blockFilter" class="filter-select" onchange="renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
@@ -2864,6 +2864,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   </div>
 
   <script id="initialTicketsData" type="application/json">${JSON.stringify(initialTickets)}</script>
+  <script id="masterSchoolsData" type="application/json">${JSON.stringify(masterSchools)}</script>
   <script>
     let allTickets = [];
     try {
@@ -2971,9 +2972,15 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       return u;
     }
 
+    let masterDirectory = [];
+    try {
+      const mEl = document.getElementById('masterSchoolsData');
+      if (mEl && mEl.textContent) masterDirectory = JSON.parse(mEl.textContent) || [];
+    } catch(e) {}
+
     function renderTable() {
       const searchInputEl = document.getElementById('searchInput');
-      let search = (searchInputEl.value || '').trim().toLowerCase();
+      let search = (searchInputEl ? (searchInputEl.value || '') : '').trim().toLowerCase();
       if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
         search = '';
         searchInputEl.value = '';
@@ -3002,7 +3009,40 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const tbody = document.getElementById('tableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 No matching tickets found.</td></tr>';
+        let smartMatch = null;
+        if (search && search.length >= 3) {
+          const cleanS = search.replace(/\D/g, '');
+          smartMatch = masterDirectory.find(function(m) {
+            const mUdise = String(m.udise || '');
+            const mName = (m.school || m.schoolName || '').toLowerCase();
+            const mTeacher = (m.name || m.aiName || '').toLowerCase();
+            if (cleanS && cleanS.length >= 3 && mUdise.includes(cleanS)) return true;
+            if (mName.includes(search)) return true;
+            if (mTeacher.includes(search)) return true;
+            return false;
+          });
+        }
+
+        if (smartMatch) {
+          const sName = smartMatch.school || smartMatch.schoolName || 'School';
+          const sUdise = smartMatch.udise || '-';
+          const sBlock = smartMatch.block || '-';
+          const sTeacher = smartMatch.name || smartMatch.aiName || 'AI Teacher';
+          const sPhone = smartMatch.phone || '-';
+          const cleanP = String(sPhone).replace(/\D/g, '');
+
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; background:#f8fafc;">' +
+            '<div style="font-size:32px; margin-bottom:8px;">🏫</div>' +
+            '<strong style="font-size:16px; color:#0f172a; display:block;">' + sName + ' (' + sUdise + ')</strong>' +
+            '<div style="font-size:13px; color:#475569; margin-top:4px;">வட்டாரம்: <strong>' + sBlock + '</strong> Block • AI ஆசிரியர்: <strong>' + sTeacher + '</strong> (<a href="tel:' + cleanP + '" style="color:#2563eb; font-weight:700;">📞 ' + sPhone + '</a>)</div>' +
+            '<div style="margin-top:14px; display:inline-block; padding:8px 18px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:20px; font-weight:700; font-size:13px;">' +
+              '✅ இந்தப் பள்ளியிலிருந்து இதுவரை எந்தப் புகாரும் பதிவு செய்யப்படவில்லை (No Complaints Registered - Lab Normal)' +
+            '</div>' +
+          '</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 "' + (search || '') + '" தொடர்பான புகார்கள் ஏதும் காணப்படவில்லை.</td></tr>';
         return;
       }
 
