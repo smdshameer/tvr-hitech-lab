@@ -384,20 +384,7 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // 2. Duplicate Active Ticket Prevention (Same UDISE)
-        const cleanUdise = String(data.udise || '').replace(/\D/g, '');
-        if (cleanUdise && cleanUdise.length >= 6) {
-          const existingOpen = await db.checkOpenTicketByUdise(cleanUdise);
-          if (existingOpen) {
-            res.writeHead(409, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
-              success: false,
-              error: `இந்த பள்ளிக்கு ஏற்கனவே திறந்த நிலையில் உள்ள புகார் உள்ளது (Existing Open Ticket: ${existingOpen.ticketId}). தயவுசெய்து 'Track Status' மூலம் நிலையை அறியவும்.`,
-              existingTicketId: existingOpen.ticketId
-            }));
-            return;
-          }
-        }
+        // 2. Multi-ticket support: Allow unlimited fresh tickets per school with unique serial IDs
 
         // 3. Save Validated Photos to Disk & retain Base64 for zero data loss
         const ts = Date.now();
@@ -414,7 +401,15 @@ const server = http.createServer(async (req, res) => {
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const allTickets = await db.getAllTickets();
-        const ticketId = 'HTL-TVR-' + (data.udise ? data.udise.slice(-5) : String(allTickets.length + 1).padStart(4, '0'));
+        const schoolUdise = String(data.udise || '').trim();
+        const schoolTickets = allTickets.filter(t => (t.udise && t.udise === schoolUdise) || (t.ticketId && t.ticketId.startsWith('HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : ''))));
+        
+        let ticketId;
+        if (schoolTickets.length === 0) {
+          ticketId = 'HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0'));
+        } else {
+          ticketId = 'HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : '00000') + '-' + (schoolTickets.length + 1);
+        }
         const canonicalPriority = db.normalizePriority(data.priority, data.issue);
 
         const newTicket = {
@@ -2058,7 +2053,7 @@ function getTeacherPortalHtml() {
       }
 
       try {
-        const res = await fetch('/api/data?v=' + Date.now());
+        const res = await fetch('/api/data?track=' + encodeURIComponent(q) + '&v=' + Date.now());
         const data = await res.json();
         const cleanQ = q.replace(/\D/g, '');
 
