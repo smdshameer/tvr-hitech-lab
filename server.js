@@ -2974,6 +2974,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     
+    
     let masterDirectory = [];
     try {
       const mEl = document.getElementById('masterSchoolsData');
@@ -3004,14 +3005,14 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           if (searchInputEl) searchInputEl.value = '';
         }
 
+        const bClear = document.getElementById('btnClearSearch');
+        if (bClear) bClear.style.display = search ? 'block' : 'none';
+
         const bEl = document.getElementById('blockFilter');
         const block = (bEl ? (bEl.value || '') : '').trim().toLowerCase();
         
         const cEl = document.getElementById('categoryFilter');
         const cat = (cEl ? (cEl.value || '') : '').trim();
-
-        const bClear = document.getElementById('btnClearSearch');
-        if (bClear) bClear.style.display = search ? 'block' : 'none';
 
         const cleanSearchDigits = search.replace(/\D/g, '');
         
@@ -3154,16 +3155,27 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     window.renderTable = renderTable;
 
-    // Attach immediate event handlers on DOM load
-    document.addEventListener('DOMContentLoaded', function() {
-      const sInput = document.getElementById('searchInput');
-      if (sInput) {
-        sInput.addEventListener('input', renderTable);
-        sInput.addEventListener('keyup', renderTable);
-        sInput.addEventListener('change', renderTable);
-        sInput.addEventListener('paste', function() { setTimeout(renderTable, 20); });
+    // Attach immediate event handlers on DOM load & globally
+    (function attachLiveSearch() {
+      function bind() {
+        const sInput = document.getElementById('searchInput');
+        if (sInput) {
+          sInput.oninput = window.renderTable;
+          sInput.onkeyup = window.renderTable;
+          sInput.onchange = window.renderTable;
+          sInput.onpaste = function() { setTimeout(window.renderTable, 10); };
+        }
+        const bFilter = document.getElementById('blockFilter');
+        if (bFilter) bFilter.onchange = window.renderTable;
+        const cFilter = document.getElementById('categoryFilter');
+        if (cFilter) cFilter.onchange = window.renderTable;
       }
-    });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+      } else {
+        bind();
+      }
+    })();
 
 
     function showImgModal(src) {
