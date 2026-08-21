@@ -2976,6 +2976,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     
     
+    
     let masterDirectory = [];
     try {
       const mEl = document.getElementById('masterSchoolsData');
@@ -2998,7 +2999,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     function renderTable() {
       try {
         const searchInputEl = document.getElementById('searchInput');
-        let search = (searchInputEl ? (searchInputEl.value || '') : '').trim().toLowerCase();
+        let rawVal = searchInputEl ? (searchInputEl.value || '') : '';
+        // Sanitize invisible unicode, non-breaking spaces, zero-width chars from copied WhatsApp/Excel text
+        let search = rawVal.replace(/[\u200B-\u200D\uFEFF\u00A0\r\n\t]/g, ' ').trim().toLowerCase();
         
         // Ignore autofilled credential names
         if (search === 'shameer' || search === 'engineer' || search === 'mohamed' || search === 'head' || search === 'admin') {
@@ -3015,29 +3018,35 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         const cEl = document.getElementById('categoryFilter');
         const cat = (cEl ? (cEl.value || '') : '').trim();
 
-        const cleanSearchDigits = search.replace(/\D/g, '');
+        // Extract pure digits from search query (e.g. "33200503002" or "+91 9751885293")
+        const searchDigits = search.replace(/\D/g, '');
         
         const filtered = allTickets.filter(function(t) {
           const tSchool = (t.schoolName || '').toLowerCase();
           const tUdise = String(t.udise || '').toLowerCase();
-          const tCleanUdise = String(t.udise || '').replace(/\D/g, '');
+          const tUdiseDigits = String(t.udise || '').replace(/\D/g, '');
           const tAi = (t.aiName || '').toLowerCase();
-          const tPhone = String(t.phone || '').replace(/\D/g, '');
+          const tPhoneDigits = String(t.phone || '').replace(/\D/g, '');
           const tTid = (t.ticketId || '').toLowerCase();
           const tIssue = (t.issue || '').toLowerCase();
           const tBlock = (t.block || '').toLowerCase();
 
-          const matchSearch = !search || 
-            tSchool.includes(search) || 
-            tUdise.includes(search) || 
-            (cleanSearchDigits.length >= 3 && tCleanUdise.includes(cleanSearchDigits)) ||
-            tAi.includes(search) || 
-            (cleanSearchDigits.length >= 4 && tPhone.includes(cleanSearchDigits)) ||
-            tTid.includes(search) || 
-            tIssue.includes(search) ||
-            tBlock.includes(search);
+          // 1. Match Search
+          let matchSearch = true;
+          if (search) {
+            matchSearch = false;
+            // Match pure UDISE digits (starts with 33200... or contains digits)
+            if (searchDigits && searchDigits.length >= 2 && tUdiseDigits.includes(searchDigits)) matchSearch = true;
+            // Match phone digits
+            else if (searchDigits && searchDigits.length >= 4 && tPhoneDigits.includes(searchDigits)) matchSearch = true;
+            // Match text substrings
+            else if (tSchool.includes(search) || tUdise.includes(search) || tAi.includes(search) || tTid.includes(search) || tIssue.includes(search) || tBlock.includes(search)) matchSearch = true;
+          }
 
+          // 2. Match Block
           const matchBlock = !block || tBlock.includes(block);
+
+          // 3. Match Category
           const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
           const matchCat = !cat || tCat === cat;
 
@@ -3052,13 +3061,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         if (filtered.length === 0) {
           let smartMatch = null;
-          if (search && search.length >= 3) {
-            const cleanS = search.replace(/\D/g, '');
+          if (search && (searchDigits.length >= 3 || search.length >= 3)) {
             smartMatch = masterDirectory.find(function(m) {
               const mUdise = String(m.udise || '');
+              const mUdiseDigits = mUdise.replace(/\D/g, '');
               const mName = (m.school || m.schoolName || '').toLowerCase();
               const mTeacher = (m.name || m.aiName || '').toLowerCase();
-              if (cleanS && cleanS.length >= 3 && mUdise.includes(cleanS)) return true;
+              if (searchDigits && searchDigits.length >= 3 && mUdiseDigits.includes(searchDigits)) return true;
               if (mName.includes(search)) return true;
               if (mTeacher.includes(search)) return true;
               return false;
@@ -3156,25 +3165,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     window.renderTable = renderTable;
 
-    // Attach immediate event handlers on DOM load & globally
-    (function attachLiveSearch() {
-      function bind() {
+    // Attach listeners on DOM ready and immediately
+    (function attachLiveEvents() {
+      function bindAll() {
         const sInput = document.getElementById('searchInput');
         if (sInput) {
-          sInput.oninput = window.renderTable;
-          sInput.onkeyup = window.renderTable;
-          sInput.onchange = window.renderTable;
-          sInput.onpaste = function() { setTimeout(window.renderTable, 10); };
+          ['input', 'keyup', 'change', 'paste', 'search'].forEach(function(ev) {
+            sInput.addEventListener(ev, function() {
+              setTimeout(renderTable, 20);
+            });
+          });
         }
         const bFilter = document.getElementById('blockFilter');
-        if (bFilter) bFilter.onchange = window.renderTable;
+        if (bFilter) bFilter.onchange = renderTable;
         const cFilter = document.getElementById('categoryFilter');
-        if (cFilter) cFilter.onchange = window.renderTable;
+        if (cFilter) cFilter.onchange = renderTable;
       }
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bind);
+        document.addEventListener('DOMContentLoaded', bindAll);
       } else {
-        bind();
+        bindAll();
       }
     })();
 
