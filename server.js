@@ -450,6 +450,7 @@ const server = http.createServer(async (req, res) => {
         };
 
         await db.createTicket(newTicket);
+        db.registerOrUpdateSchool({ udise: data.udise, schoolName: data.schoolName, block: data.block, aiName: data.aiName, phone: data.phone, district: data.district || 'Thiruvarur' });
         await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
         syncTicketToGoogleDrive(newTicket, data).catch(err => console.error('Google Drive Sync Error:', err.message));
 
@@ -1754,8 +1755,12 @@ function getTeacherPortalHtml() {
     }
 
     function renderSuggestions(matches) {
+      var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:1.5px dashed #93c5fd; text-align:center; color:#1e40af; font-weight:700; padding:11px; margin-top:4px; border-radius:6px; cursor:pointer;">' +
+        '➕ உங்கள் பள்ளி இந்தப் பட்டியலில் இல்லையா? புதிய பள்ளியைச் சேர்க்க கிளிக் செய்யவும் (Add New / Other School)' +
+      '</div>';
+
       if (matches.length === 0) {
-        suggestBox.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை (No Matching School Found).<br><small style="color:#94a3b8;">UDISE எண் அல்லது பள்ளியின் பெயரைச் சரிபார்க்கவும்</small></div>';
+        suggestBox.innerHTML = '<div style="padding:12px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை.<br><small style="color:#94a3b8;">கீழே உள்ள பட்டனைக் கிளிக் செய்து புதிய பள்ளியைச் சேர்க்கலாம்</small></div>' + otherBtn;
         suggestBox.style.display = 'block';
         return;
       }
@@ -1766,7 +1771,7 @@ function getTeacherPortalHtml() {
           '<div class="suggest-meta"><span>📍 ' + s.block + ' Block</span><span>🔢 UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></span></div>' +
           '<div class="suggest-ai">👤 AI: ' + (s.aiName || 'Not Assigned') + ' • 📞 ' + (s.aiPhone || '-') + '</div>' +
         '</div>';
-      }).join('');
+      }).join('') + otherBtn;
       suggestBox.style.display = 'block';
     }
 

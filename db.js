@@ -789,6 +789,91 @@ function getDatabaseType() {
   return 'render-postgres';
 }
 
+
+function registerOrUpdateSchool(info) {
+  if (!info || !info.udise) return;
+  const cleanUdise = String(info.udise).trim();
+  const cleanSchool = String(info.schoolName || '').trim();
+  const cleanBlock = String(info.block || '').trim() || 'Other';
+  const cleanAi = String(info.aiName || '').trim();
+  const cleanPhone = String(info.phone || '').trim();
+  const cleanDistrict = String(info.district || 'Thiruvarur').trim();
+
+  if (!cleanUdise || cleanUdise.length < 6 || !cleanSchool) return;
+
+  let existing = masterSchools.find(s => String(s.udise || '').trim() === cleanUdise);
+  let updated = false;
+
+  if (existing) {
+    if (cleanAi && existing.aiName !== cleanAi) {
+      existing.aiName = cleanAi;
+      updated = true;
+    }
+    if (cleanPhone && existing.aiPhone !== cleanPhone) {
+      existing.aiPhone = cleanPhone;
+      updated = true;
+    }
+    if (cleanSchool && existing.schoolName !== cleanSchool.toUpperCase()) {
+      existing.schoolName = cleanSchool.toUpperCase();
+      updated = true;
+    }
+    if (cleanBlock && (!existing.block || existing.block === 'Other')) {
+      existing.block = cleanBlock;
+      updated = true;
+    }
+  } else {
+    const newSchoolEntry = {
+      id: `TVR-EXT-${cleanUdise.slice(-5)}`,
+      slNo: masterSchools.length + 1,
+      empId: '',
+      district: cleanDistrict,
+      block: cleanBlock,
+      udise: cleanUdise,
+      schoolName: cleanSchool.toUpperCase(),
+      category: cleanSchool.toUpperCase().includes('HSS') ? 'HSS' : (cleanSchool.toUpperCase().includes('GHS') ? 'GHS' : (cleanSchool.toUpperCase().includes('PUMS') || cleanSchool.toUpperCase().includes('GMS') ? 'MS' : 'School')),
+      aiPhone: cleanPhone,
+      aiName: cleanAi
+    };
+    masterSchools.push(newSchoolEntry);
+    updated = true;
+    console.log(`✨ [NEW SCHOOL DISCOVERED & SAVED] ${newSchoolEntry.schoolName} (${newSchoolEntry.udise}) added to master directory!`);
+  }
+
+  if (updated) {
+    try {
+      fs.writeFileSync(SCHOOLS_FILE, JSON.stringify(masterSchools, null, 2), 'utf8');
+      
+      const dirFile = path.join(__dirname, 'Hi-Tech_Lab_Warriors_Thiruvarur_Directory.json');
+      if (fs.existsSync(dirFile)) {
+        let dirList = JSON.parse(fs.readFileSync(dirFile, 'utf8'));
+        let dirItem = dirList.find(d => String(d.udise || '').trim() === cleanUdise);
+        if (dirItem) {
+          if (cleanAi) dirItem.name = cleanAi;
+          if (cleanPhone) dirItem.phone = '+91' + cleanPhone.replace(/\D/g, '');
+          if (cleanSchool) dirItem.school = cleanSchool.toUpperCase();
+          if (cleanBlock) dirItem.block = cleanBlock;
+          dirItem.displayName = `HTL TVR - ${dirItem.name || 'AI'} (${dirItem.school}, ${dirItem.block})`;
+        } else {
+          dirList.push({
+            sno: String(dirList.length + 1),
+            empId: '',
+            name: cleanAi || 'AI Instructor',
+            school: cleanSchool.toUpperCase(),
+            block: cleanBlock,
+            district: cleanDistrict,
+            udise: cleanUdise,
+            phone: '+91' + cleanPhone.replace(/\D/g, ''),
+            displayName: `HTL TVR - ${cleanAi || 'AI'} (${cleanSchool.toUpperCase()}, ${cleanBlock})`
+          });
+        }
+        fs.writeFileSync(dirFile, JSON.stringify(dirList, null, 2), 'utf8');
+      }
+    } catch(err) {
+      console.error('Error saving updated school directory:', err.message);
+    }
+  }
+}
+
 module.exports = {
   initDatabase,
   getAllTickets,
@@ -802,5 +887,6 @@ module.exports = {
   generateExcelExport,
   normalizePriority,
   masterSchools,
+  registerOrUpdateSchool,
   getDatabaseType
 };
