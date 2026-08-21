@@ -2609,7 +2609,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     <div class="filter-bar" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
       <div class="filter-search-wrap" style="flex: 1; min-width: 300px; position:relative;">
         <span class="filter-search-icon">🔍</span>
-        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" placeholder="Search by UDISE (33200...), Ticket ID, School Name, AI Teacher, Block, Issue..." oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" onpaste="setTimeout(window.renderTable, 20)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="padding-right: 75px;">
+        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" oninput="renderTable()" onkeyup="renderTable()" onchange="renderTable()" onpaste="setTimeout(renderTable, 10)" placeholder="Search by UDISE (33200...), Ticket ID, School Name, AI Teacher, Block, Issue..." oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" onpaste="setTimeout(window.renderTable, 20)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="padding-right: 75px;">
         <button type="button" id="btnClearSearch" onclick="window.clearSearchFilter()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:#e2e8f0; border:none; border-radius:6px; padding:4px 9px; font-size:11px; font-weight:700; color:#475569; cursor:pointer; display:none;">✕ Clear</button>
       </div>
       <select id="blockFilter" class="filter-select" onchange="window.renderTable()">
@@ -2935,7 +2935,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         allTickets = data.tickets || [];
 
         document.getElementById('kpiTotal').textContent = data.totalSchools || 183;
-        document.getElementById('kpiReported').textContent = data.totalReported || 0;
+        const sVal = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim();
+        if (!sVal) document.getElementById('kpiReported').textContent = data.totalReported || 0;
         document.getElementById('kpiResolvedRemote').textContent = data.resolvedRemotelyCount || 0;
         document.getElementById('kpiSolvedDirect').textContent = data.solvedDirectVisitCount || 0;
         document.getElementById('kpiVendor').textContent = data.vendorCount || 0;
