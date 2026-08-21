@@ -2606,11 +2606,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     </div>
 
     <!-- Filter & Search Bar -->
-    <div class="filter-bar">
-      <div class="filter-search-wrap">
+    <div class="filter-bar" style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <div class="filter-search-wrap" style="flex: 1; min-width: 280px; position:relative;">
         <span class="filter-search-icon">🔍</span>
-        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" placeholder="Search Ticket ID, School Name, UDISE, AI Name, Issue..." oninput="renderTable()" onkeyup="renderTable()" onchange="renderTable()" onpaste="setTimeout(renderTable, 30)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" placeholder="Enter UDISE, School Name, Ticket ID, AI Name..." oninput="renderTable()" onkeyup="renderTable()" onchange="renderTable()" onpaste="setTimeout(renderTable, 10)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="padding-right: 70px;">
+        <button type="button" id="btnClearSearch" onclick="clearSearchFilter()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:#e2e8f0; border:none; border-radius:6px; padding:3px 8px; font-size:11.5px; font-weight:700; color:#475569; cursor:pointer; display:none;">✕ Clear</button>
       </div>
+      <button type="button" onclick="renderTable()" class="btn btn-blue" style="padding: 9px 18px; font-weight:700; display:flex; align-items:center; gap:6px;">🔍 Search (தேடு)</button>
       <select id="blockFilter" class="filter-select" onchange="renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
         <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
@@ -2978,6 +2980,15 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (mEl && mEl.textContent) masterDirectory = JSON.parse(mEl.textContent) || [];
     } catch(e) {}
 
+
+    function clearSearchFilter() {
+      const sInput = document.getElementById('searchInput');
+      if (sInput) sInput.value = '';
+      const bClear = document.getElementById('btnClearSearch');
+      if (bClear) bClear.style.display = 'none';
+      renderTable();
+    }
+
     function renderTable() {
       const searchInputEl = document.getElementById('searchInput');
       let search = (searchInputEl ? (searchInputEl.value || '') : '').trim().toLowerCase();
@@ -3022,6 +3033,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const kpiRepEl = document.getElementById('kpiReported');
       if (kpiRepEl) kpiRepEl.textContent = filtered.length;
+
+      const bClear = document.getElementById('btnClearSearch');
+      if (bClear) bClear.style.display = search ? 'block' : 'none';
 
       const tbody = document.getElementById('tableBody');
       if (filtered.length === 0) {
