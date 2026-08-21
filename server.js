@@ -2709,9 +2709,12 @@ function getITSMWorkbenchHtml() {
       </div>
 
       <!-- Sticky Modal Footer -->
-      <div class="modal-footer">
-        <button type="button" class="btn btn-logout" onclick="closeActionModal()">✕ ரத்து செய் (Cancel)</button>
-        <button type="button" class="btn btn-blue" id="btnSaveResolution" onclick="saveTicketUpdate()" style="background:#1d4ed8; color:white; font-weight:700;">💾 Save & Update Ticket</button>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
+        <button type="button" class="btn" onclick="deleteCurrentTicket()" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;">🗑️ Delete Ticket (நீக்கு)</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-logout" onclick="closeActionModal()">✕ ரத்து செய் (Cancel)</button>
+          <button type="button" class="btn btn-blue" id="btnSaveResolution" onclick="saveTicketUpdate()" style="background:#1d4ed8; color:white; font-weight:700;">💾 Save & Update Ticket</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2925,6 +2928,7 @@ function getITSMWorkbenchHtml() {
               '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
               '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
               '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
+              '<button type="button" data-tid="' + t.ticketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
             '</div>' +
           '</td>' +
         '</tr>';
@@ -3213,22 +3217,43 @@ function getITSMWorkbenchHtml() {
       w.document.close();
     }
 
-    async function deleteCurrentTicket() {
-      if (!currentEditingTicketId) return;
-      if (!confirm('Are you sure you want to permanently delete ticket ' + currentEditingTicketId + '?')) return;
+    async function deleteSingleTicket(tid) {
+      if (!tid) return;
+      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்த தவறான புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticketId: currentEditingTicketId, password: '1234' })
+          body: JSON.stringify({ ticketId: tid })
+        });
+        const d = await res.json();
+        if (d.success) {
+          loadData();
+        } else {
+          alert('Delete failed: ' + (d.error || 'Unknown error'));
+        }
+      } catch(e) {
+        alert('Delete request failed.');
+      }
+    }
+
+    async function deleteCurrentTicket() {
+      if (!currentEditingTicketId) return;
+      if (!confirm('Are you sure you want to permanently delete ticket ' + currentEditingTicketId + '?\nஇந்த தவறான புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
+
+      try {
+        const res = await fetch('/api/tickets/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticketId: currentEditingTicketId })
         });
         const d = await res.json();
         if (d.success) {
           closeActionModal();
           loadData();
         } else {
-          alert('Delete failed: ' + d.error);
+          alert('Delete failed: ' + (d.error || 'Unknown error'));
         }
       } catch(e) {
         alert('Delete request failed.');
