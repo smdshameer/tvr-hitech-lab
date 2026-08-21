@@ -3534,7 +3534,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       w.document.close();
     }
 
-    async async function deleteSingleTicket(tid) {
+    async function deleteSingleTicket(tid) {
       if (!tid) {
         alert('Ticket ID is missing.');
         return;
