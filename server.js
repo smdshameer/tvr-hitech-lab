@@ -2251,6 +2251,34 @@ function generateTableRowsHtml(list) {
 }
 
 function getITSMWorkbenchHtml(initialTickets = []) {
+  initialTickets.sort((a, b) => {
+    function p(s) {
+      if (!s) return 0;
+      try {
+        const parts = String(s).split(',');
+        if (parts.length >= 2) {
+          const dParts = parts[0].trim().split('/');
+          const tParts = parts[1].trim().split(' ');
+          if (dParts.length === 3 && tParts.length >= 2) {
+            const day = parseInt(dParts[0], 10);
+            const month = parseInt(dParts[1], 10) - 1;
+            const year = parseInt(dParts[2], 10);
+            const timeSub = tParts[0].split(':');
+            let hours = parseInt(timeSub[0], 10);
+            const minutes = parseInt(timeSub[1] || 0, 10);
+            const seconds = parseInt(timeSub[2] || 0, 10);
+            const meridiem = tParts[1].toLowerCase();
+            if (meridiem.includes('pm') && hours < 12) hours += 12;
+            if (meridiem.includes('am') && hours === 12) hours = 0;
+            return new Date(year, month, day, hours, minutes, seconds).getTime();
+          }
+        }
+        const d = new Date(s).getTime();
+        return isNaN(d) ? 0 : d;
+      } catch(e) { return 0; }
+    }
+    return p(b.createdDate || b.createdAt) - p(a.createdDate || a.createdAt);
+  });
   const totalReported = initialTickets.length;
   const resolvedRemote = initialTickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
   const solvedDirect = initialTickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
@@ -2996,6 +3024,36 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     window.clearSearchFilter = clearSearchFilter;
 
+    
+    function parseTicketTimestamp(str) {
+      if (!str) return 0;
+      if (typeof str === 'number') return str;
+      try {
+        const parts = String(str).split(',');
+        if (parts.length >= 2) {
+          const dParts = parts[0].trim().split('/');
+          const tParts = parts[1].trim().split(' ');
+          if (dParts.length === 3 && tParts.length >= 2) {
+            const day = parseInt(dParts[0], 10);
+            const month = parseInt(dParts[1], 10) - 1;
+            const year = parseInt(dParts[2], 10);
+            const timeSub = tParts[0].split(':');
+            let hours = parseInt(timeSub[0], 10);
+            const minutes = parseInt(timeSub[1] || 0, 10);
+            const seconds = parseInt(timeSub[2] || 0, 10);
+            const meridiem = tParts[1].toLowerCase();
+            if (meridiem.includes('pm') && hours < 12) hours += 12;
+            if (meridiem.includes('am') && hours === 12) hours = 0;
+            return new Date(year, month, day, hours, minutes, seconds).getTime();
+          }
+        }
+        const d = new Date(str).getTime();
+        return isNaN(d) ? 0 : d;
+      } catch(e) {
+        return 0;
+      }
+    }
+
     function renderTable() {
       try {
         const searchInputEl = document.getElementById('searchInput');
@@ -3051,6 +3109,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           const matchCat = !cat || tCat === cat;
 
           return matchSearch && matchBlock && matchCat;
+        });
+
+        
+        filtered.sort(function(a, b) {
+          return parseTicketTimestamp(b.createdDate || b.createdAt) - parseTicketTimestamp(a.createdDate || a.createdAt);
         });
 
         const kpiRepEl = document.getElementById('kpiReported');
