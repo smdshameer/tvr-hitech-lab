@@ -2243,7 +2243,7 @@ function generateTableRowsHtml(list) {
           '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
           '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
           '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-          '<button type="button" data-tid="' + t.ticketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
+          '<button type="button" onclick="window.deleteSingleTicket(\'' + t.ticketId + '\')" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;" title="Delete this ticket">🗑️ Delete</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
@@ -3535,20 +3535,29 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     async async function deleteSingleTicket(tid) {
-      if (!tid) return;
-      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்தப் புகாரை நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
+      if (!tid) {
+        alert('Ticket ID is missing.');
+        return;
+      }
+      if (!confirm('Are you sure you want to permanently delete ticket ' + tid + '?\nஇந்தப் புகாரை (' + tid + ') நிரந்தரமாக நீக்க விரும்புகிறீர்களா?')) return;
 
       try {
         const res = await fetch('/api/tickets/delete', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticketId: tid })
+          body: JSON.stringify({ ticketId: String(tid).trim() })
         });
+        if (res.status === 401) {
+          alert('Session expired. Please log in again.');
+          window.location.href = '/login?redirect=/engineer';
+          return;
+        }
         const d = await res.json();
         if (d.success) {
-          allTickets = allTickets.filter(function(t) { return t.ticketId !== tid; });
+          allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== String(tid).trim(); });
           renderTable();
-          loadData();
+          await loadData();
         } else {
           alert('Delete failed: ' + (d.error || 'Unknown error'));
         }
