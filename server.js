@@ -181,6 +181,63 @@ if (!CURRENT_GIT_COMMIT) {
   }
 }
 
+
+// ========================================================
+// GOOGLE DRIVE & GOOGLE SHEETS ASYNC WEBHOOK SYNC
+// ========================================================
+async function syncTicketToGoogleDrive(ticket, rawData) {
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL;
+  if (!webhookUrl) return;
+
+  const payload = {
+    ticketId: ticket.ticketId,
+    createdAt: ticket.createdAt,
+    schoolName: ticket.schoolName,
+    udise: ticket.udise,
+    block: ticket.block,
+    district: ticket.district || 'Thiruvarur',
+    aiName: ticket.aiName,
+    phone: ticket.phone,
+    issue: ticket.issue,
+    duration: ticket.duration,
+    serialNo: ticket.serialNo,
+    priority: ticket.priority,
+    status: ticket.status,
+    remarks: ticket.remarks,
+    photo1Base64: rawData.photo1Base64,
+    photo2Base64: rawData.photo2Base64,
+    photo3Base64: rawData.photo3Base64,
+    photo4Base64: rawData.photo4Base64
+  };
+
+  try {
+    const fetch = globalThis.fetch;
+    if (typeof fetch === 'function') {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        redirect: 'follow'
+      });
+      const result = await response.json();
+      if (result && result.success) {
+        console.log(`🚀 [GOOGLE DRIVE SYNC SUCCESS] Ticket ${ticket.ticketId} saved to Google Drive: ${result.folderUrl}`);
+        await db.updateTicket(ticket.ticketId, {
+          googleDriveFolderUrl: result.folderUrl || '',
+          p1DriveUrl: result.p1Url || '',
+          p2DriveUrl: result.p2Url || '',
+          p3DriveUrl: result.p3Url || '',
+          p4DriveUrl: result.p4Url || ''
+        });
+      } else {
+        console.warn(`⚠️ [GOOGLE DRIVE SYNC WARN] ${ticket.ticketId}:`, result ? result.error : 'Unknown response');
+      }
+    }
+  } catch (err) {
+    console.error(`❌ [GOOGLE DRIVE SYNC ERROR] ${ticket.ticketId}:`, err.message);
+  }
+}
+
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
@@ -399,6 +456,7 @@ const server = http.createServer(async (req, res) => {
 
         await db.createTicket(newTicket);
         await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
+        syncTicketToGoogleDrive(newTicket, data).catch(err => console.error('Google Drive Sync Error:', err.message));
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, ticketId: ticketId, message: 'Ticket logged successfully!' }));

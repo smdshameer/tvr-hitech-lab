@@ -122,6 +122,7 @@ function mapRowToTicket(r) {
     photo2Url: r.photo2_data || '',
     photo3Url: r.photo3_data || '',
     photo4Url: r.photo4_data || '',
+    googleDriveFolderUrl: r.drive_folder_url || '',
     remarks: r.remarks || '',
     timeline: r.activity_log || []
   };
@@ -396,6 +397,7 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.photo2Url !== undefined) ticket.photo2Url = updateData.photo2Url;
     if (updateData.photo3Url !== undefined) ticket.photo3Url = updateData.photo3Url;
     if (updateData.photo4Url !== undefined) ticket.photo4Url = updateData.photo4Url;
+    if (updateData.googleDriveFolderUrl !== undefined) ticket.googleDriveFolderUrl = updateData.googleDriveFolderUrl;
     if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
       ticket.resolvedAt = dateStr;
     }
@@ -548,6 +550,7 @@ async function generateExcelExport() {
     { header: 'Photo 2 (Overall UPS)', key: 'photo2', width: 25, hidden: true },
     { header: 'Photo 3 (Battery/MCB)', key: 'photo3', width: 25, hidden: true },
     { header: 'Photo 4 (Isolation Transformer)', key: 'photo4', width: 25, hidden: true },
+    { header: 'Google Drive Folder', key: 'driveFolder', width: 35, hidden: true },
     { header: 'Activity Log History', key: 'timeline', width: 45, hidden: true }
   ];
 
@@ -608,6 +611,7 @@ async function generateExcelExport() {
       photo2: t.photo2 || 'No Photo',
       photo3: t.photo3 || 'No Photo',
       photo4: t.photo4 || 'No Photo',
+      driveFolder: t.googleDriveFolderUrl || 'Pending Sync',
       timeline: timelineStr
     });
 
