@@ -577,6 +577,7 @@ async function handleRequest(req, res) {
         const data = JSON.parse(body || '{}');
 
         // 1. Strict Server-Side Photo Presence & Magic Byte Check
+        // 1. Strict Server-Side Photo Presence & Magic Byte Check for Photos 1-3 (Photo 4 is optional)
         const p1Res = validateAndExtractPhoto(data.photo1Base64, 1);
         if (!p1Res.valid) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
@@ -598,40 +599,47 @@ async function handleRequest(req, res) {
           return;
         }
 
-        const p4Res = validateAndExtractPhoto(data.photo4Base64, 4);
-        if (!p4Res.valid) {
-          res.writeHead(422, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: p4Res.error }));
-          return;
+        let p4Res = null;
+        if (data.photo4Base64 && data.photo4Base64.length > 50) {
+          p4Res = validateAndExtractPhoto(data.photo4Base64, 4);
         }
 
-        // 2. Multi-ticket support: Allow unlimited fresh tickets per school with unique serial IDs
-
-        // 3. Save Validated Photos to Disk & retain Base64 for zero data loss
+        // 2. Save Validated Photos to Disk & retain Base64 for zero data loss
         const ts = Date.now();
         const cleanSchool = (data.schoolName || 'school').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
         const p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p1Res.ext}`;
         const p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p2Res.ext}`;
         const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
-        const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
 
         safeWriteFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
-        safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
+
+        if (p4Res && p4Res.valid) {
+          const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
+          safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
+        }
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const allTickets = await db.getAllTickets();
         const schoolUdise = String(data.udise || '').trim();
-        const schoolTickets = allTickets.filter(t => (t.udise && t.udise === schoolUdise) || (t.ticketId && t.ticketId.startsWith('HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : ''))));
+        const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
+        const baseTicketId = 'HTL-TVR-' + cleanSuffix;
+
+        // Check existing active IDs in database
+        const existingIds = new Set(allTickets.map(t => String(t.ticketId || '').trim()));
         
         let ticketId;
-        if (schoolTickets.length === 0) {
-          ticketId = 'HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0'));
+        if (!existingIds.has(baseTicketId)) {
+          ticketId = baseTicketId;
         } else {
-          ticketId = 'HTL-TVR-' + (schoolUdise ? schoolUdise.slice(-5) : '00000') + '-' + (schoolTickets.length + 1);
+          // If base ID exists, assign lowest available suffix (-2, -3...)
+          let suffixNum = 2;
+          while (existingIds.has(`${baseTicketId}-${suffixNum}`)) {
+            suffixNum++;
+          }
+          ticketId = `${baseTicketId}-${suffixNum}`;
         }
-        const canonicalPriority = db.normalizePriority(data.priority, data.issue);
 
         const newTicket = {
           ticketId: ticketId,
@@ -2257,12 +2265,7 @@ function getTeacherPortalHtml() {
         return;
       }
 
-      if (!base64Photo4) {
-        alert('⚠️ புகைப்படம் 4 கட்டாயம்! தயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
-        document.getElementById('photoBox4').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-      const btn = document.getElementById('btnSubmit');
+      // Photo 4 (Isolation Transformer) is optional
       btn.disabled = true;
       btn.textContent = 'டிக்கெட் பதிவாகிறது...';
 
