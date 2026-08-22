@@ -24,7 +24,7 @@ try {
   const deletedFile = path.join(os.tmpdir(), 'deleted_ticket_ids.json');
   if (fs.existsSync(deletedFile)) {
     const arr = JSON.parse(fs.readFileSync(deletedFile, 'utf8'));
-    if (Array.isArray(arr)) deletedTicketIds = new Set(arr);
+    if (Array.isArray(arr)) deletedTicketIds = new Set(arr.map(String));
   }
 } catch(e) {}
 
@@ -80,36 +80,28 @@ if (process.env.DATABASE_URL) {
 }
 
 function loadTicketsFromJson() {
-  let bundled = [];
-  try {
-    bundled = require('./data/htl_itsm_tickets.json');
-  } catch (e) {
-    try {
-      if (fs.existsSync(BUNDLED_DB_FILE)) {
-        bundled = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8')) || [];
+  if (inMemoryTickets === null) {
+    const tmpDb = path.join(os.tmpdir(), 'htl_itsm_tickets.json');
+    if (fs.existsSync(tmpDb)) {
+      try {
+        inMemoryTickets = JSON.parse(fs.readFileSync(tmpDb, 'utf8'));
+      } catch(e) {}
+    }
+    if (!inMemoryTickets || !Array.isArray(inMemoryTickets) || inMemoryTickets.length === 0) {
+      try {
+        inMemoryTickets = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
+      } catch(e) {
+        try {
+          if (fs.existsSync(BUNDLED_DB_FILE)) {
+            inMemoryTickets = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8')) || [];
+          }
+        } catch(err) {
+          inMemoryTickets = [];
+        }
       }
-    } catch(err){}
+    }
   }
-
-  let dynamic = [];
-  const tmpDb = path.join(os.tmpdir(), 'htl_itsm_tickets.json');
-  if (fs.existsSync(tmpDb)) {
-    try {
-      dynamic = JSON.parse(fs.readFileSync(tmpDb, 'utf8')) || [];
-    } catch (e) {}
-  }
-
-  if (inMemoryTickets && Array.isArray(inMemoryTickets) && inMemoryTickets.length > 0) {
-    dynamic = inMemoryTickets;
-  }
-
-  const map = new Map();
-  (bundled || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
-  (dynamic || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
-
-  const merged = Array.from(map.values()).filter(t => !deletedTicketIds.has(t.ticketId));
-  inMemoryTickets = merged;
-  return merged;
+  return (inMemoryTickets || []).filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
 }
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
