@@ -3242,8 +3242,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         });
 
         document.getElementById('kpiTotal').textContent = data.totalSchools || 183;
-        const sVal = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim();
-        if (!sVal) document.getElementById('kpiReported').textContent = allTickets.length;
+        document.getElementById('kpiReported').textContent = allTickets.length;
         document.getElementById('kpiResolvedRemote').textContent = allTickets.filter(function(t) { return t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely'; }).length;
         document.getElementById('kpiSolvedDirect').textContent = allTickets.filter(function(t) { return t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit'; }).length;
         document.getElementById('kpiVendor').textContent = allTickets.filter(function(t) { return t.status === 'Vendor Escalated'; }).length;
