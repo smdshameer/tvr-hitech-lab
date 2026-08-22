@@ -204,7 +204,7 @@ function setCsrfCookie(res) {
   const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
   const secureFlag = isProd ? '; Secure' : '';
   res.setHeader('Set-Cookie', (res.getHeader('Set-Cookie') || []).concat(
-    `csrf_token=${token}; HttpOnly${secureFlag}; Path=/; SameSite=Strict; Max-Age=86400`
+    `csrf_token=${token}${secureFlag}; Path=/; SameSite=Lax; Max-Age=86400`
   ));
   return token;
 }
@@ -542,26 +542,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // CSRF validation for authenticated POST endpoints
+  // Session Authentication validation for authenticated POST endpoints
   function requireCsrf(req, res) {
     const session = getAuthenticatedSession(req);
-    if (!session) return false; // Not authenticated, skip CSRF (e.g., login)
-    const headerToken = req.headers['x-csrf-token'] || req.headers['csrf-token'];
-    const cookieToken = getCsrfToken(req);
-    if (!headerToken || !cookieToken) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'CSRF token missing' }));
-      return false;
-    }
-    try {
-      if (!crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken))) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Invalid CSRF token' }));
-        return false;
-      }
-    } catch (e) {
-      res.writeHead(403, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'CSRF validation failed' }));
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Session expired or authentication required.' }));
       return false;
     }
     return true;
