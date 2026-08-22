@@ -7,7 +7,9 @@ const db = require('./db.js');
 const masterSchools = db.masterSchools || [];
 const { getAllTicketsSync } = db;
 // Import DATA_DIR from db.js for consistent data path handling
-const DATA_DIR = require('path').join(__dirname, 'data');
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
 
 // ========================================================
 // 1. CREDENTIALS & SECURITY CONFIGURATION
@@ -41,7 +43,6 @@ function safeWriteFileSync(filePath, data, encoding = 'utf8') {
 
 // 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
 // ========================================================
-const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 const UPLOADS_DIR = isServerless ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
 try {
   if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -101,7 +102,7 @@ function syncWithGoogleSheets() {
             if (addedCount > 0) {
               // Use DATA_DIR constant (handles serverless /tmp path correctly)
               const fPath = path.join(DATA_DIR, 'htl_itsm_tickets.json');
-              fs.writeFileSync(fPath, JSON.stringify(localTickets, null, 2), 'utf8');
+              safeWriteFileSync(fPath, JSON.stringify(localTickets, null, 2), 'utf8');
               console.log('🔄 [LIVE SYNC] Automatically merged ' + addedCount + ' new tickets from Google Sheets!');
             }
           }
@@ -615,10 +616,10 @@ const server = http.createServer(async (req, res) => {
         const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
         const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
 
-        fs.writeFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
-        fs.writeFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
-        fs.writeFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
-        fs.writeFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
+        safeWriteFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
+        safeWriteFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
+        safeWriteFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
+        safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
 
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const allTickets = await db.getAllTickets();
