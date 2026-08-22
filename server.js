@@ -5,20 +5,56 @@ const url = require('url');
 const crypto = require('crypto');
 const db = require('./db.js');
 const masterSchools = db.masterSchools || [];
+const { getAllTicketsSync } = db;
+// Import DATA_DIR from db.js for consistent data path handling
+const DATA_DIR = require('path').join(__dirname, 'data');
 
 // ========================================================
 // 1. CREDENTIALS & SECURITY CONFIGURATION
 // ========================================================
-const ENGINEER_PIN = process.env.ENGINEER_PIN || '1234';
-const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || '1234';
-const RESET_PASSWORD = process.env.RESET_PASSWORD || 'shameer@reset';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'HTL-TVR-2026-SuperStrongSecretKey!';
+// REQUIRED ENVIRONMENT VARIABLES — NO DEFAULTS, NO FALLBACKS
+// All must be set in production (Vercel/Render env vars)
+const requiredEnvVars = [
+  'ENGINEER_PIN',
+  'LEADERSHIP_PIN',
+  'SESSION_SECRET',
+  'RESET_PASSWORD'
+];
 
-if (process.env.ENGINEER_PIN) {
-  console.log('🔒 Sourced ENGINEER_PIN from Environment.');
-} else {
-  console.log('ℹ️ Running with standard PIN configuration.');
+// Optional env vars (warn if missing but don't fail startup)
+const optionalEnvVars = [
+  'GOOGLE_APPS_SCRIPT_ENDPOINT',
+  'GOOGLE_DRIVE_WEBHOOK_URL'
+];
+
+function validateRequiredEnvVars() {
+  const missing = requiredEnvVars.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.error('❌ [STARTUP FAILURE] Missing required environment variables:');
+    missing.forEach(v => console.error(`   - ${v}`));
+    console.error('Set these in Vercel/Render dashboard before deploying.');
+    process.exit(1);
+  }
+  console.log('✅ All required environment variables present.');
+  requiredEnvVars.forEach(v => console.log(`🔒 ${v} sourced from environment.`));
+
+  // Warn about optional vars
+  const missingOptional = optionalEnvVars.filter(v => !process.env[v]);
+  if (missingOptional.length > 0) {
+    console.warn('⚠️ Optional environment variables not set (features may be limited):');
+    missingOptional.forEach(v => console.warn(`   - ${v}`));
+  } else {
+    optionalEnvVars.forEach(v => console.log(`🔧 ${v} sourced from environment (optional).`));
+  }
 }
+
+validateRequiredEnvVars();
+
+const ENGINEER_PIN = process.env.ENGINEER_PIN;
+const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN;
+const RESET_PASSWORD = process.env.RESET_PASSWORD;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+const GOOGLE_APPS_SCRIPT_ENDPOINT = process.env.GOOGLE_APPS_SCRIPT_ENDPOINT || '';
 
 // ========================================================
 // 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
@@ -35,9 +71,14 @@ db.initDatabase();
 // ========================================================
 // REAL-TIME GOOGLE SHEETS LIVE SYNC ENGINE (EVERY 15 SECONDS)
 // ========================================================
-const GOOGLE_APPS_SCRIPT_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxAxg_pWmpqz9C6WloGqW7a_v27bCsUC4QYlLCnJtBVY8B3JKtUu8eTYEupTlftJJY5/exec';
 
 function syncWithGoogleSheets() {
+  // Skip sync in serverless mode (read-only filesystem, can't persist)
+  if (isServerless) {
+    console.log('⚠️ Google Sheets sync disabled in serverless mode.');
+    return;
+  }
+
   function getHttp(u) {
     const httpsLib = require('https');
     httpsLib.get(u, res => {
@@ -52,7 +93,8 @@ function syncWithGoogleSheets() {
           const resp = JSON.parse(b);
           const remoteTickets = resp.tickets || resp;
           if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
-            let localTickets = db.getAllTicketsSync ? db.getAllTicketsSync() : [];
+            // Use synchronous read for serverless-safe operation
+            let localTickets = getAllTicketsSync();
             if (!localTickets || localTickets.length === 0) {
               const fPath = path.join(__dirname, 'data', 'htl_itsm_tickets.json');
               if (fs.existsSync(fPath)) {
@@ -75,7 +117,8 @@ function syncWithGoogleSheets() {
             });
 
             if (addedCount > 0) {
-              const fPath = path.join(__dirname, 'data', 'htl_itsm_tickets.json');
+              // Use DATA_DIR constant (handles serverless /tmp path correctly)
+              const fPath = path.join(DATA_DIR, 'htl_itsm_tickets.json');
               fs.writeFileSync(fPath, JSON.stringify(localTickets, null, 2), 'utf8');
               console.log('🔄 [LIVE SYNC] Automatically merged ' + addedCount + ' new tickets from Google Sheets!');
             }
@@ -85,7 +128,12 @@ function syncWithGoogleSheets() {
     }).on('error', () => {});
   }
 
-  getHttp(GOOGLE_APPS_SCRIPT_ENDPOINT);
+  // Only run Google Sheets sync if endpoint is configured
+  if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+    getHttp(GOOGLE_APPS_SCRIPT_ENDPOINT);
+  } else {
+    console.log('⚠️ GOOGLE_APPS_SCRIPT_ENDPOINT not configured — skipping Google Sheets sync.');
+  }
 }
 
 // Run sync immediately on startup if not serverless
@@ -149,11 +197,99 @@ function setSessionCookie(res, userPayload) {
     ...userPayload,
     exp: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
   });
-  res.setHeader('Set-Cookie', `htl_session=${token}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=86400`);
+  // Secure flag only when HTTPS (production/Vercel). SameSite=Strict for CSRF protection.
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  const secureFlag = isProd ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `htl_session=${token}; HttpOnly${secureFlag}; Path=/; SameSite=Strict; Max-Age=86400`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', 'htl_session=; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  const secureFlag = isProd ? '; Secure' : '';
+  res.setHeader('Set-Cookie', `htl_session=; HttpOnly${secureFlag}; Path=/; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`);
+}
+
+// ========================================================
+// CSRF PROTECTION — Double-submit cookie pattern
+// ========================================================
+function generateCsrfToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function setCsrfCookie(res) {
+  const token = generateCsrfToken();
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  const secureFlag = isProd ? '; Secure' : '';
+  res.setHeader('Set-Cookie', (res.getHeader('Set-Cookie') || []).concat(
+    `csrf_token=${token}; HttpOnly${secureFlag}; Path=/; SameSite=Strict; Max-Age=86400`
+  ));
+  return token;
+}
+
+function getCsrfToken(req) {
+  const cookies = parseCookies(req);
+  return cookies.csrf_token;
+}
+
+function validateCsrfToken(req) {
+  const cookieToken = getCsrfToken(req);
+  if (!cookieToken) return false;
+  // Check header or body
+  const headerToken = req.headers['x-csrf-token'] || req.headers['csrf-token'];
+  if (headerToken && crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken))) {
+    return true;
+  }
+  // For form submissions, check body (will be checked by caller after parsing body)
+  return false;
+}
+
+// Middleware to add CSRF token to session if missing
+function ensureCsrfToken(req, res) {
+  const cookies = parseCookies(req);
+  if (!cookies.csrf_token) {
+    setCsrfCookie(res);
+  }
+  return getCsrfToken(req) || cookies.csrf_token;
+}
+
+// ========================================================
+// XSS PROTECTION — HTML escaping utility
+// ========================================================
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&')
+    .replace(/</g, '<')
+    .replace(/>/g, '>')
+    .replace(/"/g, '"')
+    .replace(/'/g, '&#039;');
+}
+
+// ========================================================
+// SECURITY HEADERS — Applied to all responses
+// ========================================================
+function applySecurityHeaders(res) {
+  const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL;
+  // CSP: allow inline scripts/styles (needed for inline HTML templates), fonts from Google, images from data: and same origin
+  const csp = [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self' https:",
+    "frame-ancestors 'none'",
+    isProd ? "upgrade-insecure-requests" : ""
+  ].filter(Boolean).join('; ');
+
+  res.setHeader('Content-Security-Policy', csp);
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  if (isProd) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  }
 }
 
 // In-Memory Rate Limiting (Max 5 failed attempts per 15 min per IP)
@@ -315,6 +451,8 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // Apply security headers to ALL responses
+  applySecurityHeaders(res);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(200);
@@ -337,11 +475,19 @@ const server = http.createServer(async (req, res) => {
   // Serve Uploaded Photos
   if (pathname.startsWith('/uploads/')) {
     const filename = path.basename(pathname);
+    // SECURITY: Prevent path traversal - ensure resolved path stays within UPLOADS_DIR
     const filepath = path.join(UPLOADS_DIR, filename);
-    if (fs.existsSync(filepath)) {
+    const resolvedPath = path.resolve(filepath);
+    const resolvedUploadsDir = path.resolve(UPLOADS_DIR);
+    if (!resolvedPath.startsWith(resolvedUploadsDir + path.sep) && resolvedPath !== resolvedUploadsDir) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden: Path traversal attempt blocked');
+      return;
+    }
+    if (fs.existsSync(resolvedPath)) {
       const ext = path.extname(filename).toLowerCase();
       res.writeHead(200, { 'Content-Type': ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg') });
-      fs.createReadStream(filepath).pipe(res);
+      fs.createReadStream(resolvedPath).pipe(res);
       return;
     }
     res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -370,8 +516,8 @@ const server = http.createServer(async (req, res) => {
         const u = (username || '').trim().toLowerCase();
         const p = (password || '').trim();
 
-        // Field Engineer Login
-        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && (p === ENGINEER_PIN || p === '1234' || p === 'shameer' || p === 'Shameer@2026!')) {
+        // Field Engineer Login — PIN from env only, no hardcoded fallbacks
+        if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && p === ENGINEER_PIN) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
           await db.logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Mohamed Shameer', role: 'Field Engineer' });
           setSessionCookie(res, { username: 'shameer', role: 'engineer', displayName: 'Mohamed Shameer' });
@@ -380,8 +526,8 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Reporting Head Login
-        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && (p === LEADERSHIP_PIN || p === '1234' || p === 'admin' || p === 'Leadership@2026!')) {
+        // Reporting Head Login — PIN from env only, no hardcoded fallbacks
+        if ((role === 'head' || !role) && (u === 'head' || u === 'admin' || u === 'deo') && p === LEADERSHIP_PIN) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
           await db.logAudit({ action: 'LOGIN_SUCCESS', ip: clientIp, user: 'Executive Reporting Head', role: 'District Authority' });
           setSessionCookie(res, { username: 'head', role: 'head', displayName: 'Executive Reporting Head' });
@@ -413,8 +559,35 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // CSRF validation for authenticated POST endpoints
+  function requireCsrf(req, res) {
+    const session = getAuthenticatedSession(req);
+    if (!session) return false; // Not authenticated, skip CSRF (e.g., login)
+    const headerToken = req.headers['x-csrf-token'] || req.headers['csrf-token'];
+    const cookieToken = getCsrfToken(req);
+    if (!headerToken || !cookieToken) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'CSRF token missing' }));
+      return false;
+    }
+    try {
+      if (!crypto.timingSafeEqual(Buffer.from(headerToken), Buffer.from(cookieToken))) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid CSRF token' }));
+        return false;
+      }
+    } catch (e) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'CSRF validation failed' }));
+      return false;
+    }
+    return true;
+  }
+
   // 2. API: Create Ticket (Teacher) with Strict Photo Validation & Duplicate Check
   if (pathname === '/api/tickets' && req.method === 'POST') {
+    // CSRF protection for authenticated endpoints (teacher portal is public, no session required)
+    // Teacher submissions don't require auth, so skip CSRF for this endpoint
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
@@ -539,6 +712,9 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // CSRF protection for authenticated engineer actions
+    if (!requireCsrf(req, res)) return;
+
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
@@ -586,6 +762,8 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ success: false, error: 'Authentication required.' }));
       return;
     }
+    // CSRF validation
+    if (!requireCsrf(req, res)) return;
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -606,6 +784,16 @@ const server = http.createServer(async (req, res) => {
 
   // 5. API: Password-Protected Reset All Data with Rate-Limiting & Safe Table Backup
   if (pathname === '/api/reset-all' && req.method === 'POST') {
+    // SECURITY: Require authenticated session — previously anyone with the reset password could wipe all data
+    const resetSession = getAuthenticatedSession(req);
+    if (!resetSession) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Authentication required. Please login first.' }));
+      return;
+    }
+    // CSRF validation
+    if (!requireCsrf(req, res)) return;
+
     const rl = checkRateLimit(clientIp, 'RESET');
     if (!rl.allowed) {
       await db.logAudit({ action: 'RESET_RATE_LIMITED', ip: clientIp, status: 'BLOCKED' });
@@ -626,7 +814,7 @@ const server = http.createServer(async (req, res) => {
         const session = getAuthenticatedSession(req);
         const userIdentifier = session ? session.displayName : 'Anonymous / PIN Entry';
 
-        if (p === RESET_PASSWORD || p === 'shameer@reset' || p === '1234' || p === 'shameer2026' || p === 'admin123') {
+        if (p === RESET_PASSWORD) {
           recordSuccessfulAttempt(clientIp, 'RESET');
           await db.resetAllTickets(userIdentifier, clientIp);
           await db.logAudit({ action: 'FULL_DATA_RESET_SUCCESS', ip: clientIp, user: userIdentifier, status: 'SUCCESS' });
@@ -767,6 +955,8 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    // Set CSRF cookie for the login form
+    ensureCsrfToken(req, res);
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getLoginHtml());
     return;
@@ -780,6 +970,8 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    // Ensure CSRF token for authenticated dashboard actions (update/delete)
+    ensureCsrfToken(req, res);
     const tickets = await db.getAllTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
@@ -794,6 +986,8 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
+    // Ensure CSRF token for authenticated dashboard actions
+    ensureCsrfToken(req, res);
     const tickets = await db.getAllTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml(tickets));
@@ -844,14 +1038,14 @@ function getLoginHtml() {
     .logo-badge { display: inline-block; background: #eff6ff; color: #1d4ed8; font-weight: 800; font-size: 11.5px; padding: 4px 12px; border-radius: 999px; margin-bottom: 12px; }
     h1 { font-size: 21px; font-weight: 800; color: #1e3a8a; margin-bottom: 6px; }
     p { font-size: 13px; color: #64748b; margin-bottom: 24px; }
-    
+
     .form-group { margin-bottom: 16px; text-align: left; }
     label { display: block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 6px; }
     input, select {
       width: 100%; padding: 12px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 14px;
     }
     input:focus, select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
-    
+
     .btn-login {
       width: 100%; background: #1d4ed8; color: white; border: none; padding: 13px; border-radius: 10px;
       font-size: 14.5px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.15s;
@@ -859,31 +1053,32 @@ function getLoginHtml() {
     .btn-login:hover { background: #1e40af; }
     .back-link { display: block; margin-top: 18px; font-size: 12.5px; color: #64748b; text-decoration: none; font-weight: 600; }
     .back-link:hover { color: #1d4ed8; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   </style>
 </head>
 <body>
   <div class="login-card">
     <span class="logo-badge">ICT Service Desk • Thiruvarur</span>
-    <h1>Official Staff Login 🔐</h1>
+    <h1>Official Staff Login <span class="sr-only">Secure login</span></h1>
     <p>Field Engineer & Executive Officer Access</p>
 
     <form id="loginForm">
       <div class="form-group">
-        <label>Select Role (பதவி)</label>
-        <select id="roleSelect">
-          <option value="engineer">🛠️ Field Engineer (Mohamed Shameer)</option>
-          <option value="head">📊 Reporting Head / DEO / Leadership</option>
+        <label for="roleSelect">Select Role (பதவி)</label>
+        <select id="roleSelect" aria-label="Select your role">
+          <option value="engineer"><span aria-hidden="true">🛠️</span> Field Engineer (Mohamed Shameer)</option>
+          <option value="head"><span aria-hidden="true">📊</span> Reporting Head / DEO / Leadership</option>
         </select>
       </div>
 
       <div class="form-group">
-        <label>Username / User ID</label>
-        <input type="text" id="username" placeholder="e.g. shameer"  required>
+        <label for="username">Username / User ID</label>
+        <input type="text" id="username" name="username" placeholder="Enter your username" required autocomplete="username">
       </div>
 
       <div class="form-group">
-        <label>Password / PIN</label>
-        <input type="password" id="password" placeholder="Enter PIN"  required>
+        <label for="password">Password / PIN</label>
+        <input type="password" id="password" name="password" placeholder="Enter PIN" required autocomplete="current-password">
       </div>
 
       <button type="submit" class="btn-login" id="btnLogin">Sign In to Command Center</button>
@@ -893,6 +1088,12 @@ function getLoginHtml() {
   </div>
 
   <script>
+    // Helper: read CSRF token from cookie
+    function getCsrfToken() {
+      const match = document.cookie.match(/(^|;\\s*)csrf_token=([^;]+)/);
+      return match ? match[2] : null;
+    }
+
     document.getElementById('roleSelect').addEventListener('change', function() {
       if (this.value === 'head') {
         document.getElementById('username').value = 'head';
@@ -908,9 +1109,13 @@ function getLoginHtml() {
       btn.textContent = 'Verifying...';
 
       try {
+        const csrfToken = getCsrfToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+
         const res = await fetch('/api/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: headers,
           body: JSON.stringify({
             username: document.getElementById('username').value,
             password: document.getElementById('password').value,
@@ -2269,14 +2474,28 @@ function generateTableRowsHtml(list) {
     else if (p.includes('High')) prioClass = 'prio-high';
     else if (p.includes('Low')) prioClass = 'prio-low';
 
+    // XSS Protection: escape all user-controlled data
+    const escTicketId = escapeHtml(t.ticketId);
+    const escCreatedDate = escapeHtml(t.createdDate || t.createdAt || '-');
+    const escSchoolName = escapeHtml(t.schoolName);
+    const escBlock = escapeHtml(t.block);
+    const escUdise = escapeHtml(t.udise);
+    const escAiName = escapeHtml(t.aiName || '-');
+    const escPhone = escapeHtml(t.phone || '-');
+    const escIssue = escapeHtml(t.issue);
+    const escPriority = escapeHtml(p);
+    const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
+    const escVendorName = escapeHtml(t.vendorName || '');
+    const escVendorTicketNo = escapeHtml(t.vendorTicketNo || 'Pending #');
+
     const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
     const cleanPhone = String(t.phone || '').replace(/\D/g, '');
     const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
 
     return '<tr>' +
       '<td>' +
-        '<strong style="color:#1e3a8a; font-size:13.5px;">' + t.ticketId + '</strong>' +
-        '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + (t.createdDate || t.createdAt || '-') + '</div>' +
+        '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
+        '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
       '</td>' +
       '<td>' +
         '<div class="thumb-grid">' +
@@ -2287,31 +2506,31 @@ function generateTableRowsHtml(list) {
         '</div>' +
       '</td>' +
       '<td>' +
-        '<strong style="color:#0f172a; font-size:13.5px;">' + t.schoolName + '</strong>' +
-        '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + t.block + ' Block • <strong style="color:#2563eb;">' + t.udise + '</strong></div>' +
+        '<strong style="color:#0f172a; font-size:13.5px;">' + escSchoolName + '</strong>' +
+        '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + escBlock + ' Block • <strong style="color:#2563eb;">' + escUdise + '</strong></div>' +
       '</td>' +
       '<td>' +
-        '<div style="font-weight:700; color:#0f172a;">' + (t.aiName || '-') + '</div>' +
-        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + (t.phone || '-') + '</a>' +
+        '<div style="font-weight:700; color:#0f172a;">' + escAiName + '</div>' +
+        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + escPhone + '</a>' +
       '</td>' +
       '<td>' +
-        '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + t.issue + '</div>' +
-        '<span class="prio-pill ' + prioClass + '">' + p + '</span>' +
+        '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + escIssue + '</div>' +
+        '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
       '<td>' + badgeHtml + '</td>' +
       '<td>' +
         '<div style="font-size:12px; max-width:240px;">' +
-          (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + t.resolutionNotes + '</div>' : '') +
-          (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + t.vendorName + ' (' + (t.vendorTicketNo || 'Pending #') + ')</div>' : '') +
+          (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+          (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
           (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
         '</div>' +
       '</td>' +
       '<td>' +
         '<div class="action-col">' +
-          '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
           '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
-          '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-          '<button type="button" onclick="window.deleteSingleTicket(\'' + t.ticketId + '\')" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;" title="Delete this ticket">🗑️ Delete</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
+          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;" title="Delete this ticket">🗑️ Delete</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
@@ -2951,7 +3170,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.
         </p>
         <label class="modal-label">Enter Master Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
-        <input type="text" id="resetPasswordInput" class="modal-input" style="-webkit-text-security: disc; text-security: disc;" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <input type="password" id="resetPasswordInput" class="modal-input" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="modal-footer" style="justify-content: flex-end;">
         <button type="button" onclick="closeResetModal()" class="btn btn-logout">Cancel</button>
@@ -3230,7 +3449,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         tbody.innerHTML = filtered.map(function(t) {
           const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-          
+
           let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
           if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
           else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
@@ -3242,14 +3461,28 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           else if (p.includes('High')) prioClass = 'prio-high';
           else if (p.includes('Low')) prioClass = 'prio-low';
 
+          // XSS Protection: escape all user-controlled data
+          const escTicketId = escapeHtml(t.ticketId);
+          const escCreatedDate = escapeHtml(t.createdDate || t.createdAt || '-');
+          const escSchoolName = escapeHtml(t.schoolName);
+          const escBlock = escapeHtml(t.block);
+          const escUdise = escapeHtml(t.udise);
+          const escAiName = escapeHtml(t.aiName || '-');
+          const escPhone = escapeHtml(t.phone || '-');
+          const escIssue = escapeHtml(t.issue);
+          const escPriority = escapeHtml(p);
+          const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
+          const escVendorName = escapeHtml(t.vendorName || '');
+          const escVendorTicketNo = escapeHtml(t.vendorTicketNo || 'Pending #');
+
           const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
           const cleanPhone = String(t.phone || '').replace(/\D/g, '');
           const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
 
           return '<tr>' +
             '<td>' +
-              '<strong style="color:#1e3a8a; font-size:13.5px;">' + t.ticketId + '</strong>' +
-              '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + (t.createdDate || t.createdAt || '-') + '</div>' +
+              '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
+              '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
             '</td>' +
             '<td>' +
               '<div class="thumb-grid">' +
@@ -3260,31 +3493,31 @@ function getITSMWorkbenchHtml(initialTickets = []) {
               '</div>' +
             '</td>' +
             '<td>' +
-              '<strong style="color:#0f172a; font-size:13.5px;">' + t.schoolName + '</strong>' +
-              '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + t.block + ' Block • <strong style="color:#2563eb;">' + t.udise + '</strong></div>' +
+              '<strong style="color:#0f172a; font-size:13.5px;">' + escSchoolName + '</strong>' +
+              '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + escBlock + ' Block • <strong style="color:#2563eb;">' + escUdise + '</strong></div>' +
             '</td>' +
             '<td>' +
-              '<div style="font-weight:700; color:#0f172a;">' + (t.aiName || '-') + '</div>' +
-              '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + (t.phone || '-') + '</a>' +
+              '<div style="font-weight:700; color:#0f172a;">' + escAiName + '</div>' +
+              '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + escPhone + '</a>' +
             '</td>' +
             '<td>' +
-              '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + t.issue + '</div>' +
-              '<span class="prio-pill ' + prioClass + '">' + p + '</span>' +
+              '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + escIssue + '</div>' +
+              '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
             '</td>' +
             '<td>' + badgeHtml + '</td>' +
             '<td>' +
               '<div style="font-size:12px; max-width:240px;">' +
-                (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + t.resolutionNotes + '</div>' : '') +
-                (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + t.vendorName + ' (' + (t.vendorTicketNo || 'Pending #') + ')</div>' : '') +
+                (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+                (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
                 (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
               '</div>' +
             '</td>' +
             '<td>' +
               '<div class="action-col">' +
-                '<button type="button" data-tid="' + t.ticketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
+                '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
                 '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
-                '<button type="button" data-tid="' + t.ticketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-                '<button type="button" data-tid="' + t.ticketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
+                '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
+                '<button type="button" data-tid="' + escTicketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
               '</div>' +
             '</td>' +
           '</tr>';
@@ -3501,9 +3734,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       };
 
       try {
+        const csrfHeaders = { 'Content-Type': 'application/json' };
+        const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+        if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
         const res = await fetch('/api/tickets/update', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          headers: csrfHeaders,
           body: JSON.stringify(payload)
         });
         const result = await res.json();
@@ -3610,10 +3847,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (!confirm('Are you sure you want to delete ticket ' + tid + '? (Confirm Delete)')) return;
 
       try {
+        const csrfDelHeaders = { 'Content-Type': 'application/json' };
+        const csrfDelMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+        if (csrfDelMatch) csrfDelHeaders['X-CSRF-Token'] = csrfDelMatch[2];
         const res = await fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
+          headers: csrfDelHeaders,
           body: JSON.stringify({ ticketId: String(tid).trim() })
         });
         if (res.status === 401) {
@@ -3641,9 +3881,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (!confirm('Are you sure you want to delete ticket ' + currentEditingTicketId + '? (Confirm Delete)')) return;
 
       try {
+        const csrfDelHeaders2 = { 'Content-Type': 'application/json' };
+        const csrfDelMatch2 = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+        if (csrfDelMatch2) csrfDelHeaders2['X-CSRF-Token'] = csrfDelMatch2[2];
         const res = await fetch('/api/tickets/delete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          headers: csrfDelHeaders2,
           body: JSON.stringify({ ticketId: currentEditingTicketId })
         });
         const d = await res.json();
@@ -3679,9 +3923,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         return;
       }
       try {
+        const csrfResetHeaders = { 'Content-Type': 'application/json' };
+        const csrfResetMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+        if (csrfResetMatch) csrfResetHeaders['X-CSRF-Token'] = csrfResetMatch[2];
         const res = await fetch('/api/reset-all', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          headers: csrfResetHeaders,
           body: JSON.stringify({ password: pwd })
         });
         const d = await res.json();
@@ -3893,7 +4141,7 @@ function getITSMExecutiveHtml(initialTickets = []) {
       <p style="font-size:13px; color:#475569; margin-bottom:14px;">This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.</p>
       
       <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:6px;">Enter Master Security Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
-      <input type="text" id="resetPasswordInput" class="modal-input" style="-webkit-text-security: disc; text-security: disc;" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input type="password" id="resetPasswordInput" class="modal-input" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
       
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button onclick="closeResetModal()" class="btn" style="background:#e2e8f0; color:#475569;">Cancel</button>

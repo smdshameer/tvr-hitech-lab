@@ -53,6 +53,11 @@ function loadTicketsFromJson() {
   return [];
 }
 
+// Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
+function getAllTicketsSync() {
+  return loadTicketsFromJson();
+}
+
 function saveTicketsToJson(list) {
   fs.writeFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
   const headers = [
@@ -89,9 +94,9 @@ function saveTicketsToJson(list) {
     '"' + (t.photo4 || 'No Photo') + '"',
     '"' + (t.timeline || []).map(e => '[' + e.time + '] ' + e.action + ': ' + e.note).join(' | ').replace(/"/g, '""') + '"'
   ]);
-  const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+  const csvContent = '﻿' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
   fs.writeFileSync(CSV_FILE, csvContent, 'utf8');
-  try { fs.writeFileSync('C:/Users/acer/Downloads/Thiruvarur_HTL_Service_Desk_Master.csv', csvContent, 'utf8'); } catch(e){}
+  // Removed hardcoded developer path — CSV is saved to DATA_DIR only
 }
 
 function mapRowToTicket(r) {
@@ -877,6 +882,7 @@ function registerOrUpdateSchool(info) {
 module.exports = {
   initDatabase,
   getAllTickets,
+  getAllTicketsSync,
   checkOpenTicketByUdise,
   createTicket,
   updateTicket,
