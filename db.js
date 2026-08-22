@@ -3,7 +3,7 @@ const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
 
-const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const isServerless = !!process.env.VERCEL || !!process.env.VERCEL_ENV || !!process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.startsWith('/var/task') || __dirname.startsWith('/tmp');
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
 const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');

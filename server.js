@@ -7,7 +7,7 @@ const db = require('./db.js');
 const masterSchools = db.masterSchools || [];
 const { getAllTicketsSync } = db;
 // Import DATA_DIR from db.js for consistent data path handling
-const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const isServerless = !!process.env.VERCEL || !!process.env.VERCEL_ENV || !!process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.startsWith('/var/task') || __dirname.startsWith('/tmp');
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
 const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
 
