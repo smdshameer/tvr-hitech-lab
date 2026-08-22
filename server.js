@@ -2403,26 +2403,19 @@ function normalizeImageUrl(url) {
   const u = url.trim();
   if (!u || u === 'No Photo') return '';
   if (u.startsWith('data:image') || u.startsWith('/uploads/')) return u;
-  
-  // Convert drive.google.com/file/d/FILE_ID/...
+
+  let fileId = '';
   if (u.includes('drive.google.com/file/d/')) {
     const parts = u.split('drive.google.com/file/d/')[1];
-    const fileId = parts.split('/')[0].split('?')[0];
-    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
-  }
-  
-  // Convert drive.google.com/open?id=FILE_ID
-  if (u.includes('drive.google.com/open?id=')) {
-    const fileId = u.split('drive.google.com/open?id=')[1].split('&')[0];
-    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+    fileId = parts.split('/')[0].split('?')[0];
+  } else if (u.includes('id=')) {
+    const parts = u.split('id=')[1];
+    if (parts) fileId = parts.split('&')[0].split('/')[0];
   }
 
-  // Convert drive.google.com/uc?id=FILE_ID
-  if (u.includes('drive.google.com/uc?id=')) {
-    const fileId = u.split('drive.google.com/uc?id=')[1].split('&')[0];
-    return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+  if (fileId) {
+    return 'https://lh3.googleusercontent.com/d/' + fileId + '=w800';
   }
-
   return u;
 }
 
@@ -3275,14 +3268,18 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       const u = url.trim();
       if (!u || u === 'No Photo') return '';
       if (u.startsWith('data:image') || u.startsWith('/uploads/')) return u;
+
+      let fileId = '';
       if (u.includes('drive.google.com/file/d/')) {
         const parts = u.split('drive.google.com/file/d/')[1];
-        const fileId = parts.split('/')[0].split('?')[0];
-        return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+        fileId = parts.split('/')[0].split('?')[0];
+      } else if (u.includes('id=')) {
+        const parts = u.split('id=')[1];
+        if (parts) fileId = parts.split('&')[0].split('/')[0];
       }
-      if (u.includes('drive.google.com/open?id=')) {
-        const fileId = u.split('drive.google.com/open?id=')[1].split('&')[0];
-        return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+
+      if (fileId) {
+        return 'https://lh3.googleusercontent.com/d/' + fileId + '=w800';
       }
       return u;
     }
