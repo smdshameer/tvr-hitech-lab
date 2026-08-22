@@ -3160,17 +3160,29 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   <script>
     let allTickets = [];
     try {
-      // Clear any stale test cache from browser storage so all 18 tickets always show
-      localStorage.removeItem('htl_deleted_tickets');
-      localStorage.removeItem('htl_deleted_tickets_v2');
       const initEl = document.getElementById('initialTicketsData');
       if (initEl && initEl.textContent) {
         allTickets = JSON.parse(initEl.textContent) || [];
       }
+      // Filter any tickets deleted in this session so they stay deleted across reloads
+      const sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
+      if (Array.isArray(sessionDeleted) && sessionDeleted.length > 0) {
+        allTickets = allTickets.filter(function(t) {
+          return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+        });
+      }
     } catch(e) {}
 
     function purgeClientDeletedRows() {
-      // No-op to preserve all 18 authentic tickets
+      try {
+        const sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
+        if (Array.isArray(sessionDeleted) && sessionDeleted.length > 0) {
+          allTickets = allTickets.filter(function(t) {
+            return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+          });
+          renderTable();
+        }
+      } catch(e) {}
     }
 
     let currentEditingTicketId = null;
@@ -3232,7 +3244,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            allTickets = data.tickets;
+            let sessionDeleted = [];
+            try { sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]'); } catch(e){}
+            allTickets = data.tickets.filter(function(t) {
+              return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+            });
             const kpiTot = document.getElementById('kpiTotal');
             if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
           }
@@ -3844,17 +3860,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Instantly remove row from memory and DOM
+      // 1. Remember deletion in sessionStorage so reload never brings it back
+      try {
+        let sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
+        if (!sessionDeleted.includes(cleanTid)) {
+          sessionDeleted.push(cleanTid);
+          sessionStorage.setItem('htl_session_deleted', JSON.stringify(sessionDeleted));
+        }
+      } catch(e) {}
+
+      // 2. Instantly remove row from memory and re-render table
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
       renderTable();
 
-      // 2. Update KPI counters immediately
+      // 3. Update KPI counters immediately
       const kpiReported = document.getElementById('kpiReported');
       if (kpiReported) kpiReported.textContent = allTickets.length;
 
-      // 3. Notify server
+      // 4. Notify server in background
       try {
-        await fetch('/api/tickets/delete', {
+        fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
@@ -3898,6 +3923,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     function openResetModal() {
       if (!confirm('அனைத்து 18 அசல் புகார்களையும் மீட்டமைக்க விரும்புகிறீர்களா? (Restore All 18 Authentic Tickets & Clear Deletions)')) return;
       try {
+        sessionStorage.removeItem('htl_session_deleted');
+        localStorage.removeItem('htl_deleted_tickets');
         localStorage.removeItem('htl_deleted_tickets_v2');
       } catch(e) {}
       alert('✅ அனைத்து 18 புகார்களும் வெற்றிகரமாக மீட்டமைக்கப்பட்டன! (Restored All 18 Tickets)');
