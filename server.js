@@ -433,8 +433,15 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
 async function handleRequest(req, res) {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+  let rawPath = req.headers['x-matched-path'] || req.url || '/';
+  if (rawPath.startsWith('/api/index.js') || rawPath === '/api/index') {
+    rawPath = req.headers['x-matched-path'] || req.url || '/';
+  }
+  const parsedUrl = new URL(rawPath, 'http://' + (req.headers.host || '127.0.0.1'));
+  let pathname = parsedUrl.pathname;
+  if (pathname === '/api/index.js' || pathname === '/api/index') {
+    pathname = req.headers['x-matched-path'] || '/';
+  }
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
 
   res.setHeader('Access-Control-Allow-Origin', '*');
