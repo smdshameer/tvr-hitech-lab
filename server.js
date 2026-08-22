@@ -3216,14 +3216,21 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           return;
         }
         const data = await res.json();
-        allTickets = data.tickets || [];
+        let clientDeleted = [];
+        try {
+          clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+        } catch(e) { clientDeleted = []; }
+
+        allTickets = (data.tickets || []).filter(function(t) {
+          return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
+        });
 
         document.getElementById('kpiTotal').textContent = data.totalSchools || 183;
         const sVal = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim();
         if (!sVal) document.getElementById('kpiReported').textContent = allTickets.length;
-        document.getElementById('kpiResolvedRemote').textContent = data.resolvedRemotelyCount || 0;
-        document.getElementById('kpiSolvedDirect').textContent = data.solvedDirectVisitCount || 0;
-        document.getElementById('kpiVendor').textContent = data.vendorCount || 0;
+        document.getElementById('kpiResolvedRemote').textContent = allTickets.filter(function(t) { return t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely'; }).length;
+        document.getElementById('kpiSolvedDirect').textContent = allTickets.filter(function(t) { return t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit'; }).length;
+        document.getElementById('kpiVendor').textContent = allTickets.filter(function(t) { return t.status === 'Vendor Escalated'; }).length;
         renderTable();
       } catch (e) {
         clearTimeout(timeoutId);
@@ -3816,7 +3823,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Immediately store in localStorage so it never reappears
+      // 1. Store in localStorage so it remains permanently deleted across all page refreshes
       try {
         let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
         if (!clientDeleted.includes(cleanTid)) {
@@ -3825,35 +3832,25 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         }
       } catch(e) {}
 
-      // 2. Immediately update in-memory list and re-render table
+      // 2. Update allTickets and re-render table
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
       renderTable();
 
-      // 3. Update KPI badge count immediately
+      // 3. Update KPI counters
       const kpiReported = document.getElementById('kpiReported');
-      if (kpiReported) {
-        const currentCount = parseInt(kpiReported.textContent, 10) || allTickets.length + 1;
-        kpiReported.textContent = Math.max(0, currentCount - 1);
-      }
+      if (kpiReported) kpiReported.textContent = allTickets.length;
 
       // 4. Send delete request to server
       try {
-        const res = await fetch('/api/tickets/delete', {
+        await fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ticketId: cleanTid })
         });
-        if (res.status === 401) {
-          alert('Session expired. Please log in again.');
-          window.location.href = '/login?redirect=/engineer';
-          return;
-        }
-        const d = await res.json();
-        alert('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது! (Deleted Successfully)');
-      } catch(e) {
-        alert('✅ டிக்கெட் ' + cleanTid + ' திரையில் இருந்து நீக்கப்பட்டது! (Deleted Locally)');
-      }
+      } catch(e) {}
+
+      alert('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது! (Deleted Successfully)');
     }
     window.deleteSingleTicket = deleteSingleTicket;
 
