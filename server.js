@@ -3163,8 +3163,22 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       try {
         const s = JSON.parse(sessionStorage.getItem('htl_deleted_user_v3') || '[]');
         const l = JSON.parse(localStorage.getItem('htl_deleted_user_v3') || '[]');
-        return Array.from(new Set([...s, ...l]));
+        let c = [];
+        const cMatch = document.cookie.match(/(^|;\s*)htl_del=([^;]+)/);
+        if (cMatch) {
+          try { c = JSON.parse(decodeURIComponent(cMatch[2]) || '[]'); } catch(err){}
+        }
+        return Array.from(new Set([...s, ...l, ...c]));
       } catch(e) { return []; }
+    }
+
+    function saveDeletedList(list) {
+      try {
+        const cleanArr = Array.from(new Set(list));
+        sessionStorage.setItem('htl_deleted_user_v3', JSON.stringify(cleanArr));
+        localStorage.setItem('htl_deleted_user_v3', JSON.stringify(cleanArr));
+        document.cookie = 'htl_del=' + encodeURIComponent(JSON.stringify(cleanArr)) + '; path=/; max-age=31536000; SameSite=Lax';
+      } catch(e) {}
     }
 
     try {
@@ -3260,10 +3274,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            let sessionDeleted = [];
-            try { sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]'); } catch(e){}
+            const delList = getDeletedList();
             allTickets = data.tickets.filter(function(t) {
-              return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+              return t && t.ticketId && !delList.includes(String(t.ticketId).trim());
             });
             const kpiTot = document.getElementById('kpiTotal');
             if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
@@ -3868,12 +3881,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Record deletion in storage (persists across reloads & sessions)
+      // 1. Record deletion in cookie & storage (persists across SSR, reloads & sessions)
       try {
-        let sList = JSON.parse(sessionStorage.getItem('htl_deleted_user_v3') || '[]');
-        if (!sList.includes(cleanTid)) { sList.push(cleanTid); sessionStorage.setItem('htl_deleted_user_v3', JSON.stringify(sList)); }
-        let lList = JSON.parse(localStorage.getItem('htl_deleted_user_v3') || '[]');
-        if (!lList.includes(cleanTid)) { lList.push(cleanTid); localStorage.setItem('htl_deleted_user_v3', JSON.stringify(lList)); }
+        const curDel = getDeletedList();
+        if (!curDel.includes(cleanTid)) curDel.push(cleanTid);
+        saveDeletedList(curDel);
       } catch(e) {}
 
       // 2. Remove row directly from DOM for instant zero-lag visual feedback
@@ -3916,6 +3928,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         localStorage.removeItem('htl_deleted_tickets');
         localStorage.removeItem('htl_deleted_tickets_v2');
         localStorage.removeItem('htl_deleted_user_v3');
+        document.cookie = 'htl_del=; path=/; max-age=0; SameSite=Lax';
       } catch(e) {}
       alert('✅ அனைத்து 18 புகார்களும் வெற்றிகரமாக மீட்டமைக்கப்பட்டன! (Restored All 18 Tickets)');
       window.location.reload();
