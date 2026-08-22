@@ -159,11 +159,17 @@ function verifyToken(tokenStr) {
 
 function parseCookies(req) {
   const list = {};
-  const rc = req.headers.cookie;
+  const rc = req && req.headers ? req.headers.cookie : '';
   if (rc) {
     rc.split(';').forEach(cookie => {
       const parts = cookie.split('=');
-      list[parts.shift().trim()] = decodeURI(parts.join('='));
+      const key = parts.shift().trim();
+      const rawVal = parts.join('=');
+      try {
+        list[key] = decodeURIComponent(rawVal);
+      } catch(e) {
+        list[key] = rawVal;
+      }
     });
   }
   return list;

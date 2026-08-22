@@ -40,8 +40,12 @@ function safeWriteFileSync(filePath, data, encoding = 'utf8') {
 }
 
 let masterSchools = [];
-if (fs.existsSync(SCHOOLS_FILE)) {
-  try { masterSchools = JSON.parse(fs.readFileSync(SCHOOLS_FILE, 'utf8')); } catch(e) { masterSchools = []; }
+try {
+  masterSchools = require('./data/master_schools_182.json');
+} catch(e) {
+  if (fs.existsSync(SCHOOLS_FILE)) {
+    try { masterSchools = JSON.parse(fs.readFileSync(SCHOOLS_FILE, 'utf8')); } catch(err) { masterSchools = []; }
+  }
 }
 
 function normalizePriority(val, issueText) {
