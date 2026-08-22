@@ -72,10 +72,36 @@ if (process.env.DATABASE_URL) {
 }
 
 function loadTicketsFromJson() {
-  if (fs.existsSync(DB_FILE)) {
-    try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch(e) { return []; }
+  let bundled = [];
+  try {
+    bundled = require('./data/htl_itsm_tickets.json');
+  } catch (e) {
+    try {
+      if (fs.existsSync(BUNDLED_DB_FILE)) {
+        bundled = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8')) || [];
+      }
+    } catch(err){}
   }
-  return [];
+
+  let dynamic = [];
+  const tmpDb = path.join(os.tmpdir(), 'htl_itsm_tickets.json');
+  if (fs.existsSync(tmpDb)) {
+    try {
+      dynamic = JSON.parse(fs.readFileSync(tmpDb, 'utf8')) || [];
+    } catch (e) {}
+  }
+
+  if (inMemoryTickets && Array.isArray(inMemoryTickets) && inMemoryTickets.length > 0) {
+    dynamic = inMemoryTickets;
+  }
+
+  const map = new Map();
+  (bundled || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
+  (dynamic || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
+
+  const merged = Array.from(map.values());
+  inMemoryTickets = merged;
+  return merged;
 }
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
