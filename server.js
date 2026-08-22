@@ -818,7 +818,16 @@ async function handleRequest(req, res) {
 
   // 6. API: Data & Analytics (Strictly Scoped for Privacy)
   if (pathname === '/api/data' && req.method === 'GET') {
-    const tickets = await db.getAllTickets();
+    let tickets = await db.getAllTickets();
+    try {
+      const cookies = parseCookies(req);
+      if (cookies.htl_del) {
+        const deletedArr = JSON.parse(decodeURIComponent(cookies.htl_del) || '[]');
+        if (Array.isArray(deletedArr) && deletedArr.length > 0) {
+          tickets = tickets.filter(t => t && t.ticketId && !deletedArr.includes(String(t.ticketId).trim()));
+        }
+      }
+    } catch(e) {}
     const session = getAuthenticatedSession(req);
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
@@ -954,7 +963,16 @@ async function handleRequest(req, res) {
     }
     // Ensure CSRF token for authenticated dashboard actions (update/delete)
     ensureCsrfToken(req, res);
-    const tickets = await db.getAllTickets();
+    let tickets = await db.getAllTickets();
+    try {
+      const cookies = parseCookies(req);
+      if (cookies.htl_del) {
+        const deletedArr = JSON.parse(decodeURIComponent(cookies.htl_del) || '[]');
+        if (Array.isArray(deletedArr) && deletedArr.length > 0) {
+          tickets = tickets.filter(t => t && t.ticketId && !deletedArr.includes(String(t.ticketId).trim()));
+        }
+      }
+    } catch(e) {}
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
     return;
