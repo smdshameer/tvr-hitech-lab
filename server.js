@@ -3160,33 +3160,17 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   <script>
     let allTickets = [];
     try {
+      // Clear any stale test cache from browser storage so all 18 tickets always show
+      localStorage.removeItem('htl_deleted_tickets');
+      localStorage.removeItem('htl_deleted_tickets_v2');
       const initEl = document.getElementById('initialTicketsData');
       if (initEl && initEl.textContent) {
         allTickets = JSON.parse(initEl.textContent) || [];
       }
     } catch(e) {}
 
-    // Immediately filter deleted tickets on initial script boot
-    try {
-      const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
-      if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
-        allTickets = allTickets.filter(function(t) {
-          return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
-        });
-      }
-    } catch(e) {}
-
-    // Immediate DOM purge function
     function purgeClientDeletedRows() {
-      try {
-        const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
-        if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
-          allTickets = allTickets.filter(function(t) {
-            return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
-          });
-          renderTable();
-        }
-      } catch(e) {}
+      // No-op to preserve all 18 authentic tickets
     }
 
     let currentEditingTicketId = null;
@@ -3248,15 +3232,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            let clientDeleted = [];
-            try {
-              clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
-            } catch(e) { clientDeleted = []; }
-
-            allTickets = data.tickets.filter(function(t) {
-              return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
-            });
-
+            allTickets = data.tickets;
             const kpiTot = document.getElementById('kpiTotal');
             if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
           }
@@ -3868,32 +3844,17 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Permanently store in localStorage
-      try {
-        let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
-        if (!clientDeleted.includes(cleanTid)) {
-          clientDeleted.push(cleanTid);
-          localStorage.setItem('htl_deleted_tickets_v2', JSON.stringify(clientDeleted));
-        }
-      } catch(e) {}
-
-      // 2. Instantly remove row from DOM
-      const rows = document.querySelectorAll('tbody#tableBody tr');
-      rows.forEach(function(r) {
-        if (r.textContent && r.textContent.includes(cleanTid)) r.remove();
-      });
-
-      // 3. Filter memory and re-render
+      // 1. Instantly remove row from memory and DOM
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
       renderTable();
 
-      // 4. Update KPI counters
+      // 2. Update KPI counters immediately
       const kpiReported = document.getElementById('kpiReported');
       if (kpiReported) kpiReported.textContent = allTickets.length;
 
-      // 5. Notify server in background
+      // 3. Notify server
       try {
-        fetch('/api/tickets/delete', {
+        await fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
