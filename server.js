@@ -371,7 +371,7 @@ if (!CURRENT_GIT_COMMIT) {
 // GOOGLE DRIVE & GOOGLE SHEETS ASYNC WEBHOOK SYNC
 // ========================================================
 async function syncTicketToGoogleDrive(ticket, rawData) {
-  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL;
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
   if (!webhookUrl) return;
 
   const payload = {
