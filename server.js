@@ -432,7 +432,7 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -972,7 +972,7 @@ const server = http.createServer(async (req, res) => {
   // Default: Teacher Incident Portal (Public)
   res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
   res.end(getTeacherPortalHtml());
-});
+}
 
 // ========================================================
 // 6. WORKING-HOURS SELF-PING KEEP-ALIVE
@@ -988,6 +988,7 @@ setInterval(() => {
   } catch(e){}
 }, 10 * 60 * 1000);
 
+const server = http.createServer(handleRequest);
 const PORT = process.env.PORT || 10000;
 if (!process.env.VERCEL) {
   server.listen(PORT, () => {
@@ -4178,4 +4179,6 @@ function getITSMExecutiveHtml(initialTickets = []) {
 }
 
 
+
 module.exports = server;
+module.exports.handleRequest = handleRequest;
