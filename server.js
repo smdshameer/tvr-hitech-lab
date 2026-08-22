@@ -495,10 +495,10 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', async () => {
       try {
-        const { username, password, role } = JSON.parse(body || '{}');
-        const u = (username || '').trim().toLowerCase();
-        const p = (password || '').trim();
-
+        const { username, password, pin, role } = JSON.parse(body || '{}');
+        const p = (password || pin || '').trim();
+        let u = (username || '').trim().toLowerCase();
+        if (!u) { u = (role === 'head' || p === LEADERSHIP_PIN) ? 'head' : 'shameer'; }
         // Field Engineer Login — PIN from env only, no hardcoded fallbacks
         if ((role === 'engineer' || !role) && (u === 'shameer' || u === 'engineer' || u === 'mohamed') && p === ENGINEER_PIN) {
           recordSuccessfulAttempt(clientIp, 'LOGIN');
@@ -807,7 +807,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/data' && req.method === 'GET') {
     const tickets = await db.getAllTickets();
     const session = getAuthenticatedSession(req);
-    const trackQ = (parsedUrl.query.track || parsedUrl.query.q || '').trim().toLowerCase();
+    const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
 
     // Guard: Unauthenticated requests without a specific search query get 401 to trigger login
