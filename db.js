@@ -20,13 +20,6 @@ try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: tr
 
 let inMemoryTickets = null;
 let deletedTicketIds = new Set();
-try {
-  const deletedFile = path.join(os.tmpdir(), 'deleted_ticket_ids.json');
-  if (fs.existsSync(deletedFile)) {
-    const arr = JSON.parse(fs.readFileSync(deletedFile, 'utf8'));
-    if (Array.isArray(arr)) deletedTicketIds = new Set(arr.map(String));
-  }
-} catch(e) {}
 
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
@@ -80,28 +73,21 @@ if (process.env.DATABASE_URL) {
 }
 
 function loadTicketsFromJson() {
-  if (inMemoryTickets === null) {
-    const tmpDb = path.join(os.tmpdir(), 'htl_itsm_tickets.json');
-    if (fs.existsSync(tmpDb)) {
-      try {
-        inMemoryTickets = JSON.parse(fs.readFileSync(tmpDb, 'utf8'));
-      } catch(e) {}
+  try {
+    const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
+    if (Array.isArray(bundled) && bundled.length > 0) {
+      return bundled.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
     }
-    if (!inMemoryTickets || !Array.isArray(inMemoryTickets) || inMemoryTickets.length === 0) {
-      try {
-        inMemoryTickets = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
-      } catch(e) {
-        try {
-          if (fs.existsSync(BUNDLED_DB_FILE)) {
-            inMemoryTickets = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8')) || [];
-          }
-        } catch(err) {
-          inMemoryTickets = [];
-        }
-      }
-    }
+  } catch(e) {}
+  
+  if (fs.existsSync(BUNDLED_DB_FILE)) {
+    try {
+      const b = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8'));
+      if (Array.isArray(b) && b.length > 0) return b.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+    } catch(e) {}
   }
-  return (inMemoryTickets || []).filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+
+  return [];
 }
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
