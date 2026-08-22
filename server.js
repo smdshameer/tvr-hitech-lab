@@ -3920,11 +3920,25 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       w.document.close();
     }
 
-    async function deleteSingleTicket(tid) {
-      if (!tid) {
-        alert('Ticket ID is missing.');
-        return;
+    function showDeleteToast(msg) {
+      let toast = document.getElementById('htlToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'htlToast';
+        toast.style.cssText = 'position:fixed; top:20px; right:20px; z-index:9999999; background:#16a34a; color:#ffffff; padding:12px 20px; border-radius:10px; font-weight:700; font-size:14px; box-shadow:0 10px 25px rgba(0,0,0,0.2); transition:opacity 0.3s ease;';
+        document.body.appendChild(toast);
       }
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      toast.style.display = 'block';
+      setTimeout(function() {
+        toast.style.opacity = '0';
+        setTimeout(function() { toast.style.display = 'none'; }, 300);
+      }, 2500);
+    }
+
+    async function deleteSingleTicket(tid) {
+      if (!tid) return;
       if (!confirm('Are you sure you want to delete ticket ' + tid + '? (Confirm Delete)')) return;
 
       const cleanTid = String(tid).trim();
@@ -3946,7 +3960,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       renderTable();
       updateAllKpis();
 
-      // 4. Notify server with CSRF Token in background
+      // 4. Notify server with CSRF Token in background silently
       try {
         const csrfHeaders = { 'Content-Type': 'application/json' };
         const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
@@ -3956,10 +3970,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           credentials: 'same-origin',
           headers: csrfHeaders,
           body: JSON.stringify({ ticketId: cleanTid })
-        });
+        }).catch(function() {});
       } catch(e) {}
 
-      alert('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது! (Deleted Successfully)');
+      showDeleteToast('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது!');
     }
     window.deleteSingleTicket = deleteSingleTicket;
 
