@@ -3223,7 +3223,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     async function loadData() {
       const tbody = document.getElementById('tableBody');
       const controller = new AbortController();
-      const timeoutId = setTimeout(function() { controller.abort(); }, 9000);
+      const timeoutId = setTimeout(function() { controller.abort(); }, 20000);
       try {
         const res = await fetch('/api/data?v=' + Date.now(), { credentials: 'same-origin', signal: controller.signal });
         clearTimeout(timeoutId);
@@ -3231,33 +3231,45 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           window.location.href = '/login?redirect=/engineer';
           return;
         }
-        const data = await res.json();
-        let clientDeleted = [];
-        try {
-          clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
-        } catch(e) { clientDeleted = []; }
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
+            let clientDeleted = [];
+            try {
+              clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
+            } catch(e) { clientDeleted = []; }
 
-        allTickets = (data.tickets || []).filter(function(t) {
-          return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
-        });
+            allTickets = data.tickets.filter(function(t) {
+              return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
+            });
 
-        document.getElementById('kpiTotal').textContent = data.totalSchools || 183;
-        document.getElementById('kpiReported').textContent = allTickets.length;
-        document.getElementById('kpiResolvedRemote').textContent = allTickets.filter(function(t) { return t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely'; }).length;
-        document.getElementById('kpiSolvedDirect').textContent = allTickets.filter(function(t) { return t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit'; }).length;
-        document.getElementById('kpiVendor').textContent = allTickets.filter(function(t) { return t.status === 'Vendor Escalated'; }).length;
-        renderTable();
+            const kpiTot = document.getElementById('kpiTotal');
+            if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
+          }
+        }
       } catch (e) {
         clearTimeout(timeoutId);
-        console.error('Data load error:', e);
-        if (tbody) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; color: #dc2626;">' +
-            '<div style="font-size:26px; margin-bottom:6px;">⚠️</div>' +
-            '<strong style="font-size:14px; display:block;">தகவல்களைப் பெறுவதில் தாமதம் / இணைப்புப் பிழை ஏற்பட்டது</strong>' +
-            '<span style="font-size:12px; color:#64748b; margin-top:3px; display:block;">Network Timeout (>9s) or Connection Error.</span>' +
-            '<button type="button" onclick="loadData()" class="btn btn-blue" style="margin-top:12px; padding:7px 16px;">🔄 மீண்டும் முயற்சிக்கவும் (Retry)</button>' +
-          '</td></tr>';
-        }
+        console.warn('Background sync note:', e.message);
+      }
+
+      // Always sync KPI metrics and render table from current allTickets
+      const kpiRep = document.getElementById('kpiReported');
+      if (kpiRep) kpiRep.textContent = allTickets.length;
+      const kpiRemote = document.getElementById('kpiResolvedRemote');
+      if (kpiRemote) kpiRemote.textContent = allTickets.filter(function(t) { return t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely'; }).length;
+      const kpiDirect = document.getElementById('kpiSolvedDirect');
+      if (kpiDirect) kpiDirect.textContent = allTickets.filter(function(t) { return t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit'; }).length;
+      const kpiVend = document.getElementById('kpiVendor');
+      if (kpiVend) kpiVend.textContent = allTickets.filter(function(t) { return t.status === 'Vendor Escalated'; }).length;
+
+      if (allTickets.length > 0) {
+        renderTable();
+      } else if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; color: #dc2626;">' +
+          '<div style="font-size:26px; margin-bottom:6px;">⚠️</div>' +
+          '<strong style="font-size:14px; display:block;">தகவல்களைப் பெறுவதில் தாமதம் ஏற்பட்டது</strong>' +
+          '<button type="button" onclick="loadData()" class="btn btn-blue" style="margin-top:12px; padding:7px 16px;">🔄 மீண்டும் முயற்சிக்கவும் (Retry)</button>' +
+        '</td></tr>';
       }
     }
 
