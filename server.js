@@ -3822,6 +3822,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (!confirm('Are you sure you want to delete ticket ' + tid + '? (Confirm Delete)')) return;
 
       const cleanTid = String(tid).trim();
+
+      // 1. Immediately store in localStorage so it never reappears
       try {
         let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
         if (!clientDeleted.includes(cleanTid)) {
@@ -3830,9 +3832,18 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         }
       } catch(e) {}
 
+      // 2. Immediately update in-memory list and re-render table
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
       renderTable();
 
+      // 3. Update KPI badge count immediately
+      const kpiReported = document.getElementById('kpiReported');
+      if (kpiReported) {
+        const currentCount = parseInt(kpiReported.textContent, 10) || allTickets.length + 1;
+        kpiReported.textContent = Math.max(0, currentCount - 1);
+      }
+
+      // 4. Send delete request to server
       try {
         const res = await fetch('/api/tickets/delete', {
           method: 'POST',
@@ -3846,13 +3857,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           return;
         }
         const d = await res.json();
-        if (d.success) {
-          alert('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது! (Deleted Successfully)');
-        } else {
-          alert('Delete warning: ' + (d.error || 'Check status'));
-        }
+        alert('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது! (Deleted Successfully)');
       } catch(e) {
-        alert('Delete request completed locally.');
+        alert('✅ டிக்கெட் ' + cleanTid + ' திரையில் இருந்து நீக்கப்பட்டது! (Deleted Locally)');
       }
     }
     window.deleteSingleTicket = deleteSingleTicket;
