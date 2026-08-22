@@ -576,50 +576,47 @@ async function handleRequest(req, res) {
       try {
         const data = JSON.parse(body || '{}');
 
-        // 1. Strict Server-Side Photo Presence & Magic Byte Check
-        // 1. Strict Server-Side Photo Presence & Magic Byte Check for Photos 1-3 (Photo 4 is optional)
+        // 1. Strict Server-Side Photo Presence Check: ALL 4 Photos MUST be present
         const p1Res = validateAndExtractPhoto(data.photo1Base64, 1);
         if (!p1Res.valid) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: p1Res.error }));
+          res.end(JSON.stringify({ success: false, error: '⚠️ புகைப்படம் 1 (UPS Display) விடுபட்டுள்ளது! தயவுசெய்து 4 புகைப்படங்களையும் இணைத்துப் பதிவு செய்யவும்.' }));
           return;
         }
 
         const p2Res = validateAndExtractPhoto(data.photo2Base64, 2);
         if (!p2Res.valid) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: p2Res.error }));
+          res.end(JSON.stringify({ success: false, error: '⚠️ புகைப்படம் 2 (Overall UPS Setup) விடுபட்டுள்ளது! தயவுசெய்து 4 புகைப்படங்களையும் இணைத்துப் பதிவு செய்யவும்.' }));
           return;
         }
 
         const p3Res = validateAndExtractPhoto(data.photo3Base64, 3);
         if (!p3Res.valid) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: p3Res.error }));
+          res.end(JSON.stringify({ success: false, error: '⚠️ புகைப்படம் 3 (Battery Single MCB) விடுபட்டுள்ளது! தயவுசெய்து 4 புகைப்படங்களையும் இணைத்துப் பதிவு செய்யவும்.' }));
           return;
         }
 
-        let p4Res = null;
-        if (data.photo4Base64 && data.photo4Base64.length > 50) {
-          p4Res = validateAndExtractPhoto(data.photo4Base64, 4);
+        const p4Res = validateAndExtractPhoto(data.photo4Base64, 4);
+        if (!p4Res.valid) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: '⚠️ புகைப்படம் 4 (Isolation Transformer) விடுபட்டுள்ளது! அனைத்து 4 புகைப்படங்களையும் இணைப்பது கட்டாயம்.' }));
+          return;
         }
 
-        // 2. Save Validated Photos to Disk & retain Base64 for zero data loss
+        // 2. Save All 4 Validated Photos to Disk & retain Base64 for zero data loss
         const ts = Date.now();
         const cleanSchool = (data.schoolName || 'school').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 25);
         const p1Name = `UPS_F_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p1Res.ext}`;
         const p2Name = `UPS_O_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p2Res.ext}`;
         const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
+        const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
 
         safeWriteFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
-
-        if (p4Res && p4Res.valid) {
-          const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
-          safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
-        }
-
+        safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
         const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
         const allTickets = await db.getAllTickets();
         const schoolUdise = String(data.udise || '').trim();
@@ -2248,27 +2245,38 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('⚠️ புகைப்படம் 1 கட்டாயம்! தயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
-        document.getElementById('photoBox1').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        alert('⚠️ [பிழை / Missing Photo 1]\n\nபுகைப்படம் 1 விடுபட்டுள்ளது!\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        const b = document.getElementById('photoBox1');
+        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ புகைப்படம் 2 கட்டாயம்! தயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
-        document.getElementById('photoBox2').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        alert('⚠️ [பிழை / Missing Photo 2]\n\nபுகைப்படம் 2 விடுபட்டுள்ளது!\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        const b = document.getElementById('photoBox2');
+        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ புகைப்படம் 3 கட்டாயம்! தயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தை கேமரா மூலம் படம் பிடித்து அல்லது கேலரியில் இருந்து பதிவேற்றவும்.');
-        document.getElementById('photoBox3').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        alert('⚠️ [பிழை / Missing Photo 3]\n\nபுகைப்படம் 3 விடுபட்டுள்ளது!\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        const b = document.getElementById('photoBox3');
+        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
-      // Photo 4 (Isolation Transformer) is optional
-      btn.disabled = true;
-      btn.textContent = 'டிக்கெட் பதிவாகிறது...';
+      if (!base64Photo4) {
+        alert('⚠️ [பிழை / Missing Photo 4]\n\nபுகைப்படம் 4 விடுபட்டுள்ளது!\nதயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.\n\nஅனைத்து 4 புகைப்படங்களையும் பதிவேற்றுவது கட்டாயம்!');
+        const b = document.getElementById('photoBox4');
+        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
+        return;
+      }
 
+      const btn = document.getElementById('btnSubmit');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'டிக்கெட் பதிவாகிறது...';
+      }
       let schoolName = '';
       let udise = '';
       let block = '';
