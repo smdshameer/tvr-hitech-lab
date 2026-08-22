@@ -3161,7 +3161,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     // Immediately filter deleted tickets on initial script boot
     try {
-      const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+      const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
       if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
         allTickets = allTickets.filter(function(t) {
           return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
@@ -3172,7 +3172,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     // Immediate DOM purge function
     function purgeClientDeletedRows() {
       try {
-        const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+        const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
         if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
           allTickets = allTickets.filter(function(t) {
             return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
@@ -3241,7 +3241,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         const data = await res.json();
         let clientDeleted = [];
         try {
-          clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+          clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
         } catch(e) { clientDeleted = []; }
 
         allTickets = (data.tickets || []).filter(function(t) {
@@ -3848,10 +3848,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       // 1. Permanently store in localStorage
       try {
-        let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+        let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets_v2') || '[]');
         if (!clientDeleted.includes(cleanTid)) {
           clientDeleted.push(cleanTid);
-          localStorage.setItem('htl_deleted_tickets', JSON.stringify(clientDeleted));
+          localStorage.setItem('htl_deleted_tickets_v2', JSON.stringify(clientDeleted));
         }
       } catch(e) {}
 
@@ -3915,7 +3915,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     function openResetModal() {
       if (!confirm('அனைத்து 18 அசல் புகார்களையும் மீட்டமைக்க விரும்புகிறீர்களா? (Restore All 18 Authentic Tickets & Clear Deletions)')) return;
       try {
-        localStorage.removeItem('htl_deleted_tickets');
+        localStorage.removeItem('htl_deleted_tickets_v2');
       } catch(e) {}
       alert('✅ அனைத்து 18 புகார்களும் வெற்றிகரமாக மீட்டமைக்கப்பட்டன! (Restored All 18 Tickets)');
       loadData();
