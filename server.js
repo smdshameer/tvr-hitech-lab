@@ -3913,11 +3913,12 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     function openResetModal() {
-      document.getElementById('resetPasswordInput').value = '';
-      document.getElementById('resetModal').style.display = 'flex';
-      setTimeout(function() {
-        document.getElementById('resetPasswordInput').focus();
-      }, 50);
+      if (!confirm('அனைத்து 18 அசல் புகார்களையும் மீட்டமைக்க விரும்புகிறீர்களா? (Restore All 18 Authentic Tickets & Clear Deletions)')) return;
+      try {
+        localStorage.removeItem('htl_deleted_tickets');
+      } catch(e) {}
+      alert('✅ அனைத்து 18 புகார்களும் வெற்றிகரமாக மீட்டமைக்கப்பட்டன! (Restored All 18 Tickets)');
+      loadData();
     }
 
     function closeResetModal() {
