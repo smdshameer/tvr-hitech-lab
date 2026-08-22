@@ -3000,7 +3000,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         <!-- 2. Photo Upload & Replace Section -->
         <div class="modal-photos-box">
           <div class="modal-photos-header">
-            <span class="modal-photos-title">📸 3 ஆய்வகப் புகைப்படங்கள் (Inspection Photos):</span>
+            <span class="modal-photos-title">📸 4 ஆய்வகப் புகைப்படங்கள் (Inspection Photos):</span>
             <button type="button" onclick="requestPhotosViaWhatsApp()" class="btn-ask-photos-wa">
               <span>📲</span>
               <span>Ask Photos on WhatsApp</span>
@@ -3617,8 +3617,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     function viewPhotoInModal(index) {
       const val = (index === 1) ? editPhoto1 : ((index === 2) ? editPhoto2 : ((index === 3) ? editPhoto3 : editPhoto4));
-      if (val && val.length > 50) {
-        showImgModal(val);
+      const norm = normalizeImageUrl(val);
+      if (norm) {
+        showImgModal(norm);
       }
     }
 
@@ -3628,8 +3629,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         const img = document.getElementById('editPreview' + i);
         const noImg = document.getElementById('noImg' + i);
         if (img && noImg) {
-          if (val && val.length > 50) {
-            img.src = val;
+          const norm = normalizeImageUrl(val);
+          if (norm) {
+            img.src = norm;
             img.style.display = 'block';
             noImg.style.display = 'none';
           } else {
