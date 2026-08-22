@@ -3159,28 +3159,36 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   <script id="masterSchoolsData" type="application/json">${JSON.stringify(masterSchools)}</script>
   <script>
     let allTickets = [];
+    function getDeletedList() {
+      try {
+        const s = JSON.parse(sessionStorage.getItem('htl_deleted_user_v3') || '[]');
+        const l = JSON.parse(localStorage.getItem('htl_deleted_user_v3') || '[]');
+        return Array.from(new Set([...s, ...l]));
+      } catch(e) { return []; }
+    }
+
     try {
       const initEl = document.getElementById('initialTicketsData');
       if (initEl && initEl.textContent) {
         allTickets = JSON.parse(initEl.textContent) || [];
       }
-      // Filter any tickets deleted in this session so they stay deleted across reloads
-      const sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
-      if (Array.isArray(sessionDeleted) && sessionDeleted.length > 0) {
+      const delList = getDeletedList();
+      if (delList.length > 0) {
         allTickets = allTickets.filter(function(t) {
-          return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+          return t && t.ticketId && !delList.includes(String(t.ticketId).trim());
         });
       }
     } catch(e) {}
 
     function purgeClientDeletedRows() {
       try {
-        const sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
-        if (Array.isArray(sessionDeleted) && sessionDeleted.length > 0) {
+        const delList = getDeletedList();
+        if (delList.length > 0) {
           allTickets = allTickets.filter(function(t) {
-            return t && t.ticketId && !sessionDeleted.includes(String(t.ticketId).trim());
+            return t && t.ticketId && !delList.includes(String(t.ticketId).trim());
           });
           renderTable();
+          updateAllKpis();
         }
       } catch(e) {}
     }
@@ -3258,15 +3266,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         console.warn('Background sync note:', e.message);
       }
 
-      // Always sync KPI metrics and render table from current allTickets
-      const kpiRep = document.getElementById('kpiReported');
-      if (kpiRep) kpiRep.textContent = allTickets.length;
-      const kpiRemote = document.getElementById('kpiResolvedRemote');
-      if (kpiRemote) kpiRemote.textContent = allTickets.filter(function(t) { return t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely'; }).length;
-      const kpiDirect = document.getElementById('kpiSolvedDirect');
-      if (kpiDirect) kpiDirect.textContent = allTickets.filter(function(t) { return t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit'; }).length;
-      const kpiVend = document.getElementById('kpiVendor');
-      if (kpiVend) kpiVend.textContent = allTickets.filter(function(t) { return t.status === 'Vendor Escalated'; }).length;
+      updateAllKpis();
 
       if (allTickets.length > 0) {
         renderTable();
@@ -3927,11 +3927,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (!confirm('அனைத்து 18 அசல் புகார்களையும் மீட்டமைக்க விரும்புகிறீர்களா? (Restore All 18 Authentic Tickets & Clear Deletions)')) return;
       try {
         sessionStorage.removeItem('htl_session_deleted');
+        sessionStorage.removeItem('htl_deleted_user_v3');
         localStorage.removeItem('htl_deleted_tickets');
         localStorage.removeItem('htl_deleted_tickets_v2');
+        localStorage.removeItem('htl_deleted_user_v3');
       } catch(e) {}
       alert('✅ அனைத்து 18 புகார்களும் வெற்றிகரமாக மீட்டமைக்கப்பட்டன! (Restored All 18 Tickets)');
-      loadData();
+      window.location.reload();
     }
 
     function closeResetModal() {
