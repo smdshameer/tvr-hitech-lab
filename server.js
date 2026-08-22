@@ -1992,49 +1992,42 @@ function getTeacherPortalHtml() {
       if (!q) return null;
       const digits = q.replace(/\D/g, '');
 
-      // 1. Exact UDISE (e.g. 33201000507)
-      if (digits.length >= 6) {
+      // 1. Exact 11-digit UDISE
+      if (digits.length === 11) {
         const byUdise = schoolsData.find(s => String(s.udise || '').replace(/\D/g, '') === digits);
         if (byUdise) return byUdise;
       }
 
-      // 2. Partial UDISE match
-      if (digits.length >= 4) {
-        const byUdisePart = schoolsData.find(s => String(s.udise || '').replace(/\D/g, '').includes(digits));
-        if (byUdisePart) return byUdisePart;
-      }
-
-      // 3. Exact School Name match
+      // 2. Exact School Name
       const byName = schoolsData.find(s => (s.schoolName || '').toLowerCase() === q);
       if (byName) return byName;
 
-      // 4. Word-by-word match
-      const words = q.split(/\s+/).filter(Boolean);
-      const byWords = schoolsData.find(s => {
-        const n = (s.schoolName || '').toLowerCase();
-        const b = (s.block || '').toLowerCase();
-        return words.every(w => n.includes(w) || b.includes(w));
-      });
-      return byWords || null;
+      return null;
     }
 
     function filterSchools(query) {
       const q = (query || '').trim().toLowerCase();
-      if (!q) return [];
+      if (!q) return schoolsData.slice(0, 15);
 
       const digits = q.replace(/\D/g, '');
-      const terms = q.split(/\s+/).filter(Boolean);
+      const terms = q.split(/[\s,-]+/).filter(Boolean);
 
       return schoolsData.filter(function(s) {
         const u = String(s.udise || '').replace(/\D/g, '');
         const name = (s.schoolName || '').toLowerCase();
         const block = (s.block || '').toLowerCase();
         const ai = (s.aiName || '').toLowerCase();
+        const id = (s.id || '').toLowerCase();
 
+        // Match by any digit sequence (e.g. 05301, 3320, 5301)
         if (digits.length >= 2 && u.includes(digits)) {
           return true;
         }
 
+        // Match by School ID (e.g. TVR-011)
+        if (id.includes(q)) return true;
+
+        // Match by words in school name or block or AI name
         return terms.every(function(term) {
           return name.includes(term) || block.includes(term) || ai.includes(term) || u.includes(term);
         });
@@ -2042,51 +2035,51 @@ function getTeacherPortalHtml() {
     }
 
     function renderSuggestions(matches) {
-      var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:1.5px dashed #93c5fd; text-align:center; color:#1e40af; font-weight:700; padding:11px; margin-top:4px; border-radius:6px; cursor:pointer;">' +
+      var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:1.5px dashed #93c5fd; text-align:center; color:#1e40af; font-weight:700; padding:12px; margin-top:4px; border-radius:6px; cursor:pointer;">' +
         '➕ உங்கள் பள்ளி இந்தப் பட்டியலில் இல்லையா? புதிய பள்ளியைச் சேர்க்க கிளிக் செய்யவும் (Add New / Other School)' +
       '</div>';
 
-      if (matches.length === 0) {
-        suggestBox.innerHTML = '<div style="padding:12px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை.<br><small style="color:#94a3b8;">கீழே உள்ள பட்டனைக் கிளிக் செய்து புதிய பள்ளியைச் சேர்க்கலாம்</small></div>' + otherBtn;
+      if (!matches || matches.length === 0) {
+        suggestBox.innerHTML = '<div style="padding:14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை (No matching school).<br><small style="color:#94a3b8;">மேலே உள்ள UDISE எண் அல்லது பள்ளியின் பெயரைச் சரிபார்க்கவும்.</small></div>' + otherBtn;
         suggestBox.style.display = 'block';
         return;
       }
 
       suggestBox.innerHTML = matches.slice(0, 30).map(function(s) {
-        return '<div class="suggest-item" data-id="' + s.id + '">' +
-          '<div class="suggest-title">🏫 ' + s.schoolName + '</div>' +
-          '<div class="suggest-meta"><span>📍 ' + s.block + ' Block</span><span>🔢 UDISE: <strong style="color:#2563eb;">' + s.udise + '</strong></span></div>' +
-          '<div class="suggest-ai">👤 AI: ' + (s.aiName || 'Not Assigned') + ' • 📞 ' + (s.aiPhone || '-') + '</div>' +
+        return '<div class="suggest-item" data-id="' + s.id + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer;">' +
+          '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800;">🏫 ' + s.schoolName + '</div>' +
+          '<div class="suggest-meta" style="font-size:12px; color:#475569; margin-top:3px; display:flex; flex-wrap:wrap; gap:8px;">' +
+            '<span>📍 ' + s.block + ' Block</span>' +
+            '<span>🔢 UDISE: <strong style="color:#2563eb; font-size:13px;">' + s.udise + '</strong></span>' +
+          '</div>' +
+          '<div class="suggest-ai" style="font-size:11.5px; color:#16a34a; font-weight:700; margin-top:3px;">👤 AI: ' + (s.aiName || 'Not Assigned') + ' • 📞 ' + (s.aiPhone || '-') + '</div>' +
         '</div>';
       }).join('') + otherBtn;
       suggestBox.style.display = 'block';
     }
 
-    suggestBox.addEventListener('pointerdown', function(e) {
+    suggestBox.addEventListener('mousedown', function(e) {
       const item = e.target.closest('.suggest-item');
       if (item && item.dataset && item.dataset.id) {
-        chooseSchool(item.dataset.id);
+        if (item.dataset.id === 'OTHER') openOtherSchool();
+        else chooseSchool(item.dataset.id);
       }
     });
 
     suggestBox.addEventListener('click', function(e) {
       const item = e.target.closest('.suggest-item');
       if (item && item.dataset && item.dataset.id) {
-        chooseSchool(item.dataset.id);
+        if (item.dataset.id === 'OTHER') openOtherSchool();
+        else chooseSchool(item.dataset.id);
       }
     });
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
-      if (!q) {
-        suggestBox.style.display = 'none';
-        return;
-      }
-
       const best = findBestMatch(q);
       const digits = q.replace(/\D/g, '');
 
-      // Instant auto-select when 11-digit UDISE is typed/pasted
+      // Instant auto-select when exact 11-digit UDISE is typed/pasted
       if (digits.length === 11 && best) {
         chooseSchool(best.id);
         return;
@@ -2104,12 +2097,9 @@ function getTeacherPortalHtml() {
     });
 
     searchInput.addEventListener('focus', function() {
-      if (this.value.trim().length > 0) {
-        const matches = filterSchools(this.value.trim());
-        renderSuggestions(matches);
-      }
+      const matches = filterSchools(this.value.trim());
+      renderSuggestions(matches);
     });
-
     function chooseSchool(id) {
       select.value = id;
       suggestBox.style.display = 'none';
