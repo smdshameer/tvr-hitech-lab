@@ -19,6 +19,14 @@ try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true }); } catch (e) {}
 
 let inMemoryTickets = null;
+let deletedTicketIds = new Set();
+try {
+  const deletedFile = path.join(os.tmpdir(), 'deleted_ticket_ids.json');
+  if (fs.existsSync(deletedFile)) {
+    const arr = JSON.parse(fs.readFileSync(deletedFile, 'utf8'));
+    if (Array.isArray(arr)) deletedTicketIds = new Set(arr);
+  }
+} catch(e) {}
 
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
@@ -99,7 +107,7 @@ function loadTicketsFromJson() {
   (bundled || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
   (dynamic || []).forEach(t => { if (t && t.ticketId) map.set(t.ticketId, t); });
 
-  const merged = Array.from(map.values());
+  const merged = Array.from(map.values()).filter(t => !deletedTicketIds.has(t.ticketId));
   inMemoryTickets = merged;
   return merged;
 }
