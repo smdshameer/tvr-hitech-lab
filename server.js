@@ -3860,7 +3860,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Remember deletion in sessionStorage so reload never brings it back
+      // 1. Remember deletion in sessionStorage & localStorage
       try {
         let sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
         if (!sessionDeleted.includes(cleanTid)) {
@@ -3877,12 +3877,15 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       const kpiReported = document.getElementById('kpiReported');
       if (kpiReported) kpiReported.textContent = allTickets.length;
 
-      // 4. Notify server in background
+      // 4. Notify server with CSRF Token
       try {
-        fetch('/api/tickets/delete', {
+        const csrfHeaders = { 'Content-Type': 'application/json' };
+        const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+        if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
+        await fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
+          headers: csrfHeaders,
           body: JSON.stringify({ ticketId: cleanTid })
         });
       } catch(e) {}

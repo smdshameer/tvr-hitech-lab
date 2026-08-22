@@ -459,20 +459,24 @@ async function updateTicket(ticketId, updateData) {
 }
 
 async function deleteTicket(ticketId) {
+  if (!ticketId) return { success: false, error: 'Ticket ID is required' };
+  const cleanId = String(ticketId).trim();
+  deletedTicketIds.add(cleanId);
   if (usePostgres && pool) {
     try {
-      await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [ticketId]);
+      await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [cleanId]);
     } catch (e) {
       console.error('Postgres delete error:', e.message);
     }
   }
   let list = loadTicketsFromJson();
-  list = list.filter(t => t.ticketId !== ticketId);
+  list = list.filter(t => String(t.ticketId).trim() !== cleanId);
   saveTicketsToJson(list);
   return { success: true };
 }
 
 async function resetAllTickets(userIdentifier, clientIp) {
+  deletedTicketIds.clear();
   const currentTickets = await getAllTickets();
   if (usePostgres && pool) {
     try {
