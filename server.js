@@ -3216,21 +3216,14 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           return;
         }
         const data = await res.json();
-        let clientDeleted = [];
-        try {
-          clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
-        } catch(e) { clientDeleted = []; }
-        allTickets = (data.tickets || []).filter(function(t) {
-          return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
-        });
+        allTickets = data.tickets || [];
 
         document.getElementById('kpiTotal').textContent = data.totalSchools || 183;
         const sVal = (document.getElementById('searchInput') ? document.getElementById('searchInput').value : '').trim();
-        if (!sVal) document.getElementById('kpiReported').textContent = data.totalReported || 0;
+        if (!sVal) document.getElementById('kpiReported').textContent = allTickets.length;
         document.getElementById('kpiResolvedRemote').textContent = data.resolvedRemotelyCount || 0;
         document.getElementById('kpiSolvedDirect').textContent = data.solvedDirectVisitCount || 0;
         document.getElementById('kpiVendor').textContent = data.vendorCount || 0;
-
         renderTable();
       } catch (e) {
         clearTimeout(timeoutId);
