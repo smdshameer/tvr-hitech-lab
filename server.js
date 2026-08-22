@@ -27,6 +27,28 @@ if (process.env.ENGINEER_PIN) {
 }
 // ========================================================
 
+
+async function parseRequestBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'object') return req.body;
+    if (typeof req.body === 'string') {
+      try { return JSON.parse(req.body); } catch(e) { return {}; }
+    }
+  }
+  return new Promise((resolve) => {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch(e) {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
     const dir = path.dirname(filePath);
@@ -752,20 +774,23 @@ async function handleRequest(req, res) {
     // CSRF validation
     if (!requireCsrf(req, res)) return;
 
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', async () => {
-      try {
-        const { ticketId } = JSON.parse(body || '{}');
-        await db.deleteTicket(ticketId);
-        await db.logAudit({ action: 'TICKET_DELETED', ip: clientIp, user: session.displayName, ticketId: ticketId });
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: `Ticket ${ticketId} deleted successfully.` }));
-      } catch(e) {
+    try {
+      const payload = await parseRequestBody(req);
+      const ticketId = String(payload.ticketId || (payload.data && payload.data.ticketId) || parsedUrl.searchParams.get('ticketId') || '').trim();
+      if (!ticketId) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: 'Invalid Request payload.' }));
+        res.end(JSON.stringify({ success: false, error: 'Missing ticketId in request.' }));
+        return;
       }
-    });
+      await db.deleteTicket(ticketId);
+      await db.logAudit({ action: 'TICKET_DELETED', ip: clientIp, user: session.displayName, ticketId: ticketId });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, message: `Ticket ${ticketId} deleted successfully.` }));
+    } catch(e) {
+      console.error('Delete error:', e);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
+    }
     return;
   }
 
