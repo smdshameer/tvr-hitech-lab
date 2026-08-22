@@ -3159,6 +3159,16 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
     } catch(e) {}
 
+    // Immediately filter deleted tickets on initial script boot
+    try {
+      const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+      if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
+        allTickets = allTickets.filter(function(t) {
+          return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
+        });
+      }
+    } catch(e) {}
+
     let currentEditingTicketId = null;
     let selectedCategory = 'Pending';
     let editPhoto1 = '';
@@ -3521,7 +3531,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (cFilter) cFilter.onchange = renderTable;
       }
       if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bindAll);
+        document.addEventListener('DOMContentLoaded', function() { renderTable(); bindAll(); });
       } else {
         bindAll();
       }
