@@ -3,12 +3,14 @@ const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
 
-const isServerless = !!process.env.VERCEL || !!process.env.VERCEL_ENV || !!process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.startsWith('/var/task') || __dirname.startsWith('/tmp');
+const os = require('os');
+const isServerless = true; // Always enable serverless safe mode
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
-const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
+const TMP_DATA_DIR = path.join(os.tmpdir(), 'tvr_data');
+const DATA_DIR = TMP_DATA_DIR;
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const BUNDLED_DB_FILE = path.join(BUNDLED_DATA_DIR, 'htl_itsm_tickets.json');
-const DB_FILE = isServerless ? path.join(DATA_DIR, 'htl_itsm_tickets.json') : BUNDLED_DB_FILE;
+const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
 const CSV_FILE = path.join(DATA_DIR, 'Thiruvarur_HTL_Service_Desk_Master.csv');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'audit_log.json');
 const SCHOOLS_FILE = path.join(BUNDLED_DATA_DIR, 'master_schools_182.json');
@@ -16,15 +18,21 @@ const SCHOOLS_FILE = path.join(BUNDLED_DATA_DIR, 'master_schools_182.json');
 try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true }); } catch (e) {}
 
+let inMemoryTickets = null;
+
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
-    const dir = path.dirname(filePath);
+    // If the path is anywhere near __dirname or /var/task, redirect to tmpdir
+    let target = filePath;
+    if (filePath.includes('/var/task') || filePath.includes('\var\task') || filePath.startsWith(__dirname)) {
+      target = path.join(os.tmpdir(), path.basename(filePath));
+    }
+    const dir = path.dirname(target);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(filePath, data, encoding);
+    fs.writeFileSync(target, data, encoding);
   } catch (err) {
     try {
-      const baseName = path.basename(filePath);
-      const tmpPath = path.join('/tmp', baseName);
+      const tmpPath = path.join(os.tmpdir(), path.basename(filePath));
       fs.writeFileSync(tmpPath, data, encoding);
     } catch (e) {}
   }
