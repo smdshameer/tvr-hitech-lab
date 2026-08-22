@@ -2468,7 +2468,7 @@ function generateTableRowsHtml(list) {
     const cleanPhone = String(t.phone || '').replace(/\D/g, '');
     const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
 
-    return '<tr>' +
+    return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td>' +
         '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
         '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
@@ -3180,6 +3180,14 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
     } catch(e) {}
 
+    // Run immediate render & KPI update on initial boot
+    if (typeof window !== 'undefined') {
+      setTimeout(function() {
+        if (typeof renderTable === 'function') renderTable();
+        if (typeof updateAllKpis === 'function') updateAllKpis();
+      }, 0);
+    }
+
     function purgeClientDeletedRows() {
       try {
         const delList = getDeletedList();
@@ -3491,7 +3499,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           const cleanPhone = String(t.phone || '').replace(/\D/g, '');
           const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
 
-          return '<tr>' +
+          return '<tr data-ticket-id="' + escTicketId + '">' +
             '<td>' +
               '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
               '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
@@ -3860,29 +3868,30 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Remember deletion in sessionStorage & localStorage
+      // 1. Record deletion in storage (persists across reloads & sessions)
       try {
-        let sessionDeleted = JSON.parse(sessionStorage.getItem('htl_session_deleted') || '[]');
-        if (!sessionDeleted.includes(cleanTid)) {
-          sessionDeleted.push(cleanTid);
-          sessionStorage.setItem('htl_session_deleted', JSON.stringify(sessionDeleted));
-        }
+        let sList = JSON.parse(sessionStorage.getItem('htl_deleted_user_v3') || '[]');
+        if (!sList.includes(cleanTid)) { sList.push(cleanTid); sessionStorage.setItem('htl_deleted_user_v3', JSON.stringify(sList)); }
+        let lList = JSON.parse(localStorage.getItem('htl_deleted_user_v3') || '[]');
+        if (!lList.includes(cleanTid)) { lList.push(cleanTid); localStorage.setItem('htl_deleted_user_v3', JSON.stringify(lList)); }
       } catch(e) {}
 
-      // 2. Instantly remove row from memory and re-render table
+      // 2. Remove row directly from DOM for instant zero-lag visual feedback
+      const matchingRows = document.querySelectorAll('tr[data-ticket-id="' + cleanTid + '"]');
+      matchingRows.forEach(function(r) { r.remove(); });
+
+      // 3. Filter memory, re-render, and update all KPI cards immediately
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
+      closeActionModal();
       renderTable();
+      updateAllKpis();
 
-      // 3. Update KPI counters immediately
-      const kpiReported = document.getElementById('kpiReported');
-      if (kpiReported) kpiReported.textContent = allTickets.length;
-
-      // 4. Notify server with CSRF Token
+      // 4. Notify server with CSRF Token in background
       try {
         const csrfHeaders = { 'Content-Type': 'application/json' };
         const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
         if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
-        await fetch('/api/tickets/delete', {
+        fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: csrfHeaders,
@@ -3895,34 +3904,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     window.deleteSingleTicket = deleteSingleTicket;
 
     async function deleteCurrentTicket() {
-      const tid = currentEditingTicketId;
-      if (!currentEditingTicketId) return;
-      if (!confirm('Are you sure you want to delete ticket ' + currentEditingTicketId + '? (Confirm Delete)')) return;
-
-      try {
-        const csrfDelHeaders2 = { 'Content-Type': 'application/json' };
-        const csrfDelMatch2 = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
-        if (csrfDelMatch2) csrfDelHeaders2['X-CSRF-Token'] = csrfDelMatch2[2];
-        const res = await fetch('/api/tickets/delete', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: csrfDelHeaders2,
-          body: JSON.stringify({ ticketId: currentEditingTicketId })
-        });
-        const d = await res.json();
-        if (d.success) {
-          closeActionModal();
-          allTickets = allTickets.filter(function(t) { return t.ticketId !== tid; });
-          renderTable();
-          loadData();
-        } else {
-          alert('Delete failed: ' + (d.error || 'Unknown error'));
-        }
-      } catch(e) {
-        alert('Delete request failed.');
+      if (currentEditingTicketId) {
+        deleteSingleTicket(currentEditingTicketId);
       }
     }
-
     function openResetModal() {
       if (!confirm('அனைத்து 18 அசல் புகார்களையும் மீட்டமைக்க விரும்புகிறீர்களா? (Restore All 18 Authentic Tickets & Clear Deletions)')) return;
       try {
