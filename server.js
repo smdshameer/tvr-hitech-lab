@@ -3169,6 +3169,19 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
     } catch(e) {}
 
+    // Immediate DOM purge function
+    function purgeClientDeletedRows() {
+      try {
+        const clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
+        if (Array.isArray(clientDeleted) && clientDeleted.length > 0) {
+          allTickets = allTickets.filter(function(t) {
+            return t && t.ticketId && !clientDeleted.includes(String(t.ticketId).trim());
+          });
+          renderTable();
+        }
+      } catch(e) {}
+    }
+
     let currentEditingTicketId = null;
     let selectedCategory = 'Pending';
     let editPhoto1 = '';
@@ -3833,7 +3846,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       const cleanTid = String(tid).trim();
 
-      // 1. Store in localStorage so it remains permanently deleted across all page refreshes
+      // 1. Permanently store in localStorage
       try {
         let clientDeleted = JSON.parse(localStorage.getItem('htl_deleted_tickets') || '[]');
         if (!clientDeleted.includes(cleanTid)) {
@@ -3842,17 +3855,23 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         }
       } catch(e) {}
 
-      // 2. Update allTickets and re-render table
+      // 2. Instantly remove row from DOM
+      const rows = document.querySelectorAll('tbody#tableBody tr');
+      rows.forEach(function(r) {
+        if (r.textContent && r.textContent.includes(cleanTid)) r.remove();
+      });
+
+      // 3. Filter memory and re-render
       allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
       renderTable();
 
-      // 3. Update KPI counters
+      // 4. Update KPI counters
       const kpiReported = document.getElementById('kpiReported');
       if (kpiReported) kpiReported.textContent = allTickets.length;
 
-      // 4. Send delete request to server
+      // 5. Notify server in background
       try {
-        await fetch('/api/tickets/delete', {
+        fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json' },
