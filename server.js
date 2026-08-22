@@ -1275,14 +1275,14 @@ function getTeacherPortalHtml() {
     .school-suggest-box {
       display: none; position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 999999 !important;
       background: #ffffff !important; border: 2.5px solid #2563eb; border-radius: 14px;
-      max-height: 320px; overflow-y: auto; box-shadow: 0 20px 40px rgba(15,23,42,0.28);
+      max-height: 320px; overflow-y: auto; box-shadow: 0 16px 36px rgba(15,23,42,0.22);
     }
     .suggest-item {
-      padding: 12px 16px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
+      padding: 12px 14px; border-bottom: 1px solid #f1f5f9; cursor: pointer; text-align: left;
       transition: background 0.15s ease;
     }
-    .suggest-item:hover, .suggest-item:active { background: #eff6ff; }
-    .suggest-title { color: #1e3a8a; font-size: 14px; font-weight: 800; }
+    .suggest-item:hover, .suggest-item:active { background: #f0f7ff; }
+    .suggest-title { color: #1e3a8a; font-size: 13.5px; font-weight: 800; }
     .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
     .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
 
@@ -1589,15 +1589,12 @@ function getTeacherPortalHtml() {
           <label class="form-label">பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span></label>
           <div class="school-search-wrap" id="searchWrap">
             <div class="search-input-group">
-              <input type="text" id="schoolSearchInput" class="school-search-input" list="schoolsDatalist" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
+              <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
               <button type="button" onclick="openOtherSchool()" class="btn-other-school-edge" title="பள்ளி பட்டியலில் இல்லையா? புதிய பள்ளியைப் பதிவு செய்ய கிளிக் செய்யவும்">
                 <span class="other-icon">➕</span>
                 <span>மற்ற பள்ளி</span>
               </button>
             </div>
-            <datalist id="schoolsDatalist">
-              ${masterSchools.map(s => `<option value="${s.udise} - ${s.schoolName} (${s.block})">${s.schoolName} [${s.block}]</option>`).join('')}
-            </datalist>
             <div id="schoolSuggestionsBox" class="school-suggest-box"></div>
           </div>
 
@@ -2078,24 +2075,19 @@ function getTeacherPortalHtml() {
     });
 
     function handleSearchInput() {
-      const rawVal = searchInput.value.trim();
-      if (!rawVal) {
-        suggestBox.style.display = 'none';
-        return;
+      const q = searchInput.value.trim();
+      const digits = q.replace(/\D/g, '');
+
+      // Instant auto-select when exact 11-digit UDISE is typed/pasted
+      if (digits.length === 11) {
+        const byUdise = schoolsData.find(s => String(s.udise || '').replace(/\D/g, '') === digits);
+        if (byUdise) {
+          chooseSchool(byUdise.id);
+          return;
+        }
       }
 
-      // Check if user selected from native datalist (format: "33200305301 - GGHSS KORADACHERY (Koradachery)")
-      const datalistMatch = schoolsData.find(s => {
-        const u = String(s.udise || '').replace(/\D/g, '');
-        return rawVal.includes(u) || (s.schoolName && rawVal.toLowerCase().includes(s.schoolName.toLowerCase()));
-      });
-
-      if (datalistMatch && (rawVal.includes(' - ') || rawVal.replace(/\D/g, '').length === 11)) {
-        chooseSchool(datalistMatch.id);
-        return;
-      }
-
-      const matches = filterSchools(rawVal);
+      const matches = filterSchools(q);
       renderSuggestions(matches);
     }
 
