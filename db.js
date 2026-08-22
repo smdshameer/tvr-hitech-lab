@@ -3,15 +3,32 @@ const path = require('path');
 const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
 
-const DATA_DIR = path.join(__dirname, 'data');
+const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
-const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
+const BUNDLED_DB_FILE = path.join(BUNDLED_DATA_DIR, 'htl_itsm_tickets.json');
+const DB_FILE = isServerless ? path.join(DATA_DIR, 'htl_itsm_tickets.json') : BUNDLED_DB_FILE;
 const CSV_FILE = path.join(DATA_DIR, 'Thiruvarur_HTL_Service_Desk_Master.csv');
 const AUDIT_LOG_FILE = path.join(DATA_DIR, 'audit_log.json');
-const SCHOOLS_FILE = path.join(DATA_DIR, 'master_schools_182.json');
+const SCHOOLS_FILE = path.join(BUNDLED_DATA_DIR, 'master_schools_182.json');
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true }); } catch (e) {}
+
+function safeWriteFileSync(filePath, data, encoding = 'utf8') {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, data, encoding);
+  } catch (err) {
+    try {
+      const baseName = path.basename(filePath);
+      const tmpPath = path.join('/tmp', baseName);
+      fs.writeFileSync(tmpPath, data, encoding);
+    } catch (e) {}
+  }
+}
 
 let masterSchools = [];
 if (fs.existsSync(SCHOOLS_FILE)) {
@@ -59,7 +76,7 @@ function getAllTicketsSync() {
 }
 
 function saveTicketsToJson(list) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
+  safeWriteFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
   const headers = [
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
     'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
@@ -95,7 +112,7 @@ function saveTicketsToJson(list) {
     '"' + (t.timeline || []).map(e => '[' + e.time + '] ' + e.action + ': ' + e.note).join(' | ').replace(/"/g, '""') + '"'
   ]);
   const csvContent = '﻿' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
-  fs.writeFileSync(CSV_FILE, csvContent, 'utf8');
+  safeWriteFileSync(CSV_FILE, csvContent, 'utf8');
   // Removed hardcoded developer path — CSV is saved to DATA_DIR only
 }
 
@@ -452,7 +469,7 @@ async function resetAllTickets(userIdentifier, clientIp) {
   try {
     const ts = Date.now();
     const backupFile = path.join(BACKUPS_DIR, 'reset_backup_' + ts + '.json');
-    fs.writeFileSync(backupFile, JSON.stringify(currentTickets, null, 2), 'utf8');
+    safeWriteFileSync(backupFile, JSON.stringify(currentTickets, null, 2), 'utf8');
   } catch(e){}
   saveTicketsToJson([]);
   return { success: true };
@@ -490,7 +507,7 @@ async function logAudit(event) {
     }
     list.unshift(entry);
     if (list.length > 500) list = list.slice(0, 500);
-    fs.writeFileSync(AUDIT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
+    safeWriteFileSync(AUDIT_LOG_FILE, JSON.stringify(list, null, 2), 'utf8');
   } catch(e) {}
 }
 
@@ -846,7 +863,7 @@ function registerOrUpdateSchool(info) {
 
   if (updated) {
     try {
-      fs.writeFileSync(SCHOOLS_FILE, JSON.stringify(masterSchools, null, 2), 'utf8');
+      safeWriteFileSync(SCHOOLS_FILE, JSON.stringify(masterSchools, null, 2), 'utf8');
       
       const dirFile = path.join(__dirname, 'Hi-Tech_Lab_Warriors_Thiruvarur_Directory.json');
       if (fs.existsSync(dirFile)) {
@@ -871,7 +888,7 @@ function registerOrUpdateSchool(info) {
             displayName: `HTL TVR - ${cleanAi || 'AI'} (${cleanSchool.toUpperCase()}, ${cleanBlock})`
           });
         }
-        fs.writeFileSync(dirFile, JSON.stringify(dirList, null, 2), 'utf8');
+        safeWriteFileSync(dirFile, JSON.stringify(dirList, null, 2), 'utf8');
       }
     } catch(err) {
       console.error('Error saving updated school directory:', err.message);
@@ -880,6 +897,7 @@ function registerOrUpdateSchool(info) {
 }
 
 module.exports = {
+  safeWriteFileSync,
   initDatabase,
   getAllTickets,
   getAllTicketsSync,

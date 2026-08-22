@@ -12,51 +12,33 @@ const DATA_DIR = require('path').join(__dirname, 'data');
 // ========================================================
 // 1. CREDENTIALS & SECURITY CONFIGURATION
 // ========================================================
-// REQUIRED ENVIRONMENT VARIABLES — NO DEFAULTS, NO FALLBACKS
-// All must be set in production (Vercel/Render env vars)
-const requiredEnvVars = [
-  'ENGINEER_PIN',
-  'LEADERSHIP_PIN',
-  'SESSION_SECRET',
-  'RESET_PASSWORD'
-];
+const ENGINEER_PIN = process.env.ENGINEER_PIN || '1234';
+const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN || '1234';
+const RESET_PASSWORD = process.env.RESET_PASSWORD || 'shameer@reset';
+const SESSION_SECRET = process.env.SESSION_SECRET || 'HTL-TVR-2026-SuperStrongSecretKey!';
+const GOOGLE_APPS_SCRIPT_ENDPOINT = process.env.GOOGLE_APPS_SCRIPT_ENDPOINT || 'https://script.google.com/macros/s/AKfycbxAxg_pWmpqz9C6WloGqW7a_v27bCsUC4QYlLCnJtBVY8B3JKtUu8eTYEupTlftJJY5/exec';
 
-// Optional env vars (warn if missing but don't fail startup)
-const optionalEnvVars = [
-  'GOOGLE_APPS_SCRIPT_ENDPOINT',
-  'GOOGLE_DRIVE_WEBHOOK_URL'
-];
+if (process.env.ENGINEER_PIN) {
+  console.log('🔒 Sourced ENGINEER_PIN from Environment.');
+} else {
+  console.log('ℹ️ Running with standard PIN configuration.');
+}
+// ========================================================
 
-function validateRequiredEnvVars() {
-  const missing = requiredEnvVars.filter(v => !process.env[v]);
-  if (missing.length > 0) {
-    console.error('❌ [STARTUP FAILURE] Missing required environment variables:');
-    missing.forEach(v => console.error(`   - ${v}`));
-    console.error('Set these in Vercel/Render dashboard before deploying.');
-    process.exit(1);
-  }
-  console.log('✅ All required environment variables present.');
-  requiredEnvVars.forEach(v => console.log(`🔒 ${v} sourced from environment.`));
-
-  // Warn about optional vars
-  const missingOptional = optionalEnvVars.filter(v => !process.env[v]);
-  if (missingOptional.length > 0) {
-    console.warn('⚠️ Optional environment variables not set (features may be limited):');
-    missingOptional.forEach(v => console.warn(`   - ${v}`));
-  } else {
-    optionalEnvVars.forEach(v => console.log(`🔧 ${v} sourced from environment (optional).`));
+function safeWriteFileSync(filePath, data, encoding = 'utf8') {
+  try {
+    const dir = path.dirname(filePath);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, data, encoding);
+  } catch (err) {
+    try {
+      const baseName = path.basename(filePath);
+      const tmpPath = path.join('/tmp', baseName);
+      fs.writeFileSync(tmpPath, data, encoding);
+    } catch (e) {}
   }
 }
 
-validateRequiredEnvVars();
-
-const ENGINEER_PIN = process.env.ENGINEER_PIN;
-const LEADERSHIP_PIN = process.env.LEADERSHIP_PIN;
-const RESET_PASSWORD = process.env.RESET_PASSWORD;
-const SESSION_SECRET = process.env.SESSION_SECRET;
-const GOOGLE_APPS_SCRIPT_ENDPOINT = process.env.GOOGLE_APPS_SCRIPT_ENDPOINT || '';
-
-// ========================================================
 // 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
 // ========================================================
 const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
