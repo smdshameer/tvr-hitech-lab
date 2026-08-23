@@ -449,97 +449,54 @@ async function syncGasTickets() {
 }
 
 async function getAllTickets() {
+  // 1. Always load bundled baseline authentic tickets
+  let bundled = [];
+  try {
+    bundled = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'htl_itsm_tickets.json'), 'utf8'));
+  } catch(e) { bundled = []; }
+
+  // 2. Fetch Postgres rows if configured
+  let dbRows = [];
   if (usePostgres && pool) {
     try {
-      let res = await pool.query('SELECT * FROM tickets ORDER BY created_at DESC');
-      let rawList = res.rows.map(mapRowToTicket);
-
-      if (rawList.length < 15) {
-        try {
-          const bundled = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'htl_itsm_tickets.json'), 'utf8'));
-          for (const t of bundled) {
-            const canonicalPrio = normalizePriority(t.priority, t.issue);
-            await pool.query(`
-              INSERT INTO tickets (
-                ticket_id, created_date, priority, status, resolution_category,
-                district, block, school_id, school_name, udise_code,
-                ai_instructor_name, ai_instructor_mobile, reported_issue,
-                duration, ups_serial_number, resolution_type, vendor_name,
-                vendor_ticket_no, parts_required, resolution_notes,
-                resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-              ON CONFLICT (ticket_id) DO NOTHING
-            `, [
-              t.ticketId,
-              t.createdDate || t.createdAt || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-              canonicalPrio,
-              t.status || 'New / Under Review',
-              t.resolutionCategory || 'Pending',
-              t.district || 'Thiruvarur',
-              t.block || '',
-              t.schoolId || '',
-              t.schoolName || '',
-              t.udise || '',
-              t.aiName || '',
-              t.phone || '',
-              t.issue || '',
-              t.duration || 'Today',
-              t.serialNo || '',
-              t.resolutionType || '',
-              t.vendorName || '',
-              t.vendorTicketNo || '',
-              t.partsRequired || '',
-              t.resolutionNotes || '',
-              t.resolvedAt || '',
-              t.photo1Url || '',
-              t.photo2Url || '',
-              t.photo3Url || '',
-              t.photo4Url || '',
-              t.remarks || '',
-              JSON.stringify(t.timeline || [])
-            ]);
-          }
-          res = await pool.query('SELECT * FROM tickets ORDER BY created_at DESC');
-          rawList = res.rows.map(mapRowToTicket);
-        } catch(err) {
-          console.warn('Postgres baseline seeding warning:', err.message);
-        }
-      }
-
-      const seen = new Set();
-      const cleanList = [];
-      rawList.forEach(t => {
-        if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
-        if (deletedTicketIds.has(String(t.ticketId).trim())) return;
-
-        const issue = String(t.issue || '').toLowerCase();
-        const remarks = String(t.remarks || '').toLowerCase();
-        if (issue.includes('simulation') || remarks.includes('simulation')) return;
-
-        const u = String(t.udise || '').trim();
-        const dt = String(t.createdDate || t.createdAt || '').trim();
-        const key = u ? `${u}_${dt}` : String(t.ticketId).trim();
-
-        if (!seen.has(key)) {
-          seen.add(key);
-          cleanList.push(t);
-        }
-      });
-      return cleanList;
-    } catch (e) {
-      console.error('Postgres query error, falling back to JSON:', e.message);
-    }
+      const res = await pool.query('SELECT * FROM tickets ORDER BY created_at DESC');
+      dbRows = res.rows.map(mapRowToTicket);
+    } catch (e) {}
+  } else {
+    // Or run fast Google Sheets cloud sync
+    try {
+      await Promise.race([
+        syncGasTickets(),
+        new Promise(res => setTimeout(res, 2500))
+      ]);
+    } catch(e) {}
+    dbRows = loadTicketsFromJson();
   }
 
-  // Always run fast cloud sync
-  try {
-    await Promise.race([
-      syncGasTickets(),
-      new Promise(res => setTimeout(res, 2500))
-    ]);
-  } catch(e) {}
+  // 3. Merge bundled authentic tickets + database rows
+  const combined = [...dbRows, ...bundled];
+  const seen = new Set();
+  const cleanList = [];
 
-  return loadTicketsFromJson();
+  combined.forEach(t => {
+    if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
+    if (deletedTicketIds.has(String(t.ticketId).trim())) return;
+
+    const issue = String(t.issue || '').toLowerCase();
+    const remarks = String(t.remarks || '').toLowerCase();
+    if (issue.includes('simulation') || remarks.includes('simulation')) return;
+
+    const u = String(t.udise || '').trim();
+    const dt = String(t.createdDate || t.createdAt || '').trim();
+    const key = u && dt ? `${u}_${dt}` : String(t.ticketId).trim();
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      cleanList.push(t);
+    }
+  });
+
+  return cleanList;
 }
 
 async function checkOpenTicketByUdise(cleanUdise) {
