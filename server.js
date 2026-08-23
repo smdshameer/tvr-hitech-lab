@@ -2025,6 +2025,7 @@ function getTeacherPortalHtml() {
     let base64Photo1 = '';
     let base64Photo2 = '';
     let base64Photo3 = '';
+    let base64Photo4 = '';
 
     function switchTab(tab) {
       if (tab === 'log') {
@@ -2266,7 +2267,26 @@ function getTeacherPortalHtml() {
     setupPhotoInputs(3, data => { base64Photo3 = data; });
     setupPhotoInputs(4, data => { base64Photo4 = data; });
 
-    document.getElementById('incidentForm').addEventListener('submit', async function(e) {
+    function showPhotoMissingAlert(boxId, photoNum, photoName) {
+      for (let i = 1; i <= 4; i++) {
+        const box = document.getElementById("photoBox" + i);
+        if (box) {
+          box.style.outline = "none";
+          box.style.boxShadow = "none";
+        }
+      }
+      
+      const b = document.getElementById(boxId);
+      if (b) {
+        b.scrollIntoView({ behavior: "smooth", block: "center" });
+        b.style.outline = "4px solid #dc2626";
+        b.style.boxShadow = "0 0 24px rgba(220, 38, 38, 0.45)";
+      }
+      
+      alert("⚠️ [புகைப்படம் " + photoNum + " விடுபட்டுள்ளது! / Mandatory Photo Missing]\n\nதயவுசெய்து \"" + photoNum + ". " + photoName + "\" புகைப்படத்தைப் பதிவேற்றவும்.\n\nஅனைத்து 4 புகைப்படங்களையும் இணைத்த பிறகே புகாரைப் பதிவு செய்ய முடியும்.");
+    }
+
+    document.getElementById("incidentForm").addEventListener("submit", async function(e) {
       e.preventDefault();
 
       if (!select.value && searchInput.value.trim()) {
@@ -2277,39 +2297,31 @@ function getTeacherPortalHtml() {
       }
 
       if (!select.value) {
-        alert('தயவுசெய்து உங்கள் பள்ளியைத் தேர்ந்தெடுக்கவும் (Please select your school).');
+        alert("⚠️ தயவுசெய்து உங்கள் பள்ளியைத் தேர்ந்தெடுக்கவும் (Please search and select your school).");
+        searchWrap.style.display = "block";
         searchInput.focus();
         return;
       }
 
       if (!base64Photo1) {
-        alert('⚠️ [பிழை] புகைப்படம் 1 விடுபட்டுள்ளது! தயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தைப் பதிவேற்றவும்.');
-        const b = document.getElementById('photoBox1');
-        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
+        showPhotoMissingAlert("photoBox1", 1, "UPS Display (UPS டிஸ்ப்ளே நிலை)");
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ [பிழை] புகைப்படம் 2 விடுபட்டுள்ளது! தயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
-        const b = document.getElementById('photoBox2');
-        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
+        showPhotoMissingAlert("photoBox2", 2, "Overall UPS Setup (முழுமையான UPS அமைப்பு)");
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ [பிழை] புகைப்படம் 3 விடுபட்டுள்ளது! தயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தைப் பதிவேற்றவும்.');
-        const b = document.getElementById('photoBox3');
-        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
+        showPhotoMissingAlert("photoBox3", 3, "Battery Single MCB (பேட்டரி சிங்கிள் MCB)");
         return;
       }
 
       if (!base64Photo4) {
-        alert('⚠️ [பிழை] புகைப்படம் 4 விடுபட்டுள்ளது! தயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
-        const b = document.getElementById('photoBox4');
-        if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
+        showPhotoMissingAlert("photoBox4", 4, "Isolation Transformer (ஐசோலேஷன் டிரான்ஸ்பார்மர்)");
         return;
       }
-
       const btn = document.getElementById('btnSubmit');
       if (btn) {
         btn.disabled = true;
