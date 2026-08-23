@@ -2576,7 +2576,7 @@ function generateTableRowsHtml(list) {
     const escUdise = escapeHtml(t.udise);
     const escAiName = escapeHtml(t.aiName || '-');
     const escPhone = escapeHtml(t.phone || '-');
-    const escIssue = escapeHtml(t.issue);
+    const formattedIssue = escapeHtml(t.issue || '').replace(/\s*\/\s*/g, ' /<br>');
     const escPriority = escapeHtml(p);
     const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
     const escVendorName = escapeHtml(t.vendorName || '');
@@ -2585,8 +2585,8 @@ function generateTableRowsHtml(list) {
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td class="col-ticket-id">' +
-        '<div style="font-weight:800; color:#1e3a8a; font-size:12.5px; letter-spacing:0.2px;">' + escTicketId + '</div>' +
-        '<div style="color:#64748b; font-size:10.5px; margin-top:2px; font-weight:500;">' + escCreatedDate + '</div>' +
+        '<div style="font-weight:800; color:#1e3a8a; font-size:12px; letter-spacing:0.2px; line-height:1.2;">' + escTicketId + '</div>' +
+        '<div style="color:#64748b; font-size:10.5px; margin-top:2px; font-weight:500; line-height:1.1;">' + escCreatedDate + '</div>' +
       '</td>' +
       '<td class="col-photos">' +
         '<div class="thumb-grid">' +
@@ -2601,11 +2601,11 @@ function generateTableRowsHtml(list) {
         '<div style="color:#64748b; font-size:11px; margin-top:2px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
       '</td>' +
       '<td class="col-ai-contact">' +
-        '<div style="font-weight:700; color:#0f172a; font-size:12px;">' + escAiName + '</div>' +
+        '<div style="font-weight:700; color:#0f172a; font-size:12px; line-height:1.2;">' + escAiName + '</div>' +
         '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:2px; margin-top:2px;">📞 ' + escPhone + '</a>' +
       '</td>' +
       '<td class="col-fault">' +
-        '<div style="font-weight:700; color:#1e293b; font-size:11.5px; line-height:1.25;">' + escIssue + '</div>' +
+        '<div class="fault-issue-text">' + formattedIssue + '</div>' +
         '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
       '<td class="col-status" style="text-align: center;">' + badgeHtml + '</td>' +
@@ -2990,6 +2990,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .badge-vendor { background: var(--status-incomplete-bg); color: var(--status-incomplete-text); border: 1px solid var(--status-incomplete-border); }
     .badge-open { background: var(--status-progress-bg); color: var(--status-progress-text); border: 1px solid var(--status-progress-border); }
 
+        .fault-issue-text {
+      font-weight: 700; color: var(--text-primary); font-size: 11.5px;
+      line-height: 1.35; white-space: normal !important; word-break: break-word !important;
+      overflow-wrap: break-word !important;
+    }
     .prio-pill { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 2px; }
     .prio-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .prio-high { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
