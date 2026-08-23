@@ -1,3 +1,50 @@
+
+// ========================================================
+// GOOGLE SHEETS / DRIVE CLOUD DATABASE ENGINE
+// ========================================================
+const GOOGLE_APPS_SCRIPT_ENDPOINT = process.env.GOOGLE_APPS_SCRIPT_ENDPOINT || 'https://script.google.com/macros/s/AKfycbxAxg_pWmpqz9C6WloGqW7a_v27bCsUC4QYlLCnJtBVY8B3JKtUu8eTYEupTlftJJY5/exec';
+
+function fetchGasApi(url, method = 'GET', payload = null) {
+  return new Promise((resolve) => {
+    try {
+      const https = require('https');
+      const parsed = new URL(url);
+      const options = {
+        hostname: parsed.hostname,
+        path: parsed.pathname + parsed.search,
+        method: method,
+        timeout: 10000,
+        headers: { 'User-Agent': 'HTL-Database-Engine/2.0' }
+      };
+      if (payload) {
+        const bodyStr = JSON.stringify(payload);
+        options.headers['Content-Type'] = 'application/json';
+        options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+      }
+      const req = https.request(options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return resolve(fetchGasApi(res.headers.location, method, payload));
+        }
+        let data = '';
+        res.on('data', c => data += c);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch(e) {
+            resolve(null);
+          }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+      if (payload) req.write(JSON.stringify(payload));
+      req.end();
+    } catch(e) {
+      resolve(null);
+    }
+  });
+}
+
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
