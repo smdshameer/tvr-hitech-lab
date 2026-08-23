@@ -411,6 +411,20 @@ async function handleRequest(req, res) {
   }
 
   // 0. API: Version & Health Diagnostics (Public Unauthenticated Endpoint)
+  
+  if (pathname === '/api/diag' && req.method === 'GET') {
+    const rawAll = await db.getAllTickets();
+    const rawSync = db.getAllTicketsSync();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      getAllCount: rawAll.length,
+      getAllIds: rawAll.map(t => t.ticketId),
+      syncCount: rawSync.length,
+      syncIds: rawSync.map(t => t.ticketId)
+    }, null, 2));
+    return;
+  }
+
   if (pathname === '/api/version' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
