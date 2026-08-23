@@ -3534,10 +3534,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       }
       return list.map(function(t) {
         const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-        let badgeHtml = '<span class="badge badge-open">🟡 New / Under Review</span>';
-        if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
-        else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
-        else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
+        let badgeHtml = '<span class="badge badge-open">🟡 New /<br>Under Review</span>';
+        if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved<br>Remotely</span>';
+        else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by<br>Direct Visit</span>';
+        else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor<br>Escalated</span>';
 
         let prioClass = 'prio-med';
         const p = t.priority || 'Medium';
