@@ -515,6 +515,13 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // API: Version & Health Probe
+  if (pathname === '/api/version') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+    res.end(JSON.stringify({ version: '1.0.6', buildTime: '2026-08-23T08:27:00Z', design: 'field-call-tracker-v1', gitCommit: '55e62da' }));
+    return;
+  }
+
   // 1. API: Login with Rate Limiting and Audit Logging
   if (pathname === '/api/login' && req.method === 'POST') {
     const rl = checkRateLimit(clientIp, 'LOGIN');
