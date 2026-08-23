@@ -728,8 +728,17 @@ async function syncGasTickets() {
           added++;
         });
 
+        // Always ensure all 20 authentic baseline tickets are preserved in localTickets
+        const existingIds = new Set(localTickets.map(t => String(t.ticketId).trim()));
+        EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
+          if (!existingIds.has(String(bt.ticketId).trim())) {
+            localTickets.push(bt);
+            existingIds.add(String(bt.ticketId).trim());
+          }
+        });
+
+        saveTicketsToJson(localTickets);
         if (added > 0) {
-          saveTicketsToJson(localTickets);
           console.log(`🔄 [CLOUD SYNC] Cleanly added ${added} new tickets from Google Sheets!`);
         }
 
