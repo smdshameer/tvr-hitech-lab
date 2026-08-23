@@ -2135,7 +2135,7 @@ function getTeacherPortalHtml() {
       }
 
       suggestBox.innerHTML = matches.slice(0, 40).map(function(s) {
-        return '<div class="suggest-item" data-id="' + s.id + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
+        return '<div class="suggest-item" data-id="' + s.id + '" onpointerdown="chooseSchool(\'' + s.id + '\')" onmousedown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
             '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + '</div>' +
             '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
@@ -2181,6 +2181,10 @@ function getTeacherPortalHtml() {
     });
 
     searchInput.addEventListener("focus", function() {
+      const matches = filterSchools(this.value.trim());
+      renderSuggestions(matches);
+    });
+    searchInput.addEventListener("click", function() {
       const matches = filterSchools(this.value.trim());
       renderSuggestions(matches);
     });
