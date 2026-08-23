@@ -851,7 +851,6 @@ if (pathname === '/api/data' && req.method === 'GET') {
       const iss = String(t.issue || '').toLowerCase();
       const rem = String(t.remarks || '').toLowerCase();
       if (iss.includes('simulation') || rem.includes('simulation')) return false;
-      if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
       return true;
     });
     const session = getAuthenticatedSession(req);
@@ -995,7 +994,6 @@ if (pathname === '/api/data' && req.method === 'GET') {
       const iss = String(t.issue || '').toLowerCase();
       const rem = String(t.remarks || '').toLowerCase();
       if (iss.includes('simulation') || rem.includes('simulation')) return false;
-      if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
       return true;
     });
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
