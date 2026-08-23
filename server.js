@@ -2912,7 +2912,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Data Table Card Container - Ultra-Compact Zero-Waste Layout */
+    /* Data Table Card Container - Tight Proportional Layout (Zero Empty Gaps) */
     .table-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
@@ -2948,7 +2948,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.78rem;
+      font-size: 0.8rem;
       table-layout: auto;
     }
     .data-table th {
@@ -2956,19 +2956,19 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       top: 0;
       background: var(--bg-card);
       z-index: 10;
-      padding: 0.5rem 0.55rem;
+      padding: 0.55rem 0.65rem;
       font-weight: 700;
       color: var(--text-secondary, #475569);
       text-transform: uppercase;
-      font-size: 0.67rem;
-      letter-spacing: 0.03em;
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
       border-bottom: 2px solid var(--border-color);
       white-space: nowrap;
       user-select: none;
       vertical-align: middle;
     }
     .data-table td {
-      padding: 0.45rem 0.55rem;
+      padding: 0.5rem 0.65rem;
       border-bottom: 1px solid var(--border-color);
       color: var(--text-primary);
       vertical-align: middle;
@@ -2981,6 +2981,16 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       background-color: var(--primary-light, #eff6ff);
     }
 
+    /* Column Width Optimization - Tight Content Hugging */
+    .data-table th:nth-child(1), .data-table td:nth-child(1) { width: 1%; white-space: nowrap; }
+    .data-table th:nth-child(2), .data-table td:nth-child(2) { width: 1%; white-space: nowrap; }
+    .data-table th:nth-child(3), .data-table td:nth-child(3) { min-width: 160px; max-width: 220px; }
+    .data-table th:nth-child(4), .data-table td:nth-child(4) { width: 1%; white-space: nowrap; }
+    .data-table th:nth-child(5), .data-table td:nth-child(5) { min-width: 160px; max-width: 220px; }
+    .data-table th:nth-child(6), .data-table td:nth-child(6) { width: 1%; white-space: nowrap; text-align: center; }
+    .data-table th:nth-child(7), .data-table td:nth-child(7) { min-width: 170px; max-width: 260px; }
+    .data-table th:nth-child(8), .data-table td:nth-child(8) { width: 1%; white-space: nowrap; text-align: center; }
+
     /* Fixed Sticky Action Column on the right */
     .data-table th:last-child {
       position: sticky;
@@ -2989,7 +2999,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       background: var(--bg-card);
       box-shadow: -3px 0 6px rgba(0, 0, 0, 0.04);
       text-align: center;
-      padding: 0.5rem 0.45rem;
+      padding: 0.55rem 0.5rem;
     }
     .data-table td:last-child {
       position: sticky;
@@ -2998,7 +3008,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       background: var(--bg-card);
       box-shadow: -3px 0 6px rgba(0, 0, 0, 0.04);
       text-align: center;
-      padding: 0.45rem 0.45rem;
+      padding: 0.5rem 0.5rem;
     }
     .data-table tbody tr:hover td:last-child {
       background-color: var(--primary-light, #eff6ff);
