@@ -634,7 +634,7 @@ async function initDatabase() {
     const rowCount = parseInt(countRes.rows[0].count, 10);
     if (true) { // Always ensure authentic baseline tickets exist
       console.log('🚀 Migrating existing JSON tickets to PostgreSQL...');
-      const tickets = loadTicketsFromJson();
+      const tickets = EMBEDDED_AUTHENTIC_TICKETS;
       let migratedCount = 0;
       for (const t of tickets) {
         const canonicalPrio = normalizePriority(t.priority, t.issue);
