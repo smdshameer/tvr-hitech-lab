@@ -3259,16 +3259,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       <div class="table-responsive">
         <table class="data-table">
+          <colgroup>
+            <col style="width: 110px;">
+            <col style="width: 140px;">
+            <col style="min-width: 170px;">
+            <col style="width: 140px;">
+            <col style="min-width: 160px;">
+            <col style="width: 120px;">
+            <col style="min-width: 160px;">
+            <col style="width: 118px;">
+          </colgroup>
           <thead>
             <tr>
-              <th>Ticket ID</th>
-              <th>Service Call Photos (4)</th>
-              <th>School & Block</th>
-              <th>School AI Contact</th>
-              <th>Reported Fault & Priority</th>
-              <th>Status / Category</th>
-              <th>Resolution & Vendor Notes</th>
-              <th style="text-align: center;">Quick Actions</th>
+              <th class="col-ticket-id">Ticket ID</th>
+              <th class="col-photos">Service Call Photos (4)</th>
+              <th class="col-school">School & Block</th>
+              <th class="col-ai-contact">School AI Contact</th>
+              <th class="col-fault">Reported Fault & Priority</th>
+              <th class="col-status" style="text-align: center;">Status / Category</th>
+              <th class="col-notes">Resolution & Vendor Notes</th>
+              <th class="col-actions" style="text-align: center;">Quick Actions</th>
             </tr>
           </thead>
           <tbody id="tableBody">
