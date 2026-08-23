@@ -388,43 +388,44 @@ async function syncGasTickets() {
       const remoteTickets = (resp && resp.tickets) ? resp.tickets : (Array.isArray(resp) ? resp : null);
       if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
         let localTickets = loadTicketsFromJson();
+        const existingSignatures = new Set();
+
+        localTickets.forEach(lt => {
+          if (lt.googleDriveFolderUrl) existingSignatures.add(String(lt.googleDriveFolderUrl).trim());
+          const u = String(lt.udise || '').trim();
+          const t = String(lt.createdDate || lt.createdAt || '').trim();
+          if (u && t) existingSignatures.add(`${u}_${t}`);
+        });
+
         let added = 0;
+        remoteTickets.forEach((rt, idx) => {
+          if (!rt || isTestOrPurgedTicket(rt)) return;
+          const driveUrl = String(rt.googleDriveFolderUrl || '').trim();
+          const time = String(rt.createdDate || rt.createdAt || '').trim();
+          const udise = String(rt.udise || '').trim();
+          const udiseTimeKey = `${udise}_${time}`;
 
-        remoteTickets.forEach(rt => {
-          if (!rt || !rt.ticketId || isTestOrPurgedTicket(rt)) return;
-          const rtIssue = String(rt.issue || '').toLowerCase();
-          if (rtIssue.includes('simulation') || rtIssue.includes('e2e test')) return;
-
-          const rtUdise = String(rt.udise || '').trim();
-          const rtTime = String(rt.createdDate || rt.createdAt || '').trim();
-          const rtPhoto1 = String(rt.photo1Url || '').trim();
-          const rtDrive = String(rt.googleDriveFolderUrl || '').trim();
-          const rtId = String(rt.ticketId || '').trim();
-
-          // Robust Deduplication: Check if this exact ticket already exists in local DB
-          const alreadyExists = localTickets.some(lt => {
-            const ltId = String(lt.ticketId || '').trim();
-            const ltTime = String(lt.createdDate || lt.createdAt || '').trim();
-            const ltUdise = String(lt.udise || '').trim();
-            const ltPhoto1 = String(lt.photo1Url || '').trim();
-            const ltDrive = String(lt.googleDriveFolderUrl || '').trim();
-
-            if (ltId === rtId) return true;
-            if (rtDrive && ltDrive && rtDrive === ltDrive) return true;
-            if (rtPhoto1 && ltPhoto1 && rtPhoto1 === ltPhoto1) return true;
-            if (rtUdise && ltUdise && rtUdise === ltUdise && rtTime && ltTime && rtTime === ltTime) return true;
-            return false;
-          });
-
-          if (!alreadyExists) {
-            localTickets.unshift(rt);
-            added++;
+          // If this remote ticket was already imported, skip completely
+          if ((driveUrl && existingSignatures.has(driveUrl)) || (udise && time && existingSignatures.has(udiseTimeKey))) {
+            return;
           }
+
+          let assignedId = rt.ticketId || `HTL-TVR-${udise.slice(-5)}`;
+          if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId)) {
+            assignedId = `${assignedId}-${idx + 1}`;
+          }
+          const cleanTicket = { ...rt, ticketId: assignedId };
+
+          if (driveUrl) existingSignatures.add(driveUrl);
+          if (udise && time) existingSignatures.add(udiseTimeKey);
+
+          localTickets.unshift(cleanTicket);
+          added++;
         });
 
         if (added > 0) {
           saveTicketsToJson(localTickets);
-          console.log('🔄 [CLOUD SYNC] Cleanly imported ' + added + ' genuine new tickets from Google Sheets!');
+          console.log(`🔄 [CLOUD SYNC] Cleanly added ${added} new tickets from Google Sheets!`);
         }
       }
       lastGasSyncTime = Date.now();
