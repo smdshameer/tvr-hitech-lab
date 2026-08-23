@@ -3809,12 +3809,7 @@ function generateTableRowsHtml(list) {
       } catch(e) {}
     }
 
-    let currentEditingTicketId = null;
-    let selectedCategory = 'Pending';
-    let editPhoto1 = '';
-    let editPhoto2 = '';
-    let editPhoto3 = '';
-    let editPhoto4 = '';
+        // (State variables currentEditingTicketId, selectedCategory, editPhotos are initialized at top of script)
 
     // Keyboard navigation (Esc key closes modals)
     document.addEventListener('keydown', function(e) {
