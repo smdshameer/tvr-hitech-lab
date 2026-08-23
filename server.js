@@ -1,3 +1,9 @@
+
+function verifyPin(role, pin) {
+  if (role === 'engineer') return pin === ENGINEER_PIN;
+  if (role === 'leadership' || role === 'admin') return pin === LEADERSHIP_PIN;
+  return false;
+}
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -4767,3 +4773,8 @@ function getITSMExecutiveHtml(initialTickets = []) {
 
 module.exports = server;
 module.exports.handleRequest = handleRequest;
+module.exports.getTeacherPortalHtml = getTeacherPortalHtml;
+module.exports.getITSMWorkbenchHtml = getITSMWorkbenchHtml;
+module.exports.getITSMExecutiveHtml = getITSMExecutiveHtml;
+module.exports.getLoginHtml = getLoginHtml;
+module.exports.verifyPin = verifyPin;

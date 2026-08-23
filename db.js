@@ -1054,6 +1054,28 @@ function registerOrUpdateSchool(info) {
   }
 }
 
+
+async function getAuditLogs() {
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM audit_log ORDER BY id DESC LIMIT 500');
+      return res.rows;
+    } catch(e){}
+  }
+  if (fs.existsSync(AUDIT_LOG_FILE)) {
+    try { return JSON.parse(fs.readFileSync(AUDIT_LOG_FILE, 'utf8')); } catch(e){}
+  }
+  return [];
+}
+
+async function createBackup(reason = 'MANUAL_BACKUP', initiatedBy = 'system') {
+  const tickets = await getAllTickets();
+  const ts = Date.now();
+  const backupFile = path.join(BACKUPS_DIR, 'backup_' + ts + '.json');
+  safeWriteFileSync(backupFile, JSON.stringify(tickets, null, 2), 'utf8');
+  return { success: true, count: tickets.length, file: backupFile };
+}
+
 module.exports = {
   safeWriteFileSync,
   initDatabase,
@@ -1065,6 +1087,8 @@ module.exports = {
   deleteTicket,
   resetAllTickets,
   logAudit,
+  getAuditLogs,
+  createBackup,
   generateCsvExport,
   generateExcelExport,
   normalizePriority,
