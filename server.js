@@ -2135,7 +2135,7 @@ function getTeacherPortalHtml() {
       }
 
       suggestBox.innerHTML = matches.slice(0, 40).map(function(s) {
-        return '<div class="suggest-item" data-id="' + s.id + '" onpointerdown="chooseSchool(\'' + s.id + '\')" onmousedown="chooseSchool(\'' + s.id + '\')" onclick="chooseSchool(\'' + s.id + '\')" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
+        return '<div class="suggest-item" data-id="' + s.id + '" onpointerdown="chooseSchool(this.dataset.id)" onmousedown="chooseSchool(this.dataset.id)" onclick="chooseSchool(this.dataset.id)" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
             '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + '</div>' +
             '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
@@ -2302,7 +2302,7 @@ function getTeacherPortalHtml() {
         b.style.boxShadow = "0 0 24px rgba(220, 38, 38, 0.45)";
       }
       
-      alert("⚠️ [புகைப்படம் " + photoNum + " விடுபட்டுள்ளது! / Mandatory Photo Missing]\n\nதயவுசெய்து \"" + photoNum + ". " + photoName + "\" புகைப்படத்தைப் பதிவேற்றவும்.\n\nஅனைத்து 4 புகைப்படங்களையும் இணைத்த பிறகே புகாரைப் பதிவு செய்ய முடியும்.");
+      alert("⚠️ [புகைப்படம் " + photoNum + " விடுபட்டுள்ளது!] தயவுசெய்து " + photoNum + ". " + photoName + " புகைப்படத்தைப் பதிவேற்றவும். அனைத்து 4 புகைப்படங்களையும் இணைப்பது கட்டாயம்.");
     }
 
     document.getElementById("incidentForm").addEventListener("submit", async function(e) {
