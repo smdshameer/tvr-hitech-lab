@@ -2622,9 +2622,15 @@ function generateTableRowsHtml(list) {
       '</td>' +
       '<td>' +
         '<div class="action-grid-buttons">' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Manage & Resolve Service Call">⚙️</button>' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip">📄</button>' +
-          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Service Call">🗑️</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="View & Manage Service Call (பார்வையிடு & தீர்வு செய்க)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>' +
+          '</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip (சர்வீஸ் ஸ்லிப் அச்சிடு)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
+          '</button>' +
+          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Service Call (அழைப்பை நீக்கு)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+          '</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
