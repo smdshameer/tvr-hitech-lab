@@ -492,8 +492,9 @@ function isTestOrPurgedTicket(t) {
   const tid = String(t.ticketId).trim();
   const name = String(t.schoolName || '').toLowerCase();
   if (tid === 'HTL-TVR-99999' || tid === 'TEST-PING-001' || name.includes('test school for verification')) return true;
-  if (tid.startsWith('HTL-TVR-05301-')) return true;
-  if (deletedTicketIds.has(tid)) return true;
+  const iss = String(t.issue || '').toLowerCase();
+  const rem = String(t.remarks || '').toLowerCase();
+  if (iss.includes('simulation') || rem.includes('simulation')) return true;
   return false;
 }
 
