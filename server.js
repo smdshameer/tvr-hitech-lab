@@ -2912,7 +2912,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Data Table Card Container - Modern Field Call Tracker Architecture */
+    /* Data Table Card Container - Field Call Tracker System */
     .table-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
@@ -2923,16 +2923,16 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       flex-direction: column;
     }
     .table-header-bar {
-      padding: 1rem 1.25rem;
+      padding: 0.75rem 1.15rem;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
     .table-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 700;
       color: var(--text-primary);
       display: flex;
@@ -2948,7 +2948,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       table-layout: auto;
     }
     .data-table th {
@@ -2956,19 +2956,19 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       top: 0;
       background: var(--bg-card);
       z-index: 10;
-      padding: 0.85rem 1rem;
+      padding: 0.7rem 0.75rem;
       font-weight: 700;
       color: var(--text-secondary, #475569);
       text-transform: uppercase;
-      font-size: 0.72rem;
-      letter-spacing: 0.05em;
+      font-size: 0.7rem;
+      letter-spacing: 0.04em;
       border-bottom: 2px solid var(--border-color);
       white-space: nowrap;
       user-select: none;
       vertical-align: middle;
     }
     .data-table td {
-      padding: 0.85rem 1rem;
+      padding: 0.65rem 0.75rem;
       border-bottom: 1px solid var(--border-color);
       color: var(--text-primary);
       vertical-align: middle;
@@ -2986,16 +2986,18 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       right: 0;
       z-index: 15;
       background: var(--bg-card);
-      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.06);
+      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
       text-align: center;
+      padding: 0.7rem 0.6rem;
     }
     .data-table td:last-child {
       position: sticky;
       right: 0;
       z-index: 5;
       background: var(--bg-card);
-      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.06);
+      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
       text-align: center;
+      padding: 0.65rem 0.6rem;
     }
     .data-table tbody tr:hover td:last-child {
       background-color: var(--primary-light, #eff6ff);
@@ -3004,14 +3006,14 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     /* Photo Thumbnails */
     .thumb-grid {
       display: flex;
-      gap: 4px;
+      gap: 3px;
       align-items: center;
     }
     .thumb-img {
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       object-fit: cover;
-      border-radius: 6px;
+      border-radius: 5px;
       border: 1px solid var(--border-color, #cbd5e1);
       box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       cursor: pointer;
@@ -3019,22 +3021,22 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       flex-shrink: 0;
     }
     .thumb-img:hover {
-      transform: scale(1.2);
+      transform: scale(1.25);
       border-color: var(--primary);
       box-shadow: 0 3px 8px rgba(37,99,235,0.3);
       z-index: 20;
       position: relative;
     }
     .thumb-placeholder {
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
       background: var(--bg-main);
       border: 1px dashed var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
+      font-size: 11px;
       color: var(--text-muted);
       flex-shrink: 0;
     }
@@ -3043,10 +3045,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.25rem 0.65rem;
+      gap: 0.3rem;
+      padding: 0.2rem 0.55rem;
       border-radius: 9999px;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
       white-space: nowrap;
     }
@@ -3072,9 +3074,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     .prio-pill {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       font-weight: 700;
-      padding: 0.15rem 0.5rem;
+      padding: 0.1rem 0.45rem;
       border-radius: 4px;
       display: inline-block;
     }
@@ -3083,10 +3085,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .prio-med { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
     .prio-low { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
-    /* Action Buttons (Compact 32px) */
-    .action-grid-buttons { display: flex; gap: 5px; justify-content: center; align-items: center; white-space: nowrap; }
+    /* Action Buttons (Compact 30px) */
+    .action-grid-buttons { display: flex; gap: 4px; justify-content: center; align-items: center; white-space: nowrap; }
     .btn-table-action {
-      width: 32px; height: 32px; border-radius: 7px;
+      width: 30px; height: 30px; border-radius: 6px;
       display: inline-flex; align-items: center; justify-content: center;
       cursor: pointer; border: none; text-decoration: none; transition: all 0.15s ease;
       box-shadow: 0 1px 2px rgba(0,0,0,0.06); flex-shrink: 0;
