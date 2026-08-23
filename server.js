@@ -4017,7 +4017,15 @@ function generateTableRowsHtml(list) {
           return;
         }
 
-                tbody.innerHTML = generateTableRowsHtml(filtered);
+                const currentSig = search + '|' + block + '|' + cat + '|' + JSON.stringify(filtered.map(function(t) { 
+          return t.ticketId + '_' + t.status + '_' + (t.createdDate || t.createdAt || '') + '_' + (t.issue || ''); 
+        }));
+
+        if (!window.__forceRender && currentSig === window.__lastRenderSignature && tbody.children.length > 0 && !tbody.innerText.includes('தகவல்களைப் பெறுவதில்')) {
+          return;
+        }
+        window.__lastRenderSignature = currentSig;
+        tbody.innerHTML = generateTableRowsHtml(filtered);
       } catch (err) {
         console.error('renderTable error:', err);
       }
@@ -4521,28 +4529,10 @@ function generateTableRowsHtml(list) {
     }
 
     loadData();
-    setInterval(loadData, 5000);
+    setInterval(loadData, 10000);
     window.addEventListener('load', purgeAutofill);
     document.addEventListener('DOMContentLoaded', purgeAutofill);
-    setTimeout(purgeAutofill, 50);
-    setTimeout(purgeAutofill, 200);
-    setTimeout(purgeAutofill, 600);
-    setTimeout(purgeAutofill, 1200);
-    setTimeout(function() {
-      const si = document.getElementById('searchInput');
-      if (si && (si.value.toLowerCase() === 'shameer' || si.value.toLowerCase() === 'engineer' || si.value.toLowerCase() === 'head' || si.value.toLowerCase() === 'admin')) {
-        si.value = '';
-        renderTable();
-      }
-    }, 100);
-    // Clear accidental browser password autofill from search box
-    setTimeout(function() {
-      const si = document.getElementById('searchInput');
-      if (si && (si.value.toLowerCase() === 'shameer' || si.value.toLowerCase() === 'engineer' || si.value.toLowerCase() === 'head' || si.value.toLowerCase() === 'admin')) {
-        si.value = '';
-        renderTable();
-      }
-    }, 150);
+    setTimeout(purgeAutofill, 300);
   </script>
 </body>
 </html>`;
