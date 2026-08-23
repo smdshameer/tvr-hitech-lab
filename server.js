@@ -2622,10 +2622,9 @@ function generateTableRowsHtml(list) {
       '</td>' +
       '<td>' +
         '<div class="action-grid-buttons">' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
-          '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp</a>' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Slip</button>' +
-          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Ticket">🗑️</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Manage & Resolve Service Call">⚙️</button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip">📄</button>' +
+          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Service Call">🗑️</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
