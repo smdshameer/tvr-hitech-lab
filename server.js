@@ -2090,32 +2090,41 @@ function getTeacherPortalHtml() {
       });
 
       if (item) {
-        select.value = item.id;
-        document.getElementById("verSchoolName").textContent = item.schoolName;
-        document.getElementById("verBlock").textContent = item.block + " Block";
-        document.getElementById("verUdise").textContent = item.udise;
-        document.getElementById("verAiName").textContent = item.aiName || "-";
-        document.getElementById("verPhone").textContent = item.aiPhone || "-";
+        const sel = document.getElementById("schoolSelect");
+        if (sel) sel.value = item.id;
+        
+        const setTxt = function(elId, val) { const el = document.getElementById(elId); if (el) el.textContent = val; };
+        const setVal = function(elId, val) { const el = document.getElementById(elId); if (el) el.value = val; };
 
-        verCard.style.display = "block";
-        searchWrap.style.display = "none";
-        if (customBox) customBox.style.display = "none";
+        setTxt("verSchoolName", item.schoolName);
+        setTxt("verBlock", (item.block || "") + " Block");
+        setTxt("verUdise", item.udise);
+        setTxt("verAiName", item.aiName || "-");
+        setTxt("verPhone", item.aiPhone || "-");
 
-        const aiField = document.getElementById("aiName");
-        const phoneField = document.getElementById("aiPhone");
-        if (aiField && item.aiName && item.aiName !== "Not Assigned" && item.aiName !== "Not Found") {
-          aiField.value = item.aiName;
+        const vCard = document.getElementById("verifiedSchoolCard");
+        const sWrap = document.getElementById("searchWrap");
+        const cBox = document.getElementById("customSchoolBox");
+
+        if (vCard) vCard.style.display = "block";
+        if (sWrap) sWrap.style.display = "none";
+        if (cBox) cBox.style.display = "none";
+
+        if (item.aiName && item.aiName !== "Not Assigned" && item.aiName !== "Not Found") {
+          setVal("aiName", item.aiName);
         }
-        if (phoneField && item.aiPhone && item.aiPhone !== "Not Found" && item.aiPhone !== "-") {
-          phoneField.value = item.aiPhone;
+        if (item.aiPhone && item.aiPhone !== "Not Found" && item.aiPhone !== "-") {
+          setVal("aiPhone", item.aiPhone);
         }
       }
-      suggestBox.style.display = "none";
+      
+      const sb = document.getElementById("schoolSuggestionsBox");
+      if (sb) sb.style.display = "none";
     }
     window.chooseSchool = chooseSchool;
 
     function renderSuggestions(matches) {
-      var otherBtn = '<div class="suggest-item" onclick="openOtherSchool()" onmousedown="openOtherSchool()" style="background:#eff6ff; border-top:2px dashed #93c5fd; text-align:center; color:#1d4ed8; font-weight:800; padding:13px; margin-top:4px; border-radius:8px; cursor:pointer;">' +
+      var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:2px dashed #93c5fd; text-align:center; color:#1d4ed8; font-weight:800; padding:13px; margin-top:4px; border-radius:8px; cursor:pointer;">' +
         '➕ உங்கள் பள்ளி இந்தப் பட்டியலில் இல்லையா? புதிய பள்ளியைச் சேர்க்கவும் (Add New / Other School)' +
       '</div>';
 
@@ -2126,7 +2135,7 @@ function getTeacherPortalHtml() {
       }
 
       suggestBox.innerHTML = matches.slice(0, 40).map(function(s) {
-        return '<div class="suggest-item" data-id="' + s.id + '" onclick="chooseSchool(this.dataset.id)" onmousedown="chooseSchool(this.dataset.id)" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
+        return '<div class="suggest-item" data-id="' + s.id + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
             '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + '</div>' +
             '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
@@ -2141,6 +2150,22 @@ function getTeacherPortalHtml() {
       suggestBox.style.display = "block";
     }
 
+    // Event Delegation on Suggestions Box for 100% Reliable Click & Touch
+    suggestBox.addEventListener("click", function(e) {
+      const item = e.target.closest(".suggest-item");
+      if (item && item.dataset && item.dataset.id) {
+        if (item.dataset.id === "OTHER") openOtherSchool();
+        else chooseSchool(item.dataset.id);
+      }
+    });
+
+    suggestBox.addEventListener("touchstart", function(e) {
+      const item = e.target.closest(".suggest-item");
+      if (item && item.dataset && item.dataset.id) {
+        if (item.dataset.id === "OTHER") openOtherSchool();
+        else chooseSchool(item.dataset.id);
+      }
+    }, { passive: true });
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
