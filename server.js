@@ -2050,7 +2050,7 @@ function getTeacherPortalHtml() {
 
     function filterSchools(query) {
       const q = (query || '').trim().toLowerCase();
-      if (!q) return schoolsData.slice(0, 20);
+      if (!q) return [];
 
       const digits = q.replace(/\D/g, '');
       const terms = q.split(/[\s,-]+/).filter(Boolean);
@@ -2169,6 +2169,11 @@ function getTeacherPortalHtml() {
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
+      if (!q) {
+        suggestBox.style.display = "none";
+        suggestBox.innerHTML = "";
+        return;
+      }
       const matches = filterSchools(q);
       renderSuggestions(matches);
     }
@@ -2181,11 +2186,24 @@ function getTeacherPortalHtml() {
     });
 
     searchInput.addEventListener("focus", function() {
-      const matches = filterSchools(this.value.trim());
+      const q = this.value.trim();
+      if (!q) {
+        suggestBox.style.display = "none";
+        suggestBox.innerHTML = "";
+        return;
+      }
+      const matches = filterSchools(q);
       renderSuggestions(matches);
     });
+
     searchInput.addEventListener("click", function() {
-      const matches = filterSchools(this.value.trim());
+      const q = this.value.trim();
+      if (!q) {
+        suggestBox.style.display = "none";
+        suggestBox.innerHTML = "";
+        return;
+      }
+      const matches = filterSchools(q);
       renderSuggestions(matches);
     });
     function openOtherSchool() {
