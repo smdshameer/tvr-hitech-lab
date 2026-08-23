@@ -295,6 +295,7 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_tickets_udise ON tickets(udise_code);
       CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photo4_data TEXT;
+      DELETE FROM tickets WHERE reported_issue ILIKE '%simulation%' OR remarks ILIKE '%simulation%';
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -441,7 +442,28 @@ async function getAllTickets() {
   if (usePostgres && pool) {
     try {
       const res = await pool.query('SELECT * FROM tickets ORDER BY created_at DESC');
-      return res.rows.map(mapRowToTicket);
+      const rawList = res.rows.map(mapRowToTicket);
+
+      const seen = new Set();
+      const cleanList = [];
+      rawList.forEach(t => {
+        if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
+        if (deletedTicketIds.has(String(t.ticketId).trim())) return;
+
+        const issue = String(t.issue || '').toLowerCase();
+        const remarks = String(t.remarks || '').toLowerCase();
+        if (issue.includes('simulation') || remarks.includes('simulation')) return;
+
+        const u = String(t.udise || '').trim();
+        const dt = String(t.createdDate || t.createdAt || '').trim();
+        const key = u ? `${u}_${dt}` : String(t.ticketId).trim();
+
+        if (!seen.has(key)) {
+          seen.add(key);
+          cleanList.push(t);
+        }
+      });
+      return cleanList;
     } catch (e) {
       console.error('Postgres query error, falling back to JSON:', e.message);
     }
