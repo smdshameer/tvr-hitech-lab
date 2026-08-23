@@ -2670,364 +2670,536 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   const resolvedRemote = initialTickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
   const solvedDirect = initialTickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
   const vendorEsc = initialTickets.filter(t => t.status === 'Vendor Escalated').length;
+  const pendingCount = initialTickets.filter(t => !t.status || t.status === 'New / Under Review' || t.status === 'In Progress (Remote)').length;
+
   return `<!DOCTYPE html>
-<html lang="ta">
+<html lang="ta" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ITSM Field Engineer Workbench - Mohamed Shameer</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Tamil:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Hi-Tech Lab Field Call Tracker - Thiruvarur District</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Tamil:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #1d4ed8;
-      --primary-hover: #1e40af;
-      --bg: #f1f5f9;
-      --card: #ffffff;
-      --text: #0f172a;
+      /* Color Palette - Light Theme */
+      --bg-main: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-glass: rgba(255, 255, 255, 0.88);
+      --border-color: #e2e8f0;
+      --border-focus: #2563eb;
+      
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-light: #eff6ff;
+      
+      /* Status Colors */
+      --status-completed-bg: #dcfce7;
+      --status-completed-text: #15803d;
+      --status-completed-border: #86efac;
+
+      --status-progress-bg: #fef3c7;
+      --status-progress-text: #b45309;
+      --status-progress-border: #fde047;
+
+      --status-direct-bg: #e0e7ff;
+      --status-direct-text: #3730a3;
+      --status-direct-border: #c7d2fe;
+
+      --status-incomplete-bg: #fee2e2;
+      --status-incomplete-text: #b91c1c;
+      --status-incomplete-border: #fecaca;
+
+      /* Card Accents */
+      --accent-blue: linear-gradient(135deg, #3b82f6, #1d4ed8);
+      --accent-emerald: linear-gradient(135deg, #10b981, #047857);
+      --accent-amber: linear-gradient(135deg, #f59e0b, #b45309);
+      --accent-rose: linear-gradient(135deg, #f43f5e, #be123c);
+      --accent-indigo: linear-gradient(135deg, #6366f1, #4338ca);
+      --accent-purple: linear-gradient(135deg, #8b5cf6, #6d28d9);
+
+      /* Shadows & Radius */
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+      --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+
+      --font-main: 'Plus Jakarta Sans', 'Noto Sans Tamil', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    [data-theme="dark"] {
+      --bg-main: #0b0f19;
+      --bg-card: #131b2e;
+      --bg-glass: rgba(19, 27, 46, 0.88);
+      --border-color: #1e293b;
+      --border-focus: #60a5fa;
+
+      --text-primary: #f8fafc;
+      --text-secondary: #cbd5e1;
       --text-muted: #64748b;
-      --border: #e2e8f0;
-      --success: #16a34a;
-      --warning: #d97706;
-      --danger: #dc2626;
-      --info: #0284c7;
+
+      --primary: #3b82f6;
+      --primary-hover: #60a5fa;
+      --primary-light: rgba(59, 130, 246, 0.15);
+
+      --status-completed-bg: rgba(22, 101, 52, 0.25);
+      --status-completed-text: #4ade80;
+      --status-completed-border: rgba(74, 222, 128, 0.3);
+
+      --status-progress-bg: rgba(180, 83, 9, 0.25);
+      --status-progress-text: #fbbf24;
+      --status-progress-border: rgba(251, 191, 36, 0.3);
+
+      --status-direct-bg: rgba(99, 102, 241, 0.25);
+      --status-direct-text: #a5b4fc;
+      --status-direct-border: rgba(165, 180, 252, 0.3);
+
+      --status-incomplete-bg: rgba(190, 18, 60, 0.25);
+      --status-incomplete-text: #fb7185;
+      --status-incomplete-border: rgba(251, 113, 133, 0.3);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', 'Noto Sans Tamil', sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 18px; line-height: 1.5; }
-    .container { max-width: 1480px; margin: 0 auto; }
-    
-    /* Top Header */
-    .header {
-      background: white; border: 1px solid var(--border); border-radius: 16px; padding: 18px 22px;
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04); flex-wrap: wrap; gap: 14px;
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-main);
+      color: var(--text-primary);
+      line-height: 1.5;
+      min-height: 100vh;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      overflow-x: hidden;
     }
-    .header-left { display: flex; align-items: center; gap: 14px; }
-    .header-icon {
-      width: 48px; height: 48px; border-radius: 12px; background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
-      color: white; display: flex; align-items: center; justify-content: center; font-size: 22px;
-      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25);
+
+    /* Sticky Navbar */
+    .navbar {
+      position: sticky; top: 0; z-index: 1000;
+      background: var(--bg-glass);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0.85rem 1.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
     }
-    .header-title h1 { font-size: 20px; font-weight: 800; color: #1e3a8a; }
-    .header-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-    .header-sub strong { color: #1e3a8a; }
-    
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .brand-wrapper { display: flex; align-items: center; gap: 0.85rem; }
+    .brand-icon {
+      width: 42px; height: 42px; background: var(--accent-blue);
+      color: #fff; border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .brand-title {
+      font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+      letter-spacing: -0.025em; display: flex; align-items: center; gap: 0.5rem;
+    }
+    .brand-subtitle { font-size: 0.78rem; color: var(--text-muted); font-weight: 500; }
+    .badge-location {
+      background: var(--primary-light); color: var(--primary);
+      padding: 0.2rem 0.6rem; border-radius: var(--radius-full);
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+
+    .nav-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
     .btn {
-      padding: 9px 15px; border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 12.5px;
-      display: inline-flex; align-items: center; gap: 6px; cursor: pointer; border: none; transition: all 0.15s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 0.55rem 0.95rem; border-radius: var(--radius-md);
+      font-size: 0.82rem; font-weight: 700; font-family: inherit;
+      cursor: pointer; border: 1px solid transparent; text-decoration: none; transition: all 0.2s ease;
     }
+    .btn-primary { background: var(--primary); color: white; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2); }
+    .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
     .btn-green { background: #16a34a; color: white; box-shadow: 0 2px 6px rgba(22, 163, 74, 0.2); }
     .btn-green:hover { background: #15803d; transform: translateY(-1px); }
-    .btn-blue { background: #2563eb; color: white; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2); }
-    .btn-blue:hover { background: #1d4ed8; transform: translateY(-1px); }
-    .btn-reset { background: #ffffff; color: #dc2626; border: 1.5px solid #fca5a5; }
-    .btn-reset:hover { background: #fef2f2; border-color: #dc2626; }
-    .btn-logout { background: #ffffff; color: #475569; border: 1.5px solid #cbd5e1; }
-    .btn-logout:hover { background: #f1f5f9; color: #0f172a; }
-    
-    /* KPI Metrics Cards */
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 20px; }
-    .kpi-card {
-      background: white; padding: 18px; border-radius: 14px; border: 1px solid var(--border);
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03); transition: all 0.2s ease;
-    }
-    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06); }
-    .kpi-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .kpi-card span { font-size: 11.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-    .kpi-card h3 { font-size: 28px; font-weight: 800; line-height: 1.1; }
+    .btn-outline { background: var(--bg-card); border-color: var(--border-color); color: var(--text-primary); }
+    .btn-outline:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); transform: translateY(-1px); }
+    .btn-danger-outline { background: var(--bg-card); border-color: #fecaca; color: #dc2626; }
+    .btn-danger-outline:hover { background: #fee2e2; border-color: #dc2626; }
 
-    /* Filter & Search Bar */
-    .filter-bar {
-      background: white; padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border);
-      margin-bottom: 18px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
-      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    /* Theme Toggle Button */
+    .btn-theme-toggle {
+      width: 36px; height: 36px; border-radius: var(--radius-md);
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      color: var(--text-primary); display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: all 0.2s ease; font-size: 1rem;
     }
-    .filter-search-wrap { flex: 1; min-width: 260px; position: relative; }
-    .filter-search-input {
-      width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid var(--border); border-radius: 10px;
-      font-size: 13.5px; outline: none; transition: all 0.2s ease;
+    .btn-theme-toggle:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Layout Container */
+    .container {
+      max-width: 1560px; margin: 0 auto; padding: 1.5rem;
+      display: flex; flex-direction: column; gap: 1.25rem;
     }
-    .filter-search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
-    .filter-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; color: var(--text-muted); }
+
+    /* KPI Grid - HiSecure ERP / Field Tracker Design */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+    }
+    @media (min-width: 768px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (min-width: 1200px) {
+      .kpi-grid { grid-template-columns: repeat(6, 1fr); }
+    }
+
+    .stat-card {
+      cursor: pointer; background-color: var(--bg-card);
+      border: 1px solid var(--border-color); border-left: 3.5px solid #e2e8f0;
+      border-radius: 12px; padding: 12px 14px; text-decoration: none;
+      transition: transform .25s cubic-bezier(.4,0,.2,1), box-shadow .25s, background-color .25s, border-color .25s;
+      position: relative; overflow: visible; box-shadow: var(--shadow-sm); user-select: none;
+      display: flex; flex-direction: column; justify-content: space-between; min-height: 96px;
+    }
+    .stat-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+      background-color: var(--primary-light) !important;
+    }
+    .stat-top { display: flex; justify-content: space-between; align-items: center; }
+    .stat-label {
+      color: var(--text-secondary); text-transform: uppercase;
+      letter-spacing: .04em; font-size: 10.5px; font-weight: 800; line-height: 1.1;
+    }
+    .stat-icon {
+      border-radius: 6px; width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+    }
+    .stat-value {
+      color: var(--text-primary); margin-top: 4px; margin-bottom: 0;
+      font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.1;
+    }
+    .stat-sub { margin-top: 2px; font-size: 10.5px; font-weight: 600; color: var(--text-muted); }
+
+    .stat-card.blue { border-left-color: #2563eb; }
+    .stat-card.purple { border-left-color: #8b5cf6; }
+    .stat-card.green { border-left-color: #10b981; }
+    .stat-card.emerald { border-left-color: #047857; }
+    .stat-card.amber { border-left-color: #f59e0b; }
+    .stat-card.red { border-left-color: #ef4444; }
+
+    /* Filter Card */
+    .filter-card {
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg); padding: 1.1rem 1.25rem;
+      box-shadow: var(--shadow-sm); display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: center;
+    }
+    .search-box { position: relative; flex: 1.5; min-width: 280px; }
+    .search-box-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; }
+    .search-input {
+      width: 100%; padding: 0.7rem 1rem 0.7rem 2.6rem;
+      border: 1px solid var(--border-color); border-radius: var(--radius-md);
+      background: var(--bg-main); color: var(--text-primary);
+      font-size: 0.88rem; font-family: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .search-input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
     .filter-select {
-      padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px;
-      font-weight: 600; background: #fff; outline: none; cursor: pointer;
+      padding: 0.65rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+      background: var(--bg-main); color: var(--text-primary); font-size: 0.85rem;
+      font-family: inherit; font-weight: 700; cursor: pointer; min-width: 180px;
     }
-    .filter-select:focus { border-color: var(--primary); }
+    .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Table */
+    /* Data Table Card */
     .table-card {
-      background: white; border-radius: 16px; border: 1px solid var(--border);
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04); overflow: hidden;
+      background: var(--bg-card); border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
+      overflow: hidden; display: flex; flex-direction: column;
     }
-    .table-responsive { width: 100%; overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-    thead th {
-      background: #f8fafc; padding: 14px 16px; font-weight: 800; color: #475569;
-      border-bottom: 1.5px solid var(--border); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    .table-header-bar {
+      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
     }
-    tbody td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-    tbody tr:hover { background: #f8fafc; }
+    .table-title {
+      font-size: 1rem; font-weight: 800; color: var(--text-primary);
+      display: flex; align-items: center; gap: 0.5rem; letter-spacing: -0.01em;
+    }
+    .table-responsive { width: 100%; overflow-x: auto; max-height: 640px; }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    .data-table th {
+      position: sticky; top: 0; background: var(--bg-card); z-index: 10;
+      padding: 0.85rem 1rem; font-weight: 800; color: var(--text-secondary);
+      text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-color); white-space: nowrap;
+    }
+    .data-table td {
+      padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary); vertical-align: middle;
+    }
+    .data-table tbody tr { transition: background-color 0.15s ease; }
+    .data-table tbody tr:hover { background-color: var(--primary-light); }
+
+    /* Fixed Sticky Action Column on the right */
+    .data-table th:last-child {
+      position: sticky; right: 0; z-index: 15; background: var(--bg-card);
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.04); text-align: center;
+    }
+    .data-table td:last-child {
+      position: sticky; right: 0; z-index: 5; background: var(--bg-card);
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.04); text-align: center;
+    }
+    .data-table tbody tr:hover td:last-child { background-color: var(--primary-light); }
 
     /* Photo Thumbnails */
-    .thumb-grid { display: flex; gap: 6px; }
+    .thumb-grid { display: flex; gap: 5px; }
     .thumb-img {
-      width: 48px; height: 48px; object-fit: cover; border-radius: 8px; cursor: pointer;
-      border: 1.5px solid #cbd5e1; box-shadow: 0 1px 4px rgba(0,0,0,0.06); transition: all 0.15s ease;
+      width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: pointer;
+      border: 1.5px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: all 0.15s ease;
     }
-    .thumb-img:hover { transform: scale(1.12); border-color: var(--primary); box-shadow: 0 4px 10px rgba(37,99,235,0.2); }
+    .thumb-img:hover { transform: scale(1.15); border-color: var(--primary); box-shadow: 0 4px 10px rgba(37,99,235,0.25); }
     .thumb-placeholder {
-      width: 48px; height: 48px; border-radius: 8px; background: #f1f5f9; border: 1px dashed #cbd5e1;
-      display: flex; align-items: center; justify-content: center; font-size: 16px; color: #94a3b8;
+      width: 44px; height: 44px; border-radius: 8px; background: var(--bg-main); border: 1px dashed var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--text-muted);
     }
 
     /* Badges */
-    .badge { padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; display: inline-block; }
-    .badge-remote { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-    .badge-direct { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-    .badge-vendor { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-    .badge-open { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
+      font-size: 0.74rem; font-weight: 800; white-space: nowrap;
+    }
+    .badge-remote { background: var(--status-completed-bg); color: var(--status-completed-text); border: 1px solid var(--status-completed-border); }
+    .badge-direct { background: var(--status-direct-bg); color: var(--status-direct-text); border: 1px solid var(--status-direct-border); }
+    .badge-vendor { background: var(--status-incomplete-bg); color: var(--status-incomplete-text); border: 1px solid var(--status-incomplete-border); }
+    .badge-open { background: var(--status-progress-bg); color: var(--status-progress-text); border: 1px solid var(--status-progress-border); }
 
-    .prio-pill { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-top: 4px; }
+    .prio-pill { font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 6px; display: inline-block; margin-top: 3px; }
     .prio-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .prio-high { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
     .prio-med { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
     .prio-low { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
-    /* Action Buttons in Table */
-    .action-col { display: flex; flex-direction: column; gap: 6px; min-width: 140px; }
+    /* Action SVG Buttons */
+    .action-grid-buttons { display: flex; gap: 6px; justify-content: center; align-items: center; white-space: nowrap; }
     .btn-table-action {
-      padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700;
-      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-      cursor: pointer; border: none; text-decoration: none; transition: all 0.15s ease;
+      width: 36px; height: 36px; border-radius: 9px;
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; border: none; text-decoration: none; transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06); flex-shrink: 0;
     }
-    .btn-table-manage { background: #2563eb; color: white; }
-    .btn-table-manage:hover { background: #1d4ed8; }
-    .btn-table-wa { background: #25d366; color: white; }
-    .btn-table-wa:hover { background: #20ba5a; }
-    .btn-table-slip { background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; }
-    .btn-table-slip:hover { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+    .btn-table-manage { background: #2563eb; color: #ffffff; }
+    .btn-table-manage:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(37, 99, 235, 0.35); }
+    .btn-table-slip { background: #0f172a; color: #ffffff; }
+    .btn-table-slip:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(15, 23, 42, 0.3); }
+    .btn-table-del { background: #dc2626; color: #ffffff; }
+    .btn-table-del:hover { background: #b91c1c; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(220, 38, 38, 0.35); }
 
-    /* ======================================================== */
-    /* MODERN MODAL SYSTEM WITH STICKY HEADER, CLOSE & FOOTER   */
-    /* ======================================================== */
-    .modal-overlay {
-      display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100vw; height: 100vh;
-      background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(4px);
-      align-items: center; justify-content: center; padding: 16px;
-      animation: fadeInOverlay 0.2s ease;
+    /* Hardware Accelerated Modal System */
+    .drawer-overlay {
+      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      z-index: 99999; display: flex; align-items: center; justify-content: center;
+      padding: 1rem; opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s step-end;
     }
-    @keyframes fadeInOverlay {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    .drawer-overlay.active {
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s step-start;
     }
-    .modal-container {
-      background: #ffffff; border-radius: 18px; width: 680px; max-width: 96vw; max-height: 90vh;
-      display: flex; flex-direction: column; box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--border); overflow: hidden; animation: popUpModal 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    .drawer {
+      width: 100%; max-width: 660px; max-height: 90vh;
+      background: var(--bg-card); border-radius: var(--radius-lg);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border-color);
+      display: flex; flex-direction: column; transform: scale(0.96);
+      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden; margin: auto;
     }
-    @keyframes popUpModal {
-      from { transform: scale(0.94); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
-    }
+    .drawer-overlay.active .drawer { transform: scale(1); }
 
-    /* Modal Sticky Header */
-    .modal-header {
-      background: #ffffff; padding: 18px 22px; border-bottom: 1.5px solid var(--border);
-      display: flex; justify-content: space-between; align-items: flex-start; position: sticky; top: 0; z-index: 10;
+    .drawer-header {
+      padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; background: var(--bg-card); z-index: 10;
     }
-    .modal-header-info h2 { font-size: 17.5px; font-weight: 800; color: #1e3a8a; }
-    .modal-header-badge {
-      display: inline-block; background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 800;
-      padding: 2px 8px; border-radius: 999px; margin-bottom: 4px; border: 1px solid #bfdbfe;
+    .drawer-title { font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
+    .drawer-close {
+      background: transparent; border: none; font-size: 1.35rem; color: var(--text-muted);
+      cursor: pointer; width: 36px; height: 36px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s ease;
     }
-    .modal-header-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+    .drawer-close:hover { background: #fee2e2; color: #dc2626; }
 
-    .btn-close-modal-x {
-      background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; border-radius: 10px;
-      width: 34px; height: 34px; font-size: 16px; font-weight: 800; display: flex;
-      align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s ease;
-      flex-shrink: 0;
-    }
-    .btn-close-modal-x:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; transform: rotate(90deg); }
-
-    /* Modal Scrollable Body */
-    .modal-body {
-      padding: 20px 22px; overflow-y: auto; flex: 1;
+    .drawer-body { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1.1rem; }
+    .drawer-footer {
+      padding: 1.1rem 1.5rem; border-top: 1px solid var(--border-color);
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-main); position: sticky; bottom: 0; z-index: 10;
     }
 
-    /* Modal Sticky Footer */
-    .modal-footer {
-      background: #f8fafc; padding: 14px 22px; border-top: 1.5px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center; position: sticky; bottom: 0; z-index: 10;
-      flex-wrap: wrap; gap: 10px;
-    }
-    .modal-footer-right { display: flex; gap: 10px; }
-
-    .modal-label { display: block; font-size: 12.5px; font-weight: 700; color: #334155; margin-bottom: 6px; }
-
-    /* Category Choice Grid */
-    .cat-choice-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
-    }
+    .cat-choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .cat-option-btn {
-      padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px; background: #fff;
-      cursor: pointer; text-align: center; font-weight: 700; font-size: 13px; transition: all 0.15s ease;
+      padding: 11px 13px; border: 2px solid var(--border-color); border-radius: 12px; background: var(--bg-card);
+      cursor: pointer; text-align: center; font-weight: 700; font-size: 12.5px; transition: all 0.15s ease;
     }
-    .cat-option-btn:hover { border-color: #93c5fd; background: #f8fafc; }
+    .cat-option-btn:hover { border-color: var(--primary); background: var(--bg-main); }
     .cat-option-btn.active-remote { border-color: #16a34a; background: #f0fdf4; color: #15803d; }
     .cat-option-btn.active-direct { border-color: #2563eb; background: #eff6ff; color: #1e40af; }
-    .cat-sub { font-size: 11px; display: block; font-weight: 500; color: var(--text-muted); margin-top: 3px; }
+    .cat-sub { font-size: 10.5px; display: block; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
 
-    /* Modal 3-Photo Upload Area */
     .modal-photos-box {
-      background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 14px; padding: 14px; margin-bottom: 16px;
+      background: var(--bg-main); border: 1.5px dashed var(--border-color); border-radius: 14px; padding: 12px;
     }
-    .modal-photos-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;
-    }
-    .modal-photos-title { font-size: 12.5px; font-weight: 800; color: #1e293b; }
-    .btn-ask-photos-wa {
-      background: #25d366; color: white; border: none; padding: 5px 10px; border-radius: 8px;
-      font-size: 11.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
-      transition: all 0.15s ease;
-    }
-    .btn-ask-photos-wa:hover { background: #20ba5a; transform: translateY(-1px); }
-
-    .modal-photo-3grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .modal-photo-4grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .modal-photo-card {
-      background: white; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px; text-align: center;
-      transition: all 0.15s ease;
+      background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 6px; text-align: center;
     }
-    .modal-photo-card:hover { border-color: #93c5fd; }
-    .modal-photo-label { font-size: 11px; font-weight: 800; color: #334155; margin-bottom: 6px; display: block; }
+    .modal-photo-label { font-size: 10.5px; font-weight: 800; color: var(--text-secondary); margin-bottom: 4px; display: block; }
     .modal-photo-preview-wrap {
-      height: 75px; background: #f1f5f9; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0;
-      display: flex; align-items: center; justify-content: center; margin-bottom: 6px; cursor: pointer; position: relative;
+      height: 68px; background: var(--bg-main); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 5px;
     }
     .modal-photo-preview-img { width: 100%; height: 100%; object-fit: cover; }
-    .modal-photo-empty { font-size: 10.5px; color: #94a3b8; font-weight: 600; }
     .btn-choose-file {
-      background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 10.5px; font-weight: 700;
-      padding: 4px 8px; border-radius: 6px; cursor: pointer; display: block; margin-bottom: 4px;
+      display: block; background: var(--primary-light); color: var(--primary); font-size: 10.5px;
+      font-weight: 700; padding: 4px 6px; border-radius: 6px; cursor: pointer; margin-bottom: 3px;
     }
-    .btn-choose-file:hover { background: #2563eb; color: white; }
     .btn-clear-photo {
-      background: none; border: none; color: #ef4444; font-size: 10px; font-weight: 700; cursor: pointer;
+      background: transparent; border: none; font-size: 10px; color: #dc2626; font-weight: 700; cursor: pointer;
     }
 
-    /* Form Controls */
-    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-    .modal-select, .modal-input, .modal-textarea {
-      width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px;
-      font-size: 13.5px; background: #ffffff; outline: none; transition: all 0.2s ease;
+    .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+    .form-label { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
+    .form-control {
+      width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); background: var(--bg-main); color: var(--text-primary);
+      font-size: 0.88rem; font-family: inherit;
     }
-    .modal-select:focus, .modal-input:focus, .modal-textarea:focus {
-      border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
-    }
+    .form-control:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Quick Notes Pills */
     .quick-notes-box {
-      background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-bottom: 14px;
+      background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px;
     }
-    .quick-notes-title { font-size: 11.5px; font-weight: 700; color: #64748b; margin-bottom: 6px; display: block; }
+    .quick-notes-title { font-size: 11.5px; font-weight: 800; color: var(--text-primary); display: block; margin-bottom: 6px; }
     .quick-pill {
-      background: #ffffff; border: 1.5px solid #cbd5e1; padding: 4px 9px; border-radius: 6px;
-      font-size: 11px; font-weight: 700; color: #334155; cursor: pointer; margin: 2px;
-      display: inline-block; transition: all 0.15s ease;
+      display: inline-block; background: var(--bg-card); border: 1px solid var(--border-color);
+      padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; color: var(--text-secondary);
+      margin: 2px 3px 2px 0; cursor: pointer; transition: all 0.15s ease;
     }
-    .quick-pill:hover { background: #eff6ff; border-color: #2563eb; color: #1d4ed8; }
+    .quick-pill:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
 
     /* Lightbox Modal */
     .lightbox-modal {
-      display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100vw; height: 100vh;
-      background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); align-items: center; justify-content: center;
-      padding: 20px; cursor: zoom-out;
+      display: none; position: fixed; z-index: 100000; left: 0; top: 0; width: 100vw; height: 100vh;
+      background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center; padding: 16px;
     }
     .lightbox-card {
-      background: white; border-radius: 16px; padding: 16px; max-width: 90vw; max-height: 90vh;
-      display: flex; flex-direction: column; align-items: center; cursor: default;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      background: var(--bg-card); border-radius: 16px; max-width: 90vw; max-height: 90vh;
+      overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
-    .lightbox-header { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .lightbox-img { max-width: 85vw; max-height: 75vh; width: auto; height: auto; object-fit: contain; border-radius: 10px; }
+    .lightbox-header {
+      padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .lightbox-img { max-width: 85vw; max-height: 78vh; object-fit: contain; }
 
     @media (max-width: 768px) {
-      body { padding: 10px; }
-      .header { padding: 14px; }
-      .header-title h1 { font-size: 17px; }
+      .container { padding: 0.85rem; }
+      .navbar { padding: 0.75rem 1rem; }
+      .brand-title { font-size: 1rem; }
       .form-row-2 { grid-template-columns: 1fr; }
       .cat-choice-grid { grid-template-columns: 1fr; }
-      .modal-photo-3grid { grid-template-columns: 1fr; }
+      .modal-photo-4grid { grid-template-columns: repeat(2, 1fr); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Top Header -->
-    <div class="header">
-      <div class="header-left">
-        <div class="header-icon">🛠️</div>
-        <div class="header-title">
-          <h1>Field Engineer Resolution Command Center</h1>
-          <div class="header-sub">Logged in as: <strong>Mohamed Shameer (9042489993)</strong> • Thiruvarur District ITSM Hub (183 Schools)</div>
+  <!-- Sticky Header Navbar -->
+  <header class="navbar">
+    <div class="brand-wrapper">
+      <div class="brand-icon">🛠️</div>
+      <div>
+        <div class="brand-title">
+          Hi-Tech Lab Field Call Tracker
+          <span class="badge-location">Thiruvarur • 183 Labs</span>
         </div>
-      </div>
-      <div class="actions">
-        <button type="button" onclick="openResetModal()" class="btn btn-reset">🔄 Reset All</button>
-        <button type="button" onclick="triggerDriveBackup()" class="btn" style="background:#0284c7; color:#fff; border:none; font-weight:700; cursor:pointer;" title="5TB Google Drive Live Snapshot">💾 5TB Drive Backup</button>
-        <a href="https://lookerstudio.google.com" target="_blank" class="btn" style="background:#4f46e5; color:#fff; border:none; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="District Executive BI Dashboard">📊 Looker Studio BI</a>
-        <a href="/head" class="btn btn-blue">📊 Executive Report</a>
-        <a href="/download-excel" class="btn btn-green">📥 Export Master CSV</a>
-        <a href="/login" class="btn btn-logout">🔒 Switch / Logout</a>
+        <div class="brand-subtitle">Field Engineer: <strong>Mohamed Shameer (9042489993)</strong></div>
       </div>
     </div>
 
-    <!-- KPI Metrics -->
-    <div class="kpi-grid">
-      <div class="kpi-card" style="border-left: 4px solid #2563eb;">
-        <div class="kpi-top">
-          <span>TOTAL SCHOOLS</span>
-          <span style="font-size: 16px;">🏫</span>
-        </div>
-        <h3 id="kpiTotal" style="color: #0f172a;">183</h3>
-      </div>
-      <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
-        <div class="kpi-top">
-          <span>CALLS REGISTERED</span>
-          <span style="font-size: 16px;">📋</span>
-        </div>
-        <h3 id="kpiReported" style="color: #2563eb;">${totalReported}</h3>
-      </div>
-      <div class="kpi-card" style="border-left: 4px solid #16a34a;">
-        <div class="kpi-top">
-          <span>1. RESOLVED REMOTELY</span>
-          <span style="font-size: 16px;">🟢</span>
-        </div>
-        <h3 id="kpiResolvedRemote" style="color: #16a34a;">${resolvedRemote}</h3>
-      </div>
-      <div class="kpi-card" style="border-left: 4px solid #4f46e5;">
-        <div class="kpi-top">
-          <span>2. SOLVED BY DIRECT VISIT</span>
-          <span style="font-size: 16px;">🔵</span>
-        </div>
-        <h3 id="kpiSolvedDirect" style="color: #4f46e5;">${solvedDirect}</h3>
-      </div>
-      <div class="kpi-card" style="border-left: 4px solid #dc2626;">
-        <div class="kpi-top">
-          <span>VENDOR ESCALATIONS</span>
-          <span style="font-size: 16px;">🔴</span>
-        </div>
-        <h3 id="kpiVendor" style="color: #dc2626;">${vendorEsc}</h3>
-      </div>
+    <div class="nav-actions">
+      <button type="button" onclick="toggleTheme()" class="btn-theme-toggle" title="Toggle Light/Dark Theme">🌓</button>
+      <button type="button" onclick="openResetModal()" class="btn btn-danger-outline" title="Reset all tickets with protection">🔄 Reset All</button>
+      <button type="button" onclick="triggerDriveBackup()" class="btn btn-outline" title="Google Drive Cloud Snapshot">💾 5TB Drive Backup</button>
+      <a href="/head" class="btn btn-primary" title="Executive District Dashboard">📊 Executive Dashboard</a>
+      <a href="/download-excel" class="btn btn-green" title="Export Excel / CSV">📥 Export Excel</a>
+      <a href="/login" class="btn btn-outline" title="Switch User or Logout">🔒 Logout</a>
     </div>
+  </header>
 
-    <!-- Filter & Search Bar -->
-    <div class="filter-bar" style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-      <div class="filter-search-wrap" style="flex: 1; min-width: 300px; position:relative;">
-        <span class="filter-search-icon">🔍</span>
-        <input type="text" id="searchInput" name="itsm_search_query" class="filter-search-input" oninput="renderTable()" onkeyup="renderTable()" onchange="renderTable()" onpaste="setTimeout(renderTable, 10)" placeholder="Search by UDISE (33200...), Ticket ID, School Name, AI Teacher, Block, Issue..." oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" onpaste="setTimeout(window.renderTable, 20)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="padding-right: 75px;">
-        <button type="button" id="btnClearSearch" onclick="window.clearSearchFilter()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:#e2e8f0; border:none; border-radius:6px; padding:4px 9px; font-size:11px; font-weight:700; color:#475569; cursor:pointer; display:none;">✕ Clear</button>
+  <!-- Main Container -->
+  <main class="container">
+    <!-- 6 KPI Stat Cards Grid -->
+    <section class="kpi-grid">
+      <div class="stat-card blue" onclick="filterByKpi('ALL')">
+        <div class="stat-top">
+          <span class="stat-label">TOTAL SCHOOLS</span>
+          <div class="stat-icon" style="background: rgba(37, 99, 235, 0.1); color: #2563eb;">🏫</div>
+        </div>
+        <div class="stat-value" id="kpiTotal">183</div>
+        <div class="stat-sub">100% Labs Monitored</div>
+      </div>
+
+      <div class="stat-card purple" onclick="filterByKpi('ALL')">
+        <div class="stat-top">
+          <span class="stat-label">CALLS REGISTERED</span>
+          <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">📋</div>
+        </div>
+        <div class="stat-value" id="kpiReported" style="color: #8b5cf6;">${totalReported}</div>
+        <div class="stat-sub">Active & Logged Calls</div>
+      </div>
+
+      <div class="stat-card green" onclick="filterByKpi('Resolved Remotely')">
+        <div class="stat-top">
+          <span class="stat-label">RESOLVED REMOTELY</span>
+          <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">🟢</div>
+        </div>
+        <div class="stat-value" id="kpiResolvedRemote" style="color: #10b981;">${resolvedRemote}</div>
+        <div class="stat-sub">Phone / WhatsApp Guidance</div>
+      </div>
+
+      <div class="stat-card emerald" onclick="filterByKpi('Solved by Direct Visit')">
+        <div class="stat-top">
+          <span class="stat-label">DIRECT VISIT SOLVED</span>
+          <div class="stat-icon" style="background: rgba(4, 120, 87, 0.1); color: #047857;">🔵</div>
+        </div>
+        <div class="stat-value" id="kpiSolvedDirect" style="color: #2563eb;">${solvedDirect}</div>
+        <div class="stat-sub">Physical Lab Visit Fixed</div>
+      </div>
+
+      <div class="stat-card amber" onclick="filterByKpi('Pending')">
+        <div class="stat-top">
+          <span class="stat-label">UNDER REVIEW / PENDING</span>
+          <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">🟡</div>
+        </div>
+        <div class="stat-value" id="kpiPending" style="color: #f59e0b;">${pendingCount}</div>
+        <div class="stat-sub">Awaiting Action / In Progress</div>
+      </div>
+
+      <div class="stat-card red" onclick="filterByKpi('Vendor Escalated')">
+        <div class="stat-top">
+          <span class="stat-label">VENDOR ESCALATED</span>
+          <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">🔴</div>
+        </div>
+        <div class="stat-value" id="kpiVendor" style="color: #ef4444;">${vendorEsc}</div>
+        <div class="stat-sub">Spare Parts Replaced</div>
+      </div>
+    </section>
+
+    <!-- Filter & Search Toolbar -->
+    <section class="filter-card">
+      <div class="search-box">
+        <span class="search-box-icon">🔍</span>
+        <input type="text" id="searchInput" class="search-input" oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" placeholder="Search by UDISE, Ticket ID, School Name, AI Teacher, Block, Issue..." autocomplete="off" spellcheck="false">
       </div>
       <select id="blockFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
@@ -3042,29 +3214,42 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
         <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
       </select>
-      <select id="categoryFilter" class="filter-select" onchange="renderTable()">
+      <select id="categoryFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Resolution Categories</option>
         <option value="Resolved Remotely">🟢 1. Resolved Remotely (Phone/WhatsApp)</option>
         <option value="Solved by Direct Visit">🔵 2. Solved by Direct Visit (Physical Visit)</option>
         <option value="Vendor Escalated">🔴 Vendor Escalated (Parts Needed)</option>
         <option value="Pending">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
       </select>
-    </div>
+      <button type="button" onclick="resetFilters()" class="btn btn-outline" style="padding:0.6rem 0.9rem;">✕ Reset Filters</button>
+    </section>
 
-    <!-- Registered Service Calls Table -->
-    <div class="table-card">
+    <!-- Data Table Card -->
+    <section class="table-card">
+      <div class="table-header-bar">
+        <div class="table-title">
+          <span>📋</span>
+          <span>Registered Service Calls List</span>
+          <span class="badge badge-remote" id="tableCountBadge">${totalReported} Calls</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <a href="/download-excel" class="btn btn-green btn-sm">📥 Excel Report</a>
+          <button type="button" onclick="window.print()" class="btn btn-outline btn-sm">🖨️ Print</button>
+        </div>
+      </div>
+
       <div class="table-responsive">
-        <table>
+        <table class="data-table">
           <thead>
             <tr>
               <th>Ticket ID</th>
-              <th>3 Visual Photos</th>
+              <th>Service Call Photos (4)</th>
               <th>School & Block</th>
-              <th>AI INSTRUCTOR</th>
-              <th>Reported Issue & Priority</th>
-              <th>Resolution Status</th>
-              <th>Engineer Action Notes</th>
-              <th style="text-align: center;">Action Workflow</th>
+              <th>School AI Contact</th>
+              <th>Reported Fault & Priority</th>
+              <th>Status / Category</th>
+              <th>Resolution & Vendor Notes</th>
+              <th style="text-align: center;">Quick Actions</th>
             </tr>
           </thead>
           <tbody id="tableBody">
@@ -3072,56 +3257,53 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           </tbody>
         </table>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
-  <!-- ======================================================== -->
-  <!-- ACTION MODAL (MANAGE TICKET, SET RESOLUTION, EDIT PHOTOS) -->
-  <!-- ======================================================== -->
-  <div id="actionModal" class="modal-overlay" onclick="handleBackdropClick(event, 'actionModal')">
-    <div class="modal-container" onclick="event.stopPropagation()">
-      <!-- Sticky Modal Header -->
-      <div class="modal-header">
-        <div class="modal-header-info">
-          <span class="modal-header-badge" id="modalTicketBadge">HTL-TVR-XXXX</span>
-          <h2 id="modalTicketTitle">Manage Service Call & Resolution</h2>
-          <div class="modal-header-sub" id="modalTicketSub">School Name • Block Name</div>
+  <!-- Manage & Resolve Modal Drawer (Hardware-Accelerated Centered Drawer) -->
+  <div id="actionModal" class="drawer-overlay" onclick="handleBackdropClick(event, 'actionModal')">
+    <div class="drawer" onclick="event.stopPropagation()">
+      <!-- Sticky Header -->
+      <div class="drawer-header">
+        <div>
+          <span class="badge badge-open" id="modalTicketBadge">HTL-TVR-XXXX</span>
+          <div class="drawer-title" id="modalTicketTitle" style="margin-top:4px;">Manage Service Call & Resolution</div>
+          <div style="font-size:12px; color:var(--text-muted); margin-top:2px;" id="modalTicketSub">School Name • Block Name</div>
         </div>
-        <button type="button" class="btn-close-modal-x" onclick="closeActionModal()" title="Close Modal (மூடு / Esc)">✕</button>
+        <button type="button" class="drawer-close" onclick="closeActionModal()" title="Close Modal (Esc)">✕</button>
       </div>
 
-      <!-- Scrollable Modal Body -->
-      <div class="modal-body">
+      <!-- Scrollable Body -->
+      <div class="drawer-body">
         <!-- 1. Resolution Category Selection -->
-        <label class="modal-label">1. முதன்மைத் தீர்வு முறை (Select Resolution Category): <span style="color:#dc2626;">*</span></label>
-        <div class="cat-choice-grid">
-          <div class="cat-option-btn" id="btnCatRemote" onclick="selectCategory('Resolved Remotely')">
-            🟢 1. Resolved Remotely
-            <span class="cat-sub">(தொலைபேசி / WhatsApp வழிகாட்டுதல் மூலம்)</span>
-          </div>
-          <div class="cat-option-btn" id="btnCatDirect" onclick="selectCategory('Solved by Direct Visit')">
-            🔵 2. Solved by Direct Visit
-            <span class="cat-sub">(நேரடிப் பள்ளி கள ஆய்வு மூலம்)</span>
+        <div class="form-group">
+          <label class="form-label">1. முதன்மைத் தீர்வு முறை (Select Resolution Strategy): <span style="color:#dc2626;">*</span></label>
+          <div class="cat-choice-grid">
+            <div class="cat-option-btn" id="btnCatRemote" onclick="selectCategory('Resolved Remotely')">
+              🟢 1. Resolved Remotely
+              <span class="cat-sub">(தொலைபேசி / WhatsApp வழிகாட்டுதல் மூலம்)</span>
+            </div>
+            <div class="cat-option-btn" id="btnCatDirect" onclick="selectCategory('Solved by Direct Visit')">
+              🔵 2. Solved by Direct Visit
+              <span class="cat-sub">(நேரடிப் பள்ளி கள ஆய்வு மூலம்)</span>
+            </div>
           </div>
         </div>
 
-        <!-- 2. Photo Upload & Replace Section -->
+        <!-- 2. Inspection Photos Grid -->
         <div class="modal-photos-box">
-          <div class="modal-photos-header">
-            <span class="modal-photos-title">📸 4 ஆய்வகப் புகைப்படங்கள் (Inspection Photos):</span>
-            <button type="button" onclick="requestPhotosViaWhatsApp()" class="btn-ask-photos-wa">
-              <span>📲</span>
-              <span>Ask Photos on WhatsApp</span>
-            </button>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-weight:800; color:var(--text-primary);">📸 4 ஆய்வகப் புகைப்படங்கள் (Inspection Photos):</span>
+            <button type="button" onclick="requestPhotosViaWhatsApp()" class="btn btn-green btn-sm" style="padding:3px 8px; font-size:11px;">📲 Ask Photos via WhatsApp</button>
           </div>
 
-          <div class="modal-photo-3grid">
+          <div class="modal-photo-4grid">
             <!-- Photo 1 -->
             <div class="modal-photo-card">
               <span class="modal-photo-label">1. UPS Display</span>
               <div class="modal-photo-preview-wrap" onclick="viewPhotoInModal(1)">
                 <img id="editPreview1" class="modal-photo-preview-img" style="display:none;" alt="UPS Display">
-                <span id="noImg1" class="modal-photo-empty">📷 No Photo</span>
+                <span id="noImg1" style="font-size:11px; color:var(--text-muted);">📷 No Photo</span>
               </div>
               <label class="btn-choose-file">
                 📁 Replace
@@ -3132,10 +3314,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
             <!-- Photo 2 -->
             <div class="modal-photo-card">
-              <span class="modal-photo-label">2. Overall UPS Setup</span>
+              <span class="modal-photo-label">2. Overall UPS</span>
               <div class="modal-photo-preview-wrap" onclick="viewPhotoInModal(2)">
                 <img id="editPreview2" class="modal-photo-preview-img" style="display:none;" alt="Overall UPS">
-                <span id="noImg2" class="modal-photo-empty">🏫 No Photo</span>
+                <span id="noImg2" style="font-size:11px; color:var(--text-muted);">🏫 No Photo</span>
               </div>
               <label class="btn-choose-file">
                 📁 Replace
@@ -3146,10 +3328,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
             <!-- Photo 3 -->
             <div class="modal-photo-card">
-              <span class="modal-photo-label">3. Battery Single MCB</span>
+              <span class="modal-photo-label">3. Battery MCB</span>
               <div class="modal-photo-preview-wrap" onclick="viewPhotoInModal(3)">
-                <img id="editPreview3" class="modal-photo-preview-img" style="display:none;" alt="Battery Single MCB">
-                <span id="noImg3" class="modal-photo-empty">🔋 No Photo</span>
+                <img id="editPreview3" class="modal-photo-preview-img" style="display:none;" alt="Battery MCB">
+                <span id="noImg3" style="font-size:11px; color:var(--text-muted);">🔋 No Photo</span>
               </div>
               <label class="btn-choose-file">
                 📁 Replace
@@ -3160,10 +3342,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
             <!-- Photo 4 -->
             <div class="modal-photo-card">
-              <span class="modal-photo-label">4. Isolation Transformer</span>
+              <span class="modal-photo-label">4. Transformer</span>
               <div class="modal-photo-preview-wrap" onclick="viewPhotoInModal(4)">
-                <img id="editPreview4" class="modal-photo-preview-img" style="display:none;" alt="Isolation Transformer">
-                <span id="noImg4" class="modal-photo-empty">🔌 No Photo</span>
+                <img id="editPreview4" class="modal-photo-preview-img" style="display:none;" alt="Transformer">
+                <span id="noImg4" style="font-size:11px; color:var(--text-muted);">🔌 No Photo</span>
               </div>
               <label class="btn-choose-file">
                 📁 Replace
@@ -3174,11 +3356,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           </div>
         </div>
 
-                <!-- 3. Lifecycle Status & Priority -->
+        <!-- 3. Lifecycle Status & Priority -->
         <div class="form-row-2">
-          <div>
-            <label class="modal-label">Lifecycle Status:</label>
-            <select id="modalStatus" class="modal-select">
+          <div class="form-group">
+            <label class="form-label">Lifecycle Status:</label>
+            <select id="modalStatus" class="form-control">
               <option value="New / Under Review">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
               <option value="In Progress (Remote)">🔵 In Progress (Remote Guidance)</option>
               <option value="Resolved Remotely">🟢 Resolved Remotely</option>
@@ -3187,9 +3369,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
               <option value="Closed / Verified">✅ Closed & Verified</option>
             </select>
           </div>
-          <div>
-            <label class="modal-label">Priority Level:</label>
-            <select id="modalPriority" class="modal-select">
+          <div class="form-group">
+            <label class="form-label">Priority Level:</label>
+            <select id="modalPriority" class="form-control">
               <option value="Critical (Lab Down)">🔴 Critical (Lab Down)</option>
               <option value="High (Power Risk)">🟠 High (Power Risk)</option>
               <option value="Medium">🟡 Medium (Warning)</option>
@@ -3209,37 +3391,39 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         </div>
 
         <!-- Vendor Escalation Section -->
-        <div id="vendorBox" style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px; padding:14px; margin-bottom:14px; display:none;">
-          <span style="font-size: 13px; font-weight: 800; color:#b91c1c; display:flex; align-items:center; gap:6px; margin-bottom:10px;">
-            <span>🚨</span> Vendor Escalation Required Details (கட்டாயம் நிரப்பவும்):
+        <div id="vendorBox" style="background:var(--status-incomplete-bg); border:1px solid var(--status-incomplete-border); border-radius:12px; padding:12px; display:none;">
+          <span style="font-size: 12.5px; font-weight: 800; color:#b91c1c; display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+            <span>🚨</span> Vendor Escalation Details:
           </span>
-          <div class="form-row-2" style="margin-bottom:10px;">
-            <div>
-              <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Vendor Company Name (நிறுவனப் பெயர்) <span style="color:#dc2626;">*</span></label>
-              <input type="text" id="modalVendorName" class="modal-input" placeholder="e.g. AVO / Delta / Numeric" style="border-color:#fca5a5;">
+          <div class="form-row-2" style="margin-bottom:8px;">
+            <div class="form-group">
+              <label class="form-label" style="color:#991b1b;">Vendor Company Name *</label>
+              <input type="text" id="modalVendorName" class="form-control" placeholder="e.g. AVO / Delta / Numeric">
             </div>
-            <div>
-              <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Vendor Call Log # (அழைப்புப் பதிவு எண்) <span style="color:#dc2626;">*</span></label>
-              <input type="text" id="modalVendorTicket" class="modal-input" placeholder="e.g. AVO-2026-9812" style="border-color:#fca5a5;">
+            <div class="form-group">
+              <label class="form-label" style="color:#991b1b;">Vendor Call Log # *</label>
+              <input type="text" id="modalVendorTicket" class="form-control" placeholder="e.g. AVO-2026-9812">
             </div>
           </div>
-          <label style="font-size:11.5px; font-weight:700; color:#991b1b; display:block; margin-bottom:4px;">Spare Parts Required (தேவைப்படும் உதிரிபாகங்கள்) <span style="color:#dc2626;">*</span></label>
-          <input type="text" id="modalParts" class="modal-input" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery" style="border-color:#fca5a5;">
+          <div class="form-group">
+            <label class="form-label" style="color:#991b1b;">Spare Parts Required *</label>
+            <input type="text" id="modalParts" class="form-control" placeholder="e.g. Inverter Main PCB Board, 12V 42Ah Exide Battery">
+          </div>
         </div>
 
         <!-- 4. Resolution Notes -->
-        <div style="margin-bottom:16px;">
-          <label class="modal-label">பொறியாளர் கள ஆய்வுக் குறிப்புகள் (Engineer Inspection & Action Taken Notes):</label>
-          <textarea id="modalNotes" class="modal-textarea" rows="4" placeholder="பழுது நீக்கிய முறை அல்லது தற்போதைய நிலை குறித்த விரிவான குறிப்புகளை எழுதவும்..."></textarea>
+        <div class="form-group">
+          <label class="form-label">பொறியாளர் கள ஆய்வுக் குறிப்புகள் (Engineer Inspection Notes):</label>
+          <textarea id="modalNotes" class="form-control" rows="3" placeholder="பழுது நீக்கிய முறை அல்லது தற்போதைய நிலை குறித்த விரிவான குறிப்புகளை எழுதவும்..."></textarea>
         </div>
       </div>
 
-      <!-- Sticky Modal Footer -->
-      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center;">
-        <button type="button" class="btn" onclick="deleteCurrentTicket()" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;">🗑️ Delete Ticket (நீக்கு)</button>
+      <!-- Sticky Footer -->
+      <div class="drawer-footer">
+        <button type="button" class="btn btn-danger-outline" onclick="deleteCurrentTicket()">🗑️ Delete Call</button>
         <div style="display:flex; gap:8px;">
-          <button type="button" class="btn btn-logout" onclick="closeActionModal()">✕ ரத்து செய் (Cancel)</button>
-          <button type="button" class="btn btn-blue" id="btnSaveResolution" onclick="saveTicketUpdate()" style="background:#1d4ed8; color:white; font-weight:700;">💾 Save & Update Ticket</button>
+          <button type="button" class="btn btn-outline" onclick="closeActionModal()">✕ Cancel</button>
+          <button type="button" class="btn btn-primary" id="btnSaveResolution" onclick="saveTicketUpdate()">💾 Save & Update</button>
         </div>
       </div>
     </div>
@@ -3249,41 +3433,66 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   <div id="imgModal" class="lightbox-modal" onclick="closeImgModal()">
     <div class="lightbox-card" onclick="event.stopPropagation()">
       <div class="lightbox-header">
-        <span style="font-size:14px; font-weight:800; color:#1e293b;">📸 UPS Visual Inspection Photo</span>
-        <button type="button" onclick="closeImgModal()" class="btn-close-modal-x" style="width:30px; height:30px; font-size:14px;">✕</button>
+        <span style="font-size:13px; font-weight:800; color:var(--text-primary);">📸 UPS Visual Inspection Photo</span>
+        <button type="button" onclick="closeImgModal()" class="drawer-close">✕</button>
       </div>
       <img id="modalImg" class="lightbox-img" alt="Zoomed inspection photo">
-      <span style="margin-top:8px; font-size:12px; color:#64748b;">(Click anywhere outside or ✕ Close to return)</span>
     </div>
   </div>
 
   <!-- Reset Password Protection Modal -->
-  <div id="resetModal" class="modal-overlay" onclick="handleBackdropClick(event, 'resetModal')">
-    <div class="modal-container" style="width: 480px;" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <div>
-          <span class="modal-header-badge" style="background:#fee2e2; color:#dc2626; border-color:#fca5a5;">SECURITY CHECK</span>
-          <h2 style="color: #b91c1c; margin-top:2px;">⚠️ Confirm Full Data Reset</h2>
+  <div id="resetModal" class="drawer-overlay" onclick="handleBackdropClick(event, 'resetModal')">
+    <div class="drawer" style="max-width:440px;" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <div class="drawer-title" style="color:#dc2626;">⚠️ Confirm Full Data Reset</div>
+        <button type="button" class="drawer-close" onclick="closeResetModal()">✕</button>
+      </div>
+      <div class="drawer-body">
+        <p style="font-size:13px; color:var(--text-secondary);">This action will <strong>permanently erase all service call records</strong> to start completely clean for all 183 schools.</p>
+        <div class="form-group" style="margin-top:10px;">
+          <label class="form-label">Enter Master Security Protection Password:</label>
+          <input type="password" id="resetPasswordInput" class="form-control" placeholder="Enter Protection Password" autocomplete="new-password">
         </div>
-        <button type="button" class="btn-close-modal-x" onclick="closeResetModal()">✕</button>
       </div>
-      <div class="modal-body">
-        <p style="font-size:13px; color:#475569; margin-bottom:14px; line-height:1.5;">
-          This action will <strong>permanently erase all logged incident tickets and history</strong> to start completely clean for all 183 schools.
-        </p>
-        <label class="modal-label">Enter Master Protection Password (பாதுகாப்பு கடவுச்சொல்):</label>
-        <input type="password" id="resetPasswordInput" class="modal-input" placeholder="Enter Protection Password" autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false">
-      </div>
-      <div class="modal-footer" style="justify-content: flex-end;">
-        <button type="button" onclick="closeResetModal()" class="btn btn-logout">Cancel</button>
-        <button type="button" onclick="executeSecureReset()" class="btn btn-reset" style="background:#dc2626; color:white;">Confirm & Reset All</button>
+      <div class="drawer-footer">
+        <button type="button" class="btn btn-outline" onclick="closeResetModal()">Cancel</button>
+        <button type="button" class="btn btn-danger-outline" style="background:#dc2626; color:#fff;" onclick="executeSecureReset()">Confirm & Reset All</button>
       </div>
     </div>
   </div>
 
-  <script id="initialTicketsData" type="application/json">${JSON.stringify(initialTickets)}</script>
-  <script id="masterSchoolsData" type="application/json">${JSON.stringify(masterSchools)}</script>
   <script>
+    // Theme toggle logic
+    function toggleTheme() {
+      const html = document.documentElement;
+      const cur = html.getAttribute('data-theme') || 'light';
+      const next = cur === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('fieldTrackerTheme', next);
+    }
+    (function initTheme() {
+      const saved = localStorage.getItem('fieldTrackerTheme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+
+    function filterByKpi(cat) {
+      const cFilter = document.getElementById('categoryFilter');
+      if (cFilter) {
+        cFilter.value = (cat === 'ALL') ? '' : cat;
+        window.renderTable();
+      }
+    }
+
+    function resetFilters() {
+      const si = document.getElementById('searchInput');
+      const bf = document.getElementById('blockFilter');
+      const cf = document.getElementById('categoryFilter');
+      if (si) si.value = '';
+      if (bf) bf.value = '';
+      if (cf) cf.value = '';
+      window.renderTable();
+    }
+
     let allTickets = [];
     function getDeletedList() {
       try {
