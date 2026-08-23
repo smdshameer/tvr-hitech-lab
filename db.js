@@ -40,26 +40,6 @@ const EMBEDDED_AUTHENTIC_TICKETS = [
     "createdAt": "21/8/2026, 9:44:58 am"
   },
   {
-    "ticketId": "HTL-TVR-05301-3",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/file/d/1r8dWjpKR4kFQtCQS-AmzbHXA-1Wh8Y2Z/view?usp=drivesdk",
-    "photo2Url": "https://drive.google.com/file/d/1gCSrW3f0Y1d8DZ183FRMqg2CyO4wSRAl/view?usp=drivesdk",
-    "photo3Url": "https://drive.google.com/file/d/19ImYT2R28yMYGdQ4EQKk9mZi7pIhPSx5/view?usp=drivesdk",
-    "photo4Url": "https://drive.google.com/file/d/1LvLOMNeYPo1ygbLQMmjnl34gfnJiCjbU/view?usp=drivesdk",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1Ga8qh7BPrKmmqcL3QV7vfjbbQyCkPyv-",
-    "createdDate": "21/8/2026, 9:49:18 am",
-    "createdAt": "21/8/2026, 9:49:18 am"
-  },
-  {
     "ticketId": "HTL-TVR-05201",
     "schoolName": "GMS DEVARKANDANALLUR",
     "udise": "33200305201",
@@ -378,166 +358,6 @@ const EMBEDDED_AUTHENTIC_TICKETS = [
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1ecJm17ZvF3NBWD-P0fG60Wm57LOJEK35",
     "createdDate": "21/8/2026, 2:37:19 pm",
     "createdAt": "21/8/2026, 2:37:19 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-2",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=119R6HdVGKpZ4CQxKSO_7tTzZJBfzpcPU&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1rmco2FYMdnU8TbAm5Gf3Kg0eCK2tzvqV&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=1w8K5rc9vMSLsh-ZrseiN3bSupaswRhSN&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=1vTvG9typJ49V_trcj5zEIj76vrb511U2&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1Lp7KZq2fzCXE9NOaSC1qqrr66e1WUDkZ",
-    "createdDate": "22/8/2026, 11:31:12 pm",
-    "createdAt": "22/8/2026, 11:31:12 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-3-23",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=16j8fJKPqpiOaLpsM-9pdLWmjqv93HgsL&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=169-CNfl_aTYgS8Zgj292PjmgxQuUNvpg&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=10q0-HUY0MR2dU7k-ZQFqfPiXeJo9QvUy&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=18MInagQyjPAM4c1jHDo7V8lKZBIyWhwf&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1J0o7r-IsqIJiMaYrePTrpYvp8hlKdIXE",
-    "createdDate": "23/8/2026, 11:09:00 am",
-    "createdAt": "23/8/2026, 11:09:00 am"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-4",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=1JuzxwlUnPfiVqiNS-K-qkihaoeIS1nw8&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1vtNRNffefNIVZKfZL3xuNISOHtbztQcf&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=17a9kzk9DMo7Pz0AztcNmQnhempYbG07D&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=166B5Z4YfYO_xB-F-azDSudEQEJU76q7N&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1RuFgrVdVUVrqNlKYbfGES_Z-fNwieoue",
-    "createdDate": "23/8/2026, 11:33:11 am",
-    "createdAt": "23/8/2026, 11:33:11 am"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-25",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "No Battery Backup / Trips Immediately",
-    "priority": "High",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=1GYmUEtOPF2DgLKFksYr2YVNdFuCGvPp0&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=10OekxqM2cyK5ITupPif3cgvYfty2EJaK&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=1pDkthdF2aiJPZJykImwlR-ytor6czsLK&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=1Plbt_pHb6r-xLr_4SiZviatOAZ_wtHG5&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1qwjqlq0fJ3sMtGd6t5TYGpd_afTZ34mk",
-    "createdDate": "23/8/2026, 3:59:55 pm",
-    "createdAt": "23/8/2026, 3:59:55 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-26",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Isolation Transformer / MCB Tripping",
-    "priority": "High",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=160i-z_RK4vpcG4tcZNxCKx-JySnG8reK&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1ED01nb3Bu0cDsDwbQG7dFKO9TK9z2qnY&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=15WYTo5WAwZ9rmzTIiDR6HPWIvEbBQ6AQ&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=1pmSJBgCroHsR17SWaPJIjjf07JovnNYQ&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/136sKrE32ZCC87bW3cB0EiAmDTSmhWzWa",
-    "createdDate": "23/8/2026, 4:11:27 pm",
-    "createdAt": "23/8/2026, 4:11:27 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-5",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=1KQ4NZE2y8HT3mjfrsLXT_xRWNfEF2zVv&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1iouRLdbbk6iRshjgGUM19qYwL9L7mrNN&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=1bZjWUeu78AUKA-nlLlIZKatrrBf5t0L0&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=19Q0UevS1u0UeNQmeQ2566x61Wy2eajRJ&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1U-oxWKFtajPBztgRv0DPIQg8-1-oL9B0",
-    "createdDate": "23/8/2026, 4:19:18 pm",
-    "createdAt": "23/8/2026, 4:19:18 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-28",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Battery Swollen / Acid Leakage / Burning Smell",
-    "priority": "High",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=1bt6wOAJOd9J6_Vg8gWilezK1zeTZqn_b&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1hUg_I5NNUJJRH16xEgvbILKYF6Iq9vwS&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=1nzcO9JYUh8LxO7EPQQ9M-nr9lVIF-5oF&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=12kT3JlsCRj2YnkpJ14v8uoWDbRTPAvJv&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1LQJkdHS7wjuLQxmyEMV04LWi4mJoj8l4",
-    "createdDate": "23/8/2026, 4:30:22 pm",
-    "createdAt": "23/8/2026, 4:30:22 pm"
-  },
-  {
-    "ticketId": "HTL-TVR-05301-29",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
-    "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/thumbnail?id=1DMzfL8RmCxAcWBH-W8oj_-qpKugRP8xn&sz=w800",
-    "photo2Url": "https://drive.google.com/thumbnail?id=1Tp8UYNI8mQWTaB_r6Mc-zVDZhXXMk6pw&sz=w800",
-    "photo3Url": "https://drive.google.com/thumbnail?id=1QzvKBfFkcd9kOllPq_OTm8eeMb444Ixy&sz=w800",
-    "photo4Url": "https://drive.google.com/thumbnail?id=1PBBXwwvIrErW9eUiKQCBhun-xzA_JHLv&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1EgK7NQG5lhV-_XKI6stG_ERNBMmnRpGe",
-    "createdDate": "23/8/2026, 4:35:15 pm",
-    "createdAt": "23/8/2026, 4:35:15 pm"
   }
 ];
 
@@ -672,6 +492,8 @@ function isTestOrPurgedTicket(t) {
   const tid = String(t.ticketId).trim();
   const name = String(t.schoolName || '').toLowerCase();
   if (tid === 'HTL-TVR-99999' || tid === 'TEST-PING-001' || name.includes('test school for verification')) return true;
+  if (tid.startsWith('HTL-TVR-05301-')) return true;
+  if (deletedTicketIds.has(tid)) return true;
   return false;
 }
 
@@ -956,8 +778,8 @@ async function syncGasTickets() {
           }
 
           let assignedId = rt.ticketId || `HTL-TVR-${udise.slice(-5)}`;
-          if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId)) {
-            assignedId = `${assignedId}-${idx + 1}`;
+          if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId) || deletedTicketIds.has(assignedId)) {
+            return;
           }
           const cleanTicket = { ...rt, ticketId: assignedId };
 
@@ -1117,23 +939,20 @@ async function getAllTickets() {
 
   const bundled = JSON.parse(JSON.stringify(EMBEDDED_AUTHENTIC_TICKETS));
   const combined = [...dbRows, ...bundled];
-  const seen = new Set();
+  const seenIds = new Set();
   const cleanList = [];
 
   combined.forEach(t => {
     if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
-    if (deletedTicketIds.has(String(t.ticketId).trim())) return;
+    const tid = String(t.ticketId).trim();
+    if (deletedTicketIds.has(tid)) return;
 
     const issue = String(t.issue || '').toLowerCase();
     const remarks = String(t.remarks || '').toLowerCase();
     if (issue.includes('simulation') || remarks.includes('simulation')) return;
 
-    const u = String(t.udise || '').trim();
-    const dt = String(t.createdDate || t.createdAt || '').trim();
-    const key = u && dt ? `${u}_${dt}` : String(t.ticketId).trim();
-
-    if (!seen.has(key)) {
-      seen.add(key);
+    if (!seenIds.has(tid)) {
+      seenIds.add(tid);
       cleanList.push(t);
     }
   });
@@ -1302,6 +1121,15 @@ async function deleteTicket(ticketId) {
   if (!ticketId) return { success: false, error: 'Ticket ID is required' };
   const cleanId = String(ticketId).trim();
   deletedTicketIds.add(cleanId);
+  try {
+    const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
+    let delArr = [];
+    if (fs.existsSync(delFilePath)) {
+      try { delArr = JSON.parse(fs.readFileSync(delFilePath, 'utf8')); } catch(e) {}
+    }
+    if (!delArr.includes(cleanId)) delArr.push(cleanId);
+    safeWriteFileSync(delFilePath, JSON.stringify(delArr, null, 2), 'utf8');
+  } catch(e) {}
   if (usePostgres && pool) {
     try {
       await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [cleanId]);
