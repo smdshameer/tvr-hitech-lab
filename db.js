@@ -857,7 +857,7 @@ async function getAllTickets() {
   try {
     await Promise.race([
       syncGasTickets(),
-      new Promise(res => setTimeout(res, 2500))
+      new Promise(res => setTimeout(res, 6500))
     ]);
   } catch(e) {}
 
