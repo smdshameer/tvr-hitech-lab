@@ -150,93 +150,6 @@ if (!isServerless) {
 
 // ========================================================
 
-// ========================================================
-// GEMINI AI & EXPERT ELECTRICAL DIAGNOSIS ENGINE
-// ========================================================
-function runAiDiagnosis(ticket) {
-  const issue = (ticket.issue || '').toLowerCase();
-  const remarks = (ticket.remarks || '').toLowerCase();
-  const duration = (ticket.duration || '').toLowerCase();
-
-  let rootCause = '';
-  let actionPlan = [];
-  let spares = 'None';
-  let suggestedStatus = 'Resolved Remotely';
-
-  if (issue.includes('dead') || issue.includes('no power') || issue.includes('lab off')) {
-    if (remarks.includes('motherboard') || remarks.includes('direct') || duration.includes('6 months')) {
-      rootCause = 'Severe Inverter Control Motherboard / DC Bus failure causing system trip.';
-      actionPlan = [
-        '1. Check AC input line voltage with Multimeter (Target: 220V - 240V).',
-        '2. Inspect Main DC Inverter Board for blown capacitors or MOSFETs.',
-        '3. Test DC battery bank bus voltage under zero load vs full load.',
-        '4. Escalate to OEM Vendor for Board Replacement if DC bus does not fire.'
-      ];
-      spares = 'Inverter Motherboard PCB / 63A DC MCB';
-      suggestedStatus = 'Vendor Escalated';
-    } else {
-      rootCause = 'Main Input MCB trip or blown internal control fuse due to surge.';
-      actionPlan = [
-        '1. Verify wall power supply switch & backside Breaker switch.',
-        '2. Check 15A input cartridge fuse on rear panel.',
-        '3. Switch UPS Inverter switch OFF -> wait 10 seconds -> turn ON.',
-        '4. Verify green Bypass / Inverter indicator LED.'
-      ];
-      spares = '15A Fast-blow Input Fuse';
-      suggestedStatus = 'Resolved Remotely';
-    }
-  } else if (issue.includes('beep') || issue.includes('warning') || issue.includes('light')) {
-    rootCause = 'Low input voltage or Battery bank nearing cutoff threshold / Overload warning.';
-    actionPlan = [
-      '1. Measure input phase voltage; verify if low voltage trip threshold (<160V) is hit.',
-      '2. Reduce non-essential lab load and test UPS buzzer silence button.',
-      '3. Inspect battery terminal connections for loose lugs or corrosion.',
-      '4. If continuous rapid beep persists, calibrate output voltage potentiometer.'
-    ];
-    spares = 'Battery Terminal Lugs / CRC Cleaner';
-    suggestedStatus = 'Solved by Direct Visit';
-  } else if (issue.includes('battery') || issue.includes('backup') || issue.includes('trips')) {
-    rootCause = 'Weakened battery cells or high internal resistance in 12V VRLA battery string.';
-    actionPlan = [
-      '1. Measure individual 12V battery terminal voltages under load (Healthy: >12.4V per cell).',
-      '2. Identify weak/bulged battery units exhibiting voltage drop below 10.5V.',
-      '3. Clean and tighten inter-battery connector cables.',
-      '4. Recommend replacement for weak battery bank if backup under 5 minutes.'
-    ];
-    spares = '12V 42Ah / 26Ah VRLA Batteries (Quantity as needed)';
-    suggestedStatus = 'Solved by Direct Visit';
-  } else if (issue.includes('transformer') || issue.includes('mcb')) {
-    rootCause = 'Isolation Transformer neutral-earth voltage imbalance or MCB thermal fatigue.';
-    actionPlan = [
-      '1. Measure Neutral-to-Earth voltage (Target: < 2.0V AC).',
-      '2. Inspect Isolation Transformer primary & secondary winding terminations.',
-      '3. Check if MCB trips due to ground leakage or thermal overload.',
-      '4. Replace worn-out C-curve MCB with heavy-duty D-curve breaker if high inrush current.'
-    ];
-    spares = '32A / 63A D-Curve MCB Breaker';
-    suggestedStatus = 'Solved by Direct Visit';
-  } else {
-    rootCause = 'General electrical/cabling anomaly or loose wiring harness.';
-    actionPlan = [
-      '1. Perform physical inspection of power distribution box and earthing pit.',
-      '2. Check all lab socket outputs with digital multimeter.',
-      '3. Re-seat internal harness connectors and run full power cycle.'
-    ];
-    spares = 'Power Cabling & Connectors';
-    suggestedStatus = 'Solved by Direct Visit';
-  }
-
-  return {
-    success: true,
-    ticketId: ticket.ticketId,
-    schoolName: ticket.schoolName,
-    rootCause,
-    actionPlan,
-    spares,
-    suggestedStatus,
-    formattedNotes: `[AI Diagnosis] Cause: ${rootCause} | Spares: ${spares} | Action: ${actionPlan.slice(0, 2).join(' ')}`
-  };
-}
 
 // 3. SECURITY, SESSION & RATE-LIMITING ENGINE
 // ========================================================
@@ -853,22 +766,6 @@ async function handleRequest(req, res) {
   }
 
   // 4. API: Delete Single Ticket (Protected)
-  
-  // 4B. API: Gemini AI Intelligent Diagnosis
-  if (pathname === '/api/ai-diagnose' && req.method === 'GET') {
-    const tid = parsedUrl.searchParams.get('ticketId') || '';
-    const all = await db.getAllTickets();
-    const t = all.find(x => x.ticketId === tid);
-    if (!t) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Ticket not found.' }));
-      return;
-    }
-    const diagnosis = runAiDiagnosis(t);
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(diagnosis));
-    return;
-  }
 
   // 4C. API: 5TB Google Drive Live Snapshot Backup
   if (pathname === '/api/backup/drive' && (req.method === 'POST' || req.method === 'GET')) {
@@ -3234,24 +3131,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           </div>
         </div>
 
-        <!-- Gemini AI Diagnosis Engine -->
-        <div id="aiDiagnosisSection" style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:12px; padding:14px; margin-bottom:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:13px; font-weight:800; color:#15803d; display:flex; align-items:center; gap:6px;">
-              <span>🤖</span> Gemini AI Intelligent Diagnosis & Fix Advisor
-            </span>
-            <button type="button" onclick="fetchAiDiagnosis()" class="btn" style="background:#16a34a; color:#fff; padding:5px 12px; font-size:12px; font-weight:700; border-radius:6px; border:none; cursor:pointer;">⚡ Run AI Diagnosis</button>
-          </div>
-          <div id="aiResultBox" style="display:none; margin-top:10px; font-size:12.5px; color:#1e293b; background:#ffffff; padding:12px; border-radius:8px; border:1px solid #bbf7d0;">
-            <div><strong>⚡ சாத்தியமான காரணம் (Probable Cause):</strong> <span id="aiCauseText" style="color:#b91c1c; font-weight:700;">-</span></div>
-            <div style="margin-top:8px;"><strong>🛠️ செயல்முறை வழிகாட்டி (Action Plan):</strong>
-              <ul id="aiActionList" style="margin:4px 0 0 18px; padding:0; color:#334155;"></ul>
-            </div>
-            <div style="margin-top:8px;"><strong>📦 தேவைப்படும் உதிரிபாகங்கள் (Spares):</strong> <span id="aiSparesText" style="color:#2563eb; font-weight:700;">-</span></div>
-            <button type="button" onclick="applyAiToNotes()" style="margin-top:10px; background:#eff6ff; color:#1d4ed8; border:1.5px solid #93c5fd; padding:6px 12px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer;">📝 குறிப்பில் சேர்க்க (Apply to Action Notes)</button>
-          </div>
-        </div>
-        <!-- 3. Lifecycle Status & Priority -->
+                <!-- 3. Lifecycle Status & Priority -->
         <div class="form-row-2">
           <div>
             <label class="modal-label">Lifecycle Status:</label>
@@ -3889,142 +3769,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
 
-    let currentAiDiagnosis = null;
-
-    function runClientAiDiagnosis(t) {
-      const issue = (t.issue || '').toLowerCase();
-      const remarks = (t.remarks || '').toLowerCase();
-      const duration = (t.duration || '').toLowerCase();
-
-      let rootCause = '';
-      let actionPlan = [];
-      let spares = 'None';
-      let suggestedStatus = 'Resolved Remotely';
-
-      if (issue.includes('dead') || issue.includes('no power') || issue.includes('lab off')) {
-        if (remarks.includes('motherboard') || remarks.includes('direct') || duration.includes('6 months')) {
-          rootCause = 'Severe Inverter Control Motherboard / DC Bus failure causing system trip.';
-          actionPlan = [
-            '1. Check AC input line voltage with Multimeter (Target: 220V - 240V).',
-            '2. Inspect Main DC Inverter Board for blown capacitors or MOSFETs.',
-            '3. Test DC battery bank bus voltage under zero load vs full load.',
-            '4. Escalate to OEM Vendor for Board Replacement if DC bus does not fire.'
-          ];
-          spares = 'Inverter Motherboard PCB / 63A DC MCB';
-          suggestedStatus = 'Vendor Escalated';
-        } else {
-          rootCause = 'Main Input MCB trip or blown internal control fuse due to surge.';
-          actionPlan = [
-            '1. Verify wall power supply switch & backside Breaker switch.',
-            '2. Check 15A input cartridge fuse on rear panel.',
-            '3. Switch UPS Inverter switch OFF -> wait 10 seconds -> turn ON.',
-            '4. Verify green Bypass / Inverter indicator LED.'
-          ];
-          spares = '15A Fast-blow Input Fuse';
-          suggestedStatus = 'Resolved Remotely';
-        }
-      } else if (issue.includes('beep') || issue.includes('warning') || issue.includes('light')) {
-        rootCause = 'Low input voltage or Battery bank nearing cutoff threshold / Overload warning.';
-        actionPlan = [
-          '1. Measure input phase voltage; verify if low voltage trip threshold (<160V) is hit.',
-          '2. Reduce non-essential lab load and test UPS buzzer silence button.',
-          '3. Inspect battery terminal connections for loose lugs or corrosion.',
-          '4. If continuous rapid beep persists, calibrate output voltage potentiometer.'
-        ];
-        spares = 'Battery Terminal Lugs / CRC Cleaner';
-        suggestedStatus = 'Solved by Direct Visit';
-      } else if (issue.includes('battery') || issue.includes('backup') || issue.includes('trips')) {
-        rootCause = 'Weakened battery cells or high internal resistance in 12V VRLA battery string.';
-        actionPlan = [
-          '1. Measure individual 12V battery terminal voltages under load (Healthy: >12.4V per cell).',
-          '2. Identify weak/bulged battery units exhibiting voltage drop below 10.5V.',
-          '3. Clean and tighten inter-battery connector cables.',
-          '4. Recommend replacement for weak battery bank if backup under 5 minutes.'
-        ];
-        spares = '12V 42Ah / 26Ah VRLA Batteries (Quantity as needed)';
-        suggestedStatus = 'Solved by Direct Visit';
-      } else if (issue.includes('transformer') || issue.includes('mcb')) {
-        rootCause = 'Isolation Transformer neutral-earth voltage imbalance or MCB thermal fatigue.';
-        actionPlan = [
-          '1. Measure Neutral-to-Earth voltage (Target: < 2.0V AC).',
-          '2. Inspect Isolation Transformer primary & secondary winding terminations.',
-          '3. Check if MCB trips due to ground leakage or thermal overload.',
-          '4. Replace worn-out C-curve MCB with heavy-duty D-curve breaker if high inrush current.'
-        ];
-        spares = '32A / 63A D-Curve MCB Breaker';
-        suggestedStatus = 'Solved by Direct Visit';
-      } else {
-        rootCause = 'General electrical/cabling anomaly or loose wiring harness.';
-        actionPlan = [
-          '1. Perform physical inspection of power distribution box and earthing pit.',
-          '2. Check all lab socket outputs with digital multimeter.',
-          '3. Re-seat internal harness connectors and run full power cycle.'
-        ];
-        spares = 'Power Cabling & Connectors';
-        suggestedStatus = 'Solved by Direct Visit';
-      }
-
-      return {
-        success: true,
-        ticketId: t.ticketId,
-        schoolName: t.schoolName,
-        rootCause: rootCause,
-        actionPlan: actionPlan,
-        spares: spares,
-        suggestedStatus: suggestedStatus,
-        formattedNotes: '[AI Diagnosis] Cause: ' + rootCause + ' | Spares: ' + spares + ' | Action: ' + actionPlan.slice(0, 2).join(' ')
-      };
-    }
-
-    async function fetchAiDiagnosis(targetTid) {
-      const tid = targetTid || currentEditingTicketId;
-      if (!tid) return;
-      
-      const resBox = document.getElementById('aiResultBox');
-      if (resBox) resBox.style.display = 'block';
-
-      const t = allTickets.find(i => String(i.ticketId).trim() === String(tid).trim());
-      if (t) {
-        // Immediate Zero-Lag Local Engine
-        const localDiag = runClientAiDiagnosis(t);
-        currentAiDiagnosis = localDiag;
-        const causeEl = document.getElementById('aiCauseText');
-        const listEl = document.getElementById('aiActionList');
-        const sparesEl = document.getElementById('aiSparesText');
-        if (causeEl) causeEl.textContent = localDiag.rootCause;
-        if (listEl) listEl.innerHTML = (localDiag.actionPlan || []).map(function(a) { return '<li>' + a + '</li>'; }).join('');
-        if (sparesEl) sparesEl.textContent = localDiag.spares;
-      }
-
-      // Also sync with server in background
-      try {
-        const res = await fetch('/api/ai-diagnose?ticketId=' + encodeURIComponent(tid));
-        const data = await res.json();
-        if (data && data.success) {
-          currentAiDiagnosis = data;
-          const causeEl = document.getElementById('aiCauseText');
-          const listEl = document.getElementById('aiActionList');
-          const sparesEl = document.getElementById('aiSparesText');
-          if (causeEl) causeEl.textContent = data.rootCause;
-          if (listEl) listEl.innerHTML = (data.actionPlan || []).map(function(a) { return '<li>' + a + '</li>'; }).join('');
-          if (sparesEl) sparesEl.textContent = data.spares;
-        }
-      } catch(e) {}
-    }
-    window.fetchAiDiagnosis = fetchAiDiagnosis;
-
-    function applyAiToNotes() {
-      if (!currentAiDiagnosis) return;
-      const notesField = document.getElementById('modalNotes');
-      const existing = notesField.value.trim();
-      notesField.value = (existing ? existing + String.fromCharCode(10) : '') + currentAiDiagnosis.formattedNotes;
-      if (currentAiDiagnosis.suggestedStatus) {
-        selectCategory(currentAiDiagnosis.suggestedStatus);
-      }
-      showDeleteToast('✅ AI Diagnosis applied to Action Notes!');
-    }
-    window.applyAiToNotes = applyAiToNotes;
-
+    
     async function triggerDriveBackup() {
       showDeleteToast('⏳ Creating 5TB Google Drive snapshot...');
       try {
@@ -4085,10 +3830,6 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (m) {
         m.style.display = "flex";
       }
-
-      try {
-        fetchAiDiagnosis(cleanTid);
-      } catch(e) {}
     }
     window.openActionModal = openActionModal;
     window.closeActionModal = function() {
