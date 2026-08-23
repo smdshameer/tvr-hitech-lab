@@ -2561,14 +2561,14 @@ function normalizeImageUrl(url) {
 
 function generateTableRowsHtml(list) {
   if (!list || list.length === 0) {
-    return '<tr><td colspan="8" style="text-align:center; padding: 36px 16px; color: #64748b; font-size:13px; font-weight:600;"><div style="font-size:24px; margin-bottom:6px;">📋</div>No service calls registered yet.</td></tr>';
+    return '<tr><td colspan="8" style="text-align:center; padding: 3rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">📋</div>No service calls registered yet.</td></tr>';
   }
   return list.map(function(t) {
     const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-    let badgeHtml = '<div class="badge badge-open">🟡 New /<br>Under Review</div>';
-    if (tCat === 'Resolved Remotely') badgeHtml = '<div class="badge badge-remote">🟢 Resolved<br>Remotely</div>';
-    else if (tCat === 'Solved by Direct Visit') badgeHtml = '<div class="badge badge-direct">🔵 Solved by<br>Direct Visit</div>';
-    else if (t.status === 'Vendor Escalated') badgeHtml = '<div class="badge badge-vendor">🔴 Vendor<br>Escalated</div>';
+    let badgeHtml = '<span class="badge badge-status-pending">🟡 New / Under Review</span>';
+    if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-status-completed">🟢 Resolved Remotely</span>';
+    else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-status-direct">🔵 Solved by Direct Visit</span>';
+    else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-status-incomplete">🔴 Vendor Escalated</span>';
 
     let prioClass = 'prio-med';
     const p = t.priority || 'Medium';
@@ -2583,7 +2583,7 @@ function generateTableRowsHtml(list) {
     const escUdise = escapeHtml(t.udise);
     const escAiName = escapeHtml(t.aiName || '-');
     const escPhone = escapeHtml(t.phone || '-');
-    const formattedIssue = escapeHtml(t.issue || '').split('/').map(function(s){ return s.trim(); }).join(' /<br>');
+    const escIssue = escapeHtml(t.issue || '-');
     const escPriority = escapeHtml(p);
     const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
     const escVendorName = escapeHtml(t.vendorName || '');
@@ -2591,11 +2591,11 @@ function generateTableRowsHtml(list) {
     const cleanPhone = String(t.phone || '').replace(/\D/g, '');
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
-      '<td class="col-ticket-id">' +
-        '<div style="font-weight:800; color:#1e3a8a; font-size:12px; letter-spacing:0.2px; line-height:1.2;">' + escTicketId + '</div>' +
-        '<div style="color:#64748b; font-size:10.5px; margin-top:2px; font-weight:500; line-height:1.1;">' + escCreatedDate + '</div>' +
+      '<td class="font-mono" style="font-weight: 700; white-space: nowrap;">' +
+        '<div style="font-weight: 800; color: #1e3a8a; font-size: 0.85rem; font-family: var(--font-mono);">#' + escTicketId + '</div>' +
+        '<div style="color: var(--text-muted); font-size: 0.72rem; margin-top: 2px; font-family: var(--font-main); font-weight: 500;">' + escCreatedDate + '</div>' +
       '</td>' +
-      '<td class="col-photos">' +
+      '<td style="white-space: nowrap;">' +
         '<div class="thumb-grid">' +
           (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
           (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall Setup">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
@@ -2603,36 +2603,37 @@ function generateTableRowsHtml(list) {
           (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
         '</div>' +
       '</td>' +
-      '<td class="col-school">' +
-        '<div style="color:#0f172a; font-weight:700; font-size:12.5px; line-height:1.25;">' + escSchoolName + '</div>' +
-        '<div style="color:#64748b; font-size:11px; margin-top:2px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
-      '</td>' +
-      '<td class="col-ai-contact">' +
-        '<div style="font-weight:700; color:#0f172a; font-size:12px; line-height:1.2;">' + escAiName + '</div>' +
-        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:2px; margin-top:2px;">📞 ' + escPhone + '</a>' +
-      '</td>' +
-      '<td class="col-fault">' +
-        '<div class="fault-issue-text">' + formattedIssue + '</div>' +
-        '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
-      '</td>' +
-      '<td class="col-status" style="text-align: center;">' + badgeHtml + '</td>' +
-      '<td class="col-notes">' +
-        '<div style="font-size:11px; line-height:1.3;">' +
-          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:4px 6px; border-radius:5px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
-          (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px; background:#fef2f2; padding:3px 6px; border-radius:5px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
-          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:10.5px;">Pending engineer review</span>' : '') +
+      '<td>' +
+        '<div style="color: var(--text-primary); font-weight: 700; font-size: 0.88rem; line-height: 1.3;">' + escSchoolName + '</div>' +
+        '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 3px; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">' +
+          'UDISE: <span style="color: var(--primary); font-weight: 700;">' + escUdise + '</span>' +
+          '<span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: #1e3a8a;">' + escBlock + '</span>' +
         '</div>' +
       '</td>' +
-      '<td class="col-actions" style="text-align: center;">' +
-        '<div class="action-grid-buttons">' +
+      '<td>' +
+        '<div style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem;">' + escAiName + '</div>' +
+        '<a href="tel:' + cleanPhone + '" class="font-mono" style="color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;">📞 ' + escPhone + '</a>' +
+      '</td>' +
+      '<td style="max-width: 240px;">' +
+        '<div style="font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 4px;">' + escIssue + '</div>' +
+        '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
+      '</td>' +
+      '<td style="text-align: center; white-space: nowrap;">' + badgeHtml + '</td>' +
+      '<td style="max-width: 240px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.35;">' +
+        (t.resolutionNotes ? '<div style="color: #1e293b; background: #f8fafc; padding: 4px 8px; border-radius: 5px; border-left: 3px solid #3b82f6; margin-bottom: 3px;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+        (t.vendorName ? '<div style="color: #b91c1c; background: #fef2f2; padding: 4px 8px; border-radius: 5px; border-left: 3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
+        (!t.resolutionNotes && !t.vendorName ? '<span style="color: var(--text-muted); font-style: italic; font-size: 0.75rem;">Pending engineer review</span>' : '') +
+      '</td>' +
+      '<td style="text-align: center; white-space: nowrap;">' +
+        '<div style="display: flex; align-items: center; justify-content: center; gap: 5px;">' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Edit & Manage Service Call (புகார் திருத்து & தீர்வு செய்க)">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
           '</button>' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip (சர்வீஸ் ஸ்லிப் அச்சிடு)">' +
             '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
           '</button>' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="window.deleteSingleTicket(this.dataset.tid)" class="btn-table-action btn-table-del" title="Delete Service Call (அழைப்பை நீக்கு)">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
           '</button>' +
         '</div>' +
       '</td>' +
