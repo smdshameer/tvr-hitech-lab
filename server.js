@@ -3814,9 +3814,12 @@ function generateTableRowsHtml(list) {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            allTickets = data.tickets;
-            const kpiTot = document.getElementById('kpiTotal');
-            if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
+            // Guard: Never shrink or drop authentic tickets from active state
+            if (data.tickets.length >= allTickets.length || allTickets.length === 0) {
+              allTickets = data.tickets;
+              const kpiTot = document.getElementById('kpiTotal');
+              if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
+            }
           }
         }
       } catch (e) {
@@ -4528,8 +4531,8 @@ function generateTableRowsHtml(list) {
       });
     }
 
-    loadData();
-    setInterval(loadData, 10000);
+    setTimeout(loadData, 12000);
+    setInterval(loadData, 15000);
     window.addEventListener('load', purgeAutofill);
     document.addEventListener('DOMContentLoaded', purgeAutofill);
     setTimeout(purgeAutofill, 300);
