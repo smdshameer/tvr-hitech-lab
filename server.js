@@ -2273,28 +2273,28 @@ function getTeacherPortalHtml() {
       }
 
       if (!base64Photo1) {
-        alert('⚠️ [பிழை / Missing Photo 1]\n\nபுகைப்படம் 1 விடுபட்டுள்ளது!\nதயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        alert('⚠️ [பிழை] புகைப்படம் 1 விடுபட்டுள்ளது! தயவுசெய்து "1. UPS Display (UPS டிஸ்ப்ளே நிலை)" புகைப்படத்தைப் பதிவேற்றவும்.');
         const b = document.getElementById('photoBox1');
         if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
       if (!base64Photo2) {
-        alert('⚠️ [பிழை / Missing Photo 2]\n\nபுகைப்படம் 2 விடுபட்டுள்ளது!\nதயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        alert('⚠️ [பிழை] புகைப்படம் 2 விடுபட்டுள்ளது! தயவுசெய்து "2. Overall UPS Setup Photo (முழுமையான UPS அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
         const b = document.getElementById('photoBox2');
         if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
       if (!base64Photo3) {
-        alert('⚠️ [பிழை / Missing Photo 3]\n\nபுகைப்படம் 3 விடுபட்டுள்ளது!\nதயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தைப் பதிவேற்றவும்.');
+        alert('⚠️ [பிழை] புகைப்படம் 3 விடுபட்டுள்ளது! தயவுசெய்து "3. Battery Single MCB Photo (பேட்டரி சிங்கிள் MCB)" புகைப்படத்தைப் பதிவேற்றவும்.');
         const b = document.getElementById('photoBox3');
         if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
       }
 
       if (!base64Photo4) {
-        alert('⚠️ [பிழை / Missing Photo 4]\n\nபுகைப்படம் 4 விடுபட்டுள்ளது!\nதயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.\n\nஅனைத்து 4 புகைப்படங்களையும் பதிவேற்றுவது கட்டாயம்!');
+        alert('⚠️ [பிழை] புகைப்படம் 4 விடுபட்டுள்ளது! தயவுசெய்து "4. Isolation Transformer Photo (ஐசோலேஷன் டிரான்ஸ்பார்மர் அமைப்பு)" புகைப்படத்தைப் பதிவேற்றவும்.');
         const b = document.getElementById('photoBox4');
         if (b) { b.scrollIntoView({ behavior: 'smooth', block: 'center' }); b.style.outline = '3px solid #dc2626'; }
         return;
