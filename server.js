@@ -1633,12 +1633,12 @@ function getTeacherPortalHtml() {
   <div class="container">
     <div class="header-card">
       <span class="badge">Hi-Tech Lab ITSM Service Desk</span>
-      <h1>UPS Incident & Complaint Center</h1>
+      <h1>UPS Service Desk & Call Registration</h1>
       <p>திருவாரூர் மாவட்ட Hi-Tech Lab பழுதுபதிவு மற்றும் சேவை மையம் (183 பள்ளிகள்)</p>
     </div>
 
     <div class="tabs">
-      <div class="tab-btn active" id="tabLog" onclick="switchTab('log')">📝 புதிய புகார் பதிவு (Log Incident)</div>
+      <div class="tab-btn active" id="tabLog" onclick="switchTab('log')">📝 புதிய அழைப்பு பதிவு (Register Service Call)</div>
       <div class="tab-btn" id="tabTrack" onclick="switchTab('track')">🔍 புகார் நிலை அறிதல் (Track Status)</div>
     </div>
 
@@ -1935,7 +1935,7 @@ function getTeacherPortalHtml() {
           <textarea id="remarks" class="form-control" rows="2" placeholder="ஏதேனும் கூடுதல் தகவல்கள் இருந்தால் குறிப்பிடவும்..."></textarea>
         </div>
 
-        <button type="submit" id="btnSubmit" class="btn-submit">🚀 புகாரைப் பதிவு செய்க (Submit Incident)</button>
+        <button type="submit" id="btnSubmit" class="btn-submit">🚀 அழைப்பைப் பதிவு செய்க (Register Service Call)</button>
       </form>
     </div>
 
@@ -2554,7 +2554,7 @@ function normalizeImageUrl(url) {
 
 function generateTableRowsHtml(list) {
   if (!list || list.length === 0) {
-    return '<tr><td colspan="8" style="text-align:center; padding: 48px 20px; color: #64748b; font-size:14px; font-weight:600;"><div style="font-size:28px; margin-bottom:8px;">📋</div>No reported incidents found.</td></tr>';
+    return '<tr><td colspan="8" style="text-align:center; padding: 48px 20px; color: #64748b; font-size:14px; font-weight:600;"><div style="font-size:28px; margin-bottom:8px;">📋</div>No service calls registered yet.</td></tr>';
   }
   return list.map(function(t) {
     const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
@@ -2989,7 +2989,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       </div>
       <div class="kpi-card" style="border-left: 4px solid #f59e0b;">
         <div class="kpi-top">
-          <span>REPORTED INCIDENTS</span>
+          <span>CALLS REGISTERED</span>
           <span style="font-size: 16px;">📋</span>
         </div>
         <h3 id="kpiReported" style="color: #2563eb;">${totalReported}</h3>
@@ -3046,7 +3046,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       </select>
     </div>
 
-    <!-- Incident Tickets Table -->
+    <!-- Registered Service Calls Table -->
     <div class="table-card">
       <div class="table-responsive">
         <table>
@@ -3079,7 +3079,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       <div class="modal-header">
         <div class="modal-header-info">
           <span class="modal-header-badge" id="modalTicketBadge">HTL-TVR-XXXX</span>
-          <h2 id="modalTicketTitle">Manage Incident & Set Resolution</h2>
+          <h2 id="modalTicketTitle">Manage Service Call & Resolution</h2>
           <div class="modal-header-sub" id="modalTicketSub">School Name • Block Name</div>
         </div>
         <button type="button" class="btn-close-modal-x" onclick="closeActionModal()" title="Close Modal (மூடு / Esc)">✕</button>
@@ -3979,7 +3979,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           '</div>' +
           '<div class="header">' +
             '<h1>DIRECTORATE OF SCHOOL EDUCATION • GOVERNMENT OF TAMIL NADU</h1>' +
-            '<h2>Hi-Tech Lab UPS Maintenance & Incident Resolution Service Slip (Thiruvarur District)</h2>' +
+            '<h2>Hi-Tech Lab UPS Maintenance & Service Call Resolution Slip (Thiruvarur District)</h2>' +
           '</div>' +
           '<div class="grid">' +
             '<div class="field"><div class="field-label">Ticket ID</div><div class="field-val">' + t.ticketId + '</div></div>' +
