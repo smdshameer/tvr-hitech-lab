@@ -3014,40 +3014,40 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       background-color: var(--primary-light, #eff6ff);
     }
 
-    /* Photo Thumbnails (Compact 26px Grid) */
+    /* Photo Thumbnails (Clear & Visible 40px Grid) */
     .thumb-grid {
       display: flex;
-      gap: 2.5px;
+      gap: 4px;
       align-items: center;
     }
     .thumb-img {
-      width: 26px;
-      height: 26px;
+      width: 40px;
+      height: 40px;
       object-fit: cover;
-      border-radius: 4px;
-      border: 1px solid var(--border-color, #cbd5e1);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+      border-radius: 6px;
+      border: 1.5px solid var(--border-color, #cbd5e1);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
       flex-shrink: 0;
     }
     .thumb-img:hover {
-      transform: scale(1.3);
+      transform: scale(1.4);
       border-color: var(--primary);
-      box-shadow: 0 3px 8px rgba(37,99,235,0.3);
-      z-index: 20;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+      z-index: 25;
       position: relative;
     }
     .thumb-placeholder {
-      width: 26px;
-      height: 26px;
-      border-radius: 4px;
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
       background: var(--bg-main);
-      border: 1px dashed var(--border-color);
+      border: 1.5px dashed var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 14px;
       color: var(--text-muted);
       flex-shrink: 0;
     }
@@ -3372,7 +3372,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
               <th>School AI Contact</th>
               <th>Reported Fault & Priority</th>
               <th style="text-align: center;">Status / Category</th>
-              <th>Resolution & Vendor Notes</th>
+              <th>Resolution & Notes</th>
               <th style="text-align: center;">Action</th>
             </tr>
           </thead>
