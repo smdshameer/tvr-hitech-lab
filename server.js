@@ -4017,7 +4017,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (!currentAiDiagnosis) return;
       const notesField = document.getElementById('modalNotes');
       const existing = notesField.value.trim();
-      notesField.value = (existing ? existing + '\n' : '') + currentAiDiagnosis.formattedNotes;
+      notesField.value = (existing ? existing + String.fromCharCode(10) : '') + currentAiDiagnosis.formattedNotes;
       if (currentAiDiagnosis.suggestedStatus) {
         selectCategory(currentAiDiagnosis.suggestedStatus);
       }
