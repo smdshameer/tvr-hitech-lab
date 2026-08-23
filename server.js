@@ -3974,34 +3974,40 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       };
     }
 
-    async function fetchAiDiagnosis() {
-      if (!currentEditingTicketId) return;
+    async function fetchAiDiagnosis(targetTid) {
+      const tid = targetTid || currentEditingTicketId;
+      if (!tid) return;
+      
       const resBox = document.getElementById('aiResultBox');
       if (resBox) resBox.style.display = 'block';
 
-      const t = allTickets.find(i => i.ticketId === currentEditingTicketId);
+      const t = allTickets.find(i => String(i.ticketId).trim() === String(tid).trim());
       if (t) {
         // Immediate Zero-Lag Local Engine
         const localDiag = runClientAiDiagnosis(t);
         currentAiDiagnosis = localDiag;
-        document.getElementById('aiCauseText').textContent = localDiag.rootCause;
-        document.getElementById('aiActionList').innerHTML = localDiag.actionPlan.map(function(a) { return '<li>' + a + '</li>'; }).join('');
-        document.getElementById('aiSparesText').textContent = localDiag.spares;
+        const causeEl = document.getElementById('aiCauseText');
+        const listEl = document.getElementById('aiActionList');
+        const sparesEl = document.getElementById('aiSparesText');
+        if (causeEl) causeEl.textContent = localDiag.rootCause;
+        if (listEl) listEl.innerHTML = (localDiag.actionPlan || []).map(function(a) { return '<li>' + a + '</li>'; }).join('');
+        if (sparesEl) sparesEl.textContent = localDiag.spares;
       }
 
-      // Also call server in background
+      // Also sync with server in background
       try {
-        const res = await fetch('/api/ai-diagnose?ticketId=' + encodeURIComponent(currentEditingTicketId));
+        const res = await fetch('/api/ai-diagnose?ticketId=' + encodeURIComponent(tid));
         const data = await res.json();
         if (data && data.success) {
           currentAiDiagnosis = data;
-          document.getElementById('aiCauseText').textContent = data.rootCause;
-          document.getElementById('aiActionList').innerHTML = (data.actionPlan || []).map(function(a) { return '<li>' + a + '</li>'; }).join('');
-          document.getElementById('aiSparesText').textContent = data.spares;
+          const causeEl = document.getElementById('aiCauseText');
+          const listEl = document.getElementById('aiActionList');
+          const sparesEl = document.getElementById('aiSparesText');
+          if (causeEl) causeEl.textContent = data.rootCause;
+          if (listEl) listEl.innerHTML = (data.actionPlan || []).map(function(a) { return '<li>' + a + '</li>'; }).join('');
+          if (sparesEl) sparesEl.textContent = data.spares;
         }
       } catch(e) {}
-
-      showDeleteToast('🤖 Gemini AI Diagnosis Complete!');
     }
     window.fetchAiDiagnosis = fetchAiDiagnosis;
 
