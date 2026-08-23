@@ -492,7 +492,7 @@ function loadTicketsFromJson() {
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
 function getAllTicketsSync() {
-  return loadTicketsFromJson().filter(t => t && t.ticketId && !PERMANENT_PURGED_IDS.has(String(t.ticketId).trim()));
+  return loadTicketsFromJson();
 }
 
 function saveTicketsToJson(list) {
