@@ -739,6 +739,55 @@ async function syncGasTickets() {
           saveTicketsToJson(localTickets);
           console.log(`🔄 [CLOUD SYNC] Cleanly added ${added} new tickets from Google Sheets!`);
         }
+
+        // Also seed into PostgreSQL if connected
+        if (usePostgres && pool) {
+          for (const rt of remoteTickets) {
+            if (!rt || isTestOrPurgedTicket(rt)) continue;
+            const canonicalPrio = normalizePriority(rt.priority, rt.issue);
+            try {
+              await pool.query(`
+                INSERT INTO tickets (
+                  ticket_id, created_date, priority, status, resolution_category,
+                  district, block, school_id, school_name, udise_code,
+                  ai_instructor_name, ai_instructor_mobile, reported_issue,
+                  duration, ups_serial_number, resolution_type, vendor_name,
+                  vendor_ticket_no, parts_required, resolution_notes,
+                  resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+                ON CONFLICT (ticket_id) DO NOTHING
+              `, [
+                rt.ticketId,
+                rt.createdDate || rt.createdAt || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                canonicalPrio,
+                rt.status || 'New / Under Review',
+                rt.resolutionCategory || 'Pending',
+                rt.district || 'Thiruvarur',
+                rt.block || '',
+                rt.schoolId || '',
+                rt.schoolName || '',
+                rt.udise || '',
+                rt.aiName || '',
+                rt.phone || '',
+                rt.issue || '',
+                rt.duration || 'Today',
+                rt.serialNo || '',
+                rt.resolutionType || '',
+                rt.vendorName || '',
+                rt.vendorTicketNo || '',
+                rt.partsRequired || '',
+                rt.resolutionNotes || '',
+                rt.resolvedAt || '',
+                rt.photo1Url || '',
+                rt.photo2Url || '',
+                rt.photo3Url || '',
+                rt.photo4Url || '',
+                rt.remarks || '',
+                JSON.stringify(rt.timeline || [])
+              ]);
+            } catch(pgErr) {}
+          }
+        }
       }
       lastGasSyncTime = Date.now();
     } catch (e) {
@@ -802,7 +851,13 @@ async function seedPostgresBaseline() {
 }
 
 async function getAllTickets() {
-  const bundled = JSON.parse(JSON.stringify(EMBEDDED_AUTHENTIC_TICKETS));
+  // Always trigger Google Sheets cloud sync
+  try {
+    await Promise.race([
+      syncGasTickets(),
+      new Promise(res => setTimeout(res, 2500))
+    ]);
+  } catch(e) {}
 
   let dbRows = [];
   if (usePostgres && pool) {
@@ -815,15 +870,10 @@ async function getAllTickets() {
       dbRows = res.rows.map(mapRowToTicket);
     } catch (e) {}
   } else {
-    try {
-      await Promise.race([
-        syncGasTickets(),
-        new Promise(res => setTimeout(res, 2500))
-      ]);
-    } catch(e) {}
     dbRows = loadTicketsFromJson();
   }
 
+  const bundled = JSON.parse(JSON.stringify(EMBEDDED_AUTHENTIC_TICKETS));
   const combined = [...dbRows, ...bundled];
   const seen = new Set();
   const cleanList = [];
