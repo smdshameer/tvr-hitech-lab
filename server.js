@@ -3265,25 +3265,25 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       <div class="table-responsive">
         <table class="data-table">
           <colgroup>
-            <col style="width: 110px;">
-            <col style="width: 140px;">
-            <col style="min-width: 170px;">
-            <col style="width: 140px;">
-            <col style="min-width: 160px;">
             <col style="width: 120px;">
-            <col style="min-width: 160px;">
-            <col style="width: 118px;">
+            <col style="width: 180px;">
+            <col style="min-width: 190px;">
+            <col style="width: 160px;">
+            <col style="min-width: 200px;">
+            <col style="width: 165px;">
+            <col style="min-width: 210px;">
+            <col style="width: 130px;">
           </colgroup>
           <thead>
             <tr>
-              <th class="col-ticket-id">Ticket<br>ID</th>
-              <th class="col-photos">Service Call<br>Photos (4)</th>
-              <th class="col-school">School &<br>Block</th>
-              <th class="col-ai-contact">School AI<br>Contact</th>
-              <th class="col-fault">Reported Fault<br>& Priority</th>
-              <th class="col-status" style="text-align: center;">Status /<br>Category</th>
-              <th class="col-notes">Resolution &<br>Vendor Notes</th>
-              <th class="col-actions" style="text-align: center;">Quick<br>Actions</th>
+              <th class="col-ticket-id">Ticket ID</th>
+              <th class="col-photos">Service Call Photos (4)</th>
+              <th class="col-school">School & Block</th>
+              <th class="col-ai-contact">School AI Contact</th>
+              <th class="col-fault">Reported Fault & Priority</th>
+              <th class="col-status" style="text-align: center;">Status / Category</th>
+              <th class="col-notes">Resolution & Vendor Notes</th>
+              <th class="col-actions" style="text-align: center;">Quick Actions</th>
             </tr>
           </thead>
           <tbody id="tableBody">
