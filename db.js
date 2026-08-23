@@ -153,7 +153,29 @@ function loadTicketsFromJson() {
     } catch(e) {}
   }
 
-  return list.filter(t => !isTestOrPurgedTicket(t) && !deletedTicketIds.has(String(t.ticketId).trim()));
+  // Deduplicate and filter out any simulation/dummy tests
+  const seenUnique = new Set();
+  const cleanList = [];
+
+  list.forEach(t => {
+    if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
+    if (deletedTicketIds.has(String(t.ticketId).trim())) return;
+
+    const issue = String(t.issue || '').toLowerCase();
+    const remarks = String(t.remarks || '').toLowerCase();
+    if (issue.includes('simulation') || remarks.includes('simulation')) return;
+
+    const u = String(t.udise || '').trim();
+    const dt = String(t.createdDate || t.createdAt || '').trim();
+    const uniqueKey = u ? `${u}_${dt}` : String(t.ticketId).trim();
+
+    if (!seenUnique.has(uniqueKey)) {
+      seenUnique.add(uniqueKey);
+      cleanList.push(t);
+    }
+  });
+
+  return cleanList;
 }
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
