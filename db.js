@@ -449,21 +449,14 @@ function loadTicketsFromJson() {
       if (Array.isArray(b) && b.length > 0) list = b;
     } catch(e) {}
   }
-  if (list.length === 0 || list.length < 15) {
-    try {
-      const bundled = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'htl_itsm_tickets.json'), 'utf8'));
-      if (Array.isArray(bundled) && bundled.length > 0) {
-        // Merge bundled tickets
-        const localIds = new Set(list.map(t => String(t.ticketId).trim()));
-        bundled.forEach(bt => {
-          if (!localIds.has(String(bt.ticketId).trim())) {
-            list.push(bt);
-            localIds.add(String(bt.ticketId).trim());
-          }
-        });
-      }
-    } catch(e) {}
-  }
+  // Always ensure all authentic embedded tickets are present in memory
+  const localIds = new Set(list.map(t => String(t.ticketId).trim()));
+  EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
+    if (!localIds.has(String(bt.ticketId).trim())) {
+      list.push(bt);
+      localIds.add(String(bt.ticketId).trim());
+    }
+  });
 
   // Deduplicate and filter out any simulation/dummy tests
   const seenUnique = new Set();
