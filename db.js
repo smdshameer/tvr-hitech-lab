@@ -777,28 +777,20 @@ async function syncGasTickets() {
         });
 
         let added = 0;
-        remoteTickets.forEach((rt, idx) => {
+        remoteTickets.forEach((rt) => {
           if (!rt || isTestOrPurgedTicket(rt)) return;
-          const driveUrl = String(rt.googleDriveFolderUrl || '').trim();
-          const time = String(rt.createdDate || rt.createdAt || '').trim();
           const udise = String(rt.udise || '').trim();
-          const udiseTimeKey = `${udise}_${time}`;
+          const assignedId = canonicalizeTicketId(rt.ticketId, udise);
+          if (deletedTicketIds.has(assignedId)) return;
 
-          // If this remote ticket was already imported, skip completely
-          if ((driveUrl && existingSignatures.has(driveUrl)) || (udise && time && existingSignatures.has(udiseTimeKey))) {
-            return;
-          }
-
-          let assignedId = canonicalizeTicketId(rt.ticketId, udise);
-          if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId) || deletedTicketIds.has(assignedId)) {
-            return;
-          }
           const cleanTicket = { ...rt, ticketId: assignedId };
+          const existingIdx = localTickets.findIndex(lt => String(lt.ticketId).trim() === assignedId);
 
-          if (driveUrl) existingSignatures.add(driveUrl);
-          if (udise && time) existingSignatures.add(udiseTimeKey);
-
-          localTickets.unshift(cleanTicket);
+          if (existingIdx !== -1) {
+            localTickets[existingIdx] = cleanTicket;
+          } else {
+            localTickets.unshift(cleanTicket);
+          }
           added++;
         });
 
@@ -997,6 +989,20 @@ async function checkOpenTicketByUdise(cleanUdise) {
 }
 
 async function createTicket(ticketData) {
+  if (!ticketData || !ticketData.ticketId) return;
+  const cleanId = String(ticketData.ticketId).trim();
+  deletedTicketIds.delete(cleanId);
+  try {
+    const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
+    if (fs.existsSync(delFilePath)) {
+      try {
+        let delArr = JSON.parse(fs.readFileSync(delFilePath, 'utf8'));
+        delArr = delArr.filter(id => id !== cleanId);
+        safeWriteFileSync(delFilePath, JSON.stringify(delArr, null, 2), 'utf8');
+      } catch(e) {}
+    }
+  } catch(e) {}
+
   if (usePostgres && pool) {
     try {
       await pool.query(`
@@ -1008,6 +1014,17 @@ async function createTicket(ticketData) {
           vendor_ticket_no, parts_required, resolution_notes,
           resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
+        ON CONFLICT (ticket_id) DO UPDATE SET
+          created_date = EXCLUDED.created_date,
+          reported_issue = EXCLUDED.reported_issue,
+          ai_instructor_name = EXCLUDED.ai_instructor_name,
+          ai_instructor_mobile = EXCLUDED.ai_instructor_mobile,
+          photo1_data = EXCLUDED.photo1_data,
+          photo2_data = EXCLUDED.photo2_data,
+          photo3_data = EXCLUDED.photo3_data,
+          photo4_data = EXCLUDED.photo4_data,
+          remarks = EXCLUDED.remarks,
+          status = 'New / Under Review'
       `, [
         ticketData.ticketId,
         ticketData.createdAt,
@@ -1041,8 +1058,13 @@ async function createTicket(ticketData) {
       console.error('Postgres insert ticket error:', e.message);
     }
   }
-  const list = loadTicketsFromJson();
-  list.unshift(ticketData);
+  let list = loadTicketsFromJson();
+  const existIdx = list.findIndex(t => String(t.ticketId).trim() === cleanId);
+  if (existIdx !== -1) {
+    list[existIdx] = ticketData;
+  } else {
+    list.unshift(ticketData);
+  }
   saveTicketsToJson(list);
 }
 
