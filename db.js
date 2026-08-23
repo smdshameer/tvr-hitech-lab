@@ -744,6 +744,18 @@ async function initDatabase() {
 let lastGasSyncTime = 0;
 let gasSyncPromise = null;
 
+function canonicalizeTicketId(rawId, udise) {
+  const u = String(udise || '').trim();
+  const baseId = u.length >= 5 ? `HTL-TVR-${u.slice(-5)}` : (rawId || 'HTL-TVR-00000');
+  if (!rawId) return baseId;
+  const clean = String(rawId).trim();
+  // Strip arbitrary Google Sheets row index suffixes (e.g. HTL-TVR-05301-33 -> HTL-TVR-05301)
+  if (/^HTL-TVR-\d{5}-\d{2,}$/.test(clean)) {
+    return baseId;
+  }
+  return clean;
+}
+
 async function syncGasTickets() {
   if (Date.now() - lastGasSyncTime < 5000) return; // 5s cache
   if (gasSyncPromise) return gasSyncPromise;
@@ -777,7 +789,7 @@ async function syncGasTickets() {
             return;
           }
 
-          let assignedId = rt.ticketId || `HTL-TVR-${udise.slice(-5)}`;
+          let assignedId = canonicalizeTicketId(rt.ticketId, udise);
           if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId) || deletedTicketIds.has(assignedId)) {
             return;
           }
