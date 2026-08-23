@@ -2912,105 +2912,179 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-        /* Precision Compact Data Table */
+    /* Data Table Card Container - Modern Field Call Tracker Architecture */
     .table-card {
-      background: var(--bg-card); border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
-      overflow: hidden; display: flex; flex-direction: column;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg, 16px);
+      box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .table-header-bar {
-      padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border-color);
-      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
     }
     .table-title {
-      font-size: 0.92rem; font-weight: 800; color: var(--text-primary);
-      display: flex; align-items: center; gap: 0.45rem; letter-spacing: -0.01em;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    .table-responsive { width: 100%; overflow-x: auto; max-height: 640px; }
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      max-height: 640px;
+    }
     .data-table {
-      width: 100%; border-collapse: collapse; text-align: left;
-      font-size: 0.82rem; table-layout: auto;
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+      table-layout: auto;
     }
     .data-table th {
-      position: sticky; top: 0; background: var(--bg-card); z-index: 10;
-      padding: 0.65rem 0.6rem; font-weight: 800; color: var(--text-secondary);
-      text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em;
-      border-bottom: 2px solid var(--border-color); white-space: nowrap;
-      vertical-align: middle; line-height: 1.2;
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 10;
+      padding: 0.85rem 1rem;
+      font-weight: 700;
+      color: var(--text-secondary, #475569);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid var(--border-color);
+      white-space: nowrap;
+      user-select: none;
+      vertical-align: middle;
     }
     .data-table td {
-      padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border-color);
-      color: var(--text-primary); vertical-align: middle;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-primary);
+      vertical-align: middle;
     }
-    .data-table tbody tr { transition: background-color 0.12s ease; }
-    .data-table tbody tr:hover { background-color: var(--primary-light); }
-
-    /* Precision Column Sizing Matching Text Width Perfectly */
-    .col-ticket-id { width: 110px; min-width: 105px; max-width: 115px; white-space: nowrap; text-align: left; }
-    .col-photos { width: 140px; min-width: 135px; max-width: 145px; text-align: left; }
-    .col-school { min-width: 170px; max-width: 230px; text-align: left; }
-    .col-ai-contact { width: 140px; min-width: 130px; max-width: 150px; text-align: left; }
-    .col-fault { min-width: 160px; max-width: 220px; text-align: left; }
-    .col-status { width: 120px; min-width: 115px; max-width: 125px; text-align: center; }
-    .col-notes { min-width: 160px; max-width: 230px; text-align: left; }
-    .col-actions { width: 118px; min-width: 112px; max-width: 122px; text-align: center; white-space: nowrap; }
+    .data-table tbody tr {
+      transition: background-color 0.15s ease;
+    }
+    .data-table tbody tr:hover {
+      background-color: var(--primary-light, #eff6ff);
+    }
 
     /* Fixed Sticky Action Column on the right */
-    .data-table th.col-actions {
-      position: sticky; right: 0; z-index: 15; background: var(--bg-card);
-      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.04); text-align: center;
+    .data-table th:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 15;
+      background: var(--bg-card);
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.06);
+      text-align: center;
     }
-    .data-table td.col-actions {
-      position: sticky; right: 0; z-index: 5; background: var(--bg-card);
-      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.04); text-align: center;
+    .data-table td:last-child {
+      position: sticky;
+      right: 0;
+      z-index: 5;
+      background: var(--bg-card);
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.06);
+      text-align: center;
     }
-    .data-table tbody tr:hover td.col-actions { background-color: var(--primary-light); }
+    .data-table tbody tr:hover td:last-child {
+      background-color: var(--primary-light, #eff6ff);
+    }
 
-    /* Photo Thumbnails (Compact 30px Grid) */
-    .thumb-grid { display: flex; gap: 3px; align-items: center; }
+    /* Photo Thumbnails */
+    .thumb-grid {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
     .thumb-img {
-      width: 30px; height: 30px; object-fit: cover; border-radius: 5px; cursor: pointer;
-      border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s ease;
+      width: 32px;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid var(--border-color, #cbd5e1);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      cursor: pointer;
+      transition: all 0.15s ease;
       flex-shrink: 0;
     }
-    .thumb-img:hover { transform: scale(1.2); border-color: var(--primary); box-shadow: 0 3px 8px rgba(37,99,235,0.3); z-index: 20; position: relative; }
+    .thumb-img:hover {
+      transform: scale(1.2);
+      border-color: var(--primary);
+      box-shadow: 0 3px 8px rgba(37,99,235,0.3);
+      z-index: 20;
+      position: relative;
+    }
     .thumb-placeholder {
-      width: 30px; height: 30px; border-radius: 5px; background: var(--bg-main); border: 1px dashed var(--border-color);
-      display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      background: var(--bg-main);
+      border: 1px dashed var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: var(--text-muted);
       flex-shrink: 0;
     }
 
-    /* Badges with Force Multi-Line Wrap */
+    /* Modern Pill Badges (field-call-tracker Design) */
     .badge {
-      display: inline-block !important;
-      padding: 3px 6px !important;
-      border-radius: 6px !important;
-      font-size: 10.5px !important;
-      font-weight: 800 !important;
-      white-space: normal !important;
-      text-align: center !important;
-      line-height: 1.25 !important;
-      max-width: 112px !important;
-      box-sizing: border-box !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      white-space: nowrap;
     }
-    .badge-remote { background: var(--status-completed-bg); color: var(--status-completed-text); border: 1px solid var(--status-completed-border); }
-    .badge-direct { background: var(--status-direct-bg); color: var(--status-direct-text); border: 1px solid var(--status-direct-border); }
-    .badge-vendor { background: var(--status-incomplete-bg); color: var(--status-incomplete-text); border: 1px solid var(--status-incomplete-border); }
-    .badge-open { background: var(--status-progress-bg); color: var(--status-progress-text); border: 1px solid var(--status-progress-border); }
+    .badge-status-completed, .badge-remote {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1px solid #86efac;
+    }
+    .badge-status-direct, .badge-direct {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #93c5fd;
+    }
+    .badge-status-pending, .badge-open {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1px solid #fde047;
+    }
+    .badge-status-incomplete, .badge-vendor {
+      background: #ffe4e6;
+      color: #be123c;
+      border: 1px solid #fca5a5;
+    }
 
-        .fault-issue-text {
-      font-weight: 700; color: var(--text-primary); font-size: 11.5px;
-      line-height: 1.35; white-space: normal !important; word-break: break-word !important;
-      overflow-wrap: break-word !important;
+    .prio-pill {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      display: inline-block;
     }
-    .prio-pill { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 2px; }
     .prio-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .prio-high { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
     .prio-med { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
     .prio-low { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
-    /* Action SVG Buttons (Compact 32px Grid) */
-    .action-grid-buttons { display: flex; gap: 4px; justify-content: center; align-items: center; white-space: nowrap; }
+    /* Action Buttons (Compact 32px) */
+    .action-grid-buttons { display: flex; gap: 5px; justify-content: center; align-items: center; white-space: nowrap; }
     .btn-table-action {
       width: 32px; height: 32px; border-radius: 7px;
       display: inline-flex; align-items: center; justify-content: center;
@@ -3023,6 +3097,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .btn-table-slip:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.3); }
     .btn-table-del { background: #dc2626; color: #ffffff; }
     .btn-table-del:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35); }
+
+    .font-mono {
+      font-family: var(--font-mono, 'JetBrains Mono', monospace);
+      font-weight: 500;
+    }
 
     /* Hardware Accelerated Modal System */
     .drawer-overlay {
