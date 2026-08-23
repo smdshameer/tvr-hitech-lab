@@ -2569,7 +2569,6 @@ function generateTableRowsHtml(list) {
     else if (p.includes('High')) prioClass = 'prio-high';
     else if (p.includes('Low')) prioClass = 'prio-low';
 
-    // XSS Protection: escape all user-controlled data
     const escTicketId = escapeHtml(t.ticketId);
     const escCreatedDate = escapeHtml(t.createdDate || t.createdAt || '-');
     const escSchoolName = escapeHtml(t.schoolName);
@@ -2582,10 +2581,7 @@ function generateTableRowsHtml(list) {
     const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
     const escVendorName = escapeHtml(t.vendorName || '');
     const escVendorTicketNo = escapeHtml(t.vendorTicketNo || 'Pending #');
-
-    const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
     const cleanPhone = String(t.phone || '').replace(/\D/g, '');
-    const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td>' +
@@ -2628,7 +2624,7 @@ function generateTableRowsHtml(list) {
           '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip (சர்வீஸ் ஸ்லிப் அச்சிடு)">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
           '</button>' +
-          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Service Call (அழைப்பை நீக்கு)">' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="window.deleteSingleTicket(this.dataset.tid)" class="btn-table-action btn-table-del" title="Delete Service Call (அழைப்பை நீக்கு)">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
           '</button>' +
         '</div>' +
@@ -3461,6 +3457,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     </div>
   </div>
 
+  <!-- Initial Server-Rendered JSON Payload -->
+  <script id="initialTicketsData" type="application/json">${JSON.stringify(initialTickets).replace(/</g, '\\u003c')}</script>
+  <script id="masterSchoolsData" type="application/json">${JSON.stringify(db.masterSchools).replace(/</g, '\\u003c')}</script>
+
   <script>
     // Theme toggle logic
     function toggleTheme() {
@@ -3491,6 +3491,30 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (bf) bf.value = '';
       if (cf) cf.value = '';
       window.renderTable();
+    }
+
+    function updateAllKpis() {
+      const total = allTickets.length;
+      const rem = allTickets.filter(t => t.status === 'Resolved Remotely' || t.resolutionCategory === 'Resolved Remotely').length;
+      const dir = allTickets.filter(t => t.status === 'Solved by Direct Visit' || t.resolutionCategory === 'Solved by Direct Visit').length;
+      const ven = allTickets.filter(t => t.status === 'Vendor Escalated').length;
+      const pend = allTickets.filter(t => !t.status || t.status === 'New / Under Review' || t.status === 'In Progress (Remote)').length;
+
+      const kTotal = document.getElementById('kpiTotal');
+      const kRep = document.getElementById('kpiReported');
+      const kRem = document.getElementById('kpiResolvedRemote');
+      const kDir = document.getElementById('kpiSolvedDirect');
+      const kPend = document.getElementById('kpiPending');
+      const kVen = document.getElementById('kpiVendor');
+      const kTableCount = document.getElementById('tableCountBadge');
+
+      if (kTotal) kTotal.textContent = (masterDirectory && masterDirectory.length) ? masterDirectory.length : 183;
+      if (kRep) kRep.textContent = total;
+      if (kRem) kRem.textContent = rem;
+      if (kDir) kDir.textContent = dir;
+      if (kPend) kPend.textContent = pend;
+      if (kVen) kVen.textContent = ven;
+      if (kTableCount) kTableCount.textContent = total + ' Calls';
     }
 
     let allTickets = [];
@@ -3815,81 +3839,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           return;
         }
 
-        tbody.innerHTML = filtered.map(function(t) {
-          const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-
-          let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
-          if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
-          else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
-          else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
-
-          let prioClass = 'prio-med';
-          const p = t.priority || 'Medium';
-          if (p.includes('Critical')) prioClass = 'prio-crit';
-          else if (p.includes('High')) prioClass = 'prio-high';
-          else if (p.includes('Low')) prioClass = 'prio-low';
-
-          // XSS Protection: escape all user-controlled data
-          const escTicketId = escapeHtml(t.ticketId);
-          const escCreatedDate = escapeHtml(t.createdDate || t.createdAt || '-');
-          const escSchoolName = escapeHtml(t.schoolName);
-          const escBlock = escapeHtml(t.block);
-          const escUdise = escapeHtml(t.udise);
-          const escAiName = escapeHtml(t.aiName || '-');
-          const escPhone = escapeHtml(t.phone || '-');
-          const escIssue = escapeHtml(t.issue);
-          const escPriority = escapeHtml(p);
-          const escResolutionNotes = escapeHtml(t.resolutionNotes || '');
-          const escVendorName = escapeHtml(t.vendorName || '');
-          const escVendorTicketNo = escapeHtml(t.vendorTicketNo || 'Pending #');
-
-          const waText = encodeURIComponent('வணக்கம் ' + (t.aiName || '') + ' ஆசிரியர் அவர்களுக்கு, நான் முகமது ஷமீர் (Field Engineer, Hi-Tech Lab). உங்கள் பள்ளியின் ' + (t.ticketId || '') + ' புகார் தொடர்பாக தொடர்பு கொள்கிறேன்.');
-          const cleanPhone = String(t.phone || '').replace(/\D/g, '');
-          const waLink = 'https://wa.me/91' + cleanPhone + '?text=' + waText;
-
-          return '<tr data-ticket-id="' + escTicketId + '">' +
-            '<td>' +
-              '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
-              '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
-            '</td>' +
-            '<td>' +
-              '<div class="thumb-grid">' +
-                (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
-                (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
-                (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
-                (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
-              '</div>' +
-            '</td>' +
-            '<td>' +
-              '<strong style="color:#0f172a; font-size:13.5px;">' + escSchoolName + '</strong>' +
-              '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + escBlock + ' Block • <strong style="color:#2563eb;">' + escUdise + '</strong></div>' +
-            '</td>' +
-            '<td>' +
-              '<div style="font-weight:700; color:#0f172a;">' + escAiName + '</div>' +
-              '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + escPhone + '</a>' +
-            '</td>' +
-            '<td>' +
-              '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + escIssue + '</div>' +
-              '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
-            '</td>' +
-            '<td>' + badgeHtml + '</td>' +
-            '<td>' +
-              '<div style="font-size:12px; max-width:240px;">' +
-                (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
-                (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
-                (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
-              '</div>' +
-            '</td>' +
-            '<td>' +
-              '<div class="action-col">' +
-                '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
-                '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
-                '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-                '<button type="button" data-tid="' + escTicketId + '" onclick="deleteSingleTicket(this.dataset.tid)" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700;" title="Delete this ticket">🗑️ Delete</button>' +
-              '</div>' +
-            '</td>' +
-          '</tr>';
-        }).join('');
+                tbody.innerHTML = generateTableRowsHtml(filtered);
       } catch (err) {
         console.error('renderTable error:', err);
       }
