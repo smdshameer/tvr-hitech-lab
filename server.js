@@ -662,6 +662,7 @@ async function handleRequest(req, res) {
           ticketId = `${baseTicketId}-${suffixNum}`;
         }
 
+        const canonicalPriority = db.normalizePriority(data.priority, data.issue);
         const newTicket = {
           ticketId: ticketId,
           createdAt: dateStr,
