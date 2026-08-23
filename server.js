@@ -2584,11 +2584,11 @@ function generateTableRowsHtml(list) {
     const cleanPhone = String(t.phone || '').replace(/\D/g, '');
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
-      '<td>' +
-        '<div style="font-weight:800; color:#1e3a8a; font-size:13.5px; letter-spacing:0.3px;">' + escTicketId + '</div>' +
-        '<div style="color:#64748b; font-size:11.5px; margin-top:3px; font-weight:500;">' + escCreatedDate + '</div>' +
+      '<td class="col-ticket-id">' +
+        '<div style="font-weight:800; color:#1e3a8a; font-size:13px; letter-spacing:0.2px;">' + escTicketId + '</div>' +
+        '<div style="color:#64748b; font-size:11px; margin-top:2px; font-weight:500;">' + escCreatedDate + '</div>' +
       '</td>' +
-      '<td>' +
+      '<td class="col-photos">' +
         '<div class="thumb-grid">' +
           (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
           (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall Setup">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
@@ -2596,29 +2596,31 @@ function generateTableRowsHtml(list) {
           (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
         '</div>' +
       '</td>' +
-      '<td>' +
-        '<div style="color:#0f172a; font-weight:700; font-size:13.5px; line-height:1.3;">' + escSchoolName + '</div>' +
-        '<div style="color:#64748b; font-size:12px; margin-top:3px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
+      '<td class="col-school">' +
+        '<div style="color:#0f172a; font-weight:700; font-size:13px; line-height:1.3;">' + escSchoolName + '</div>' +
+        '<div style="color:#64748b; font-size:11.5px; margin-top:2px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
       '</td>' +
-      '<td>' +
-        '<div style="font-weight:700; color:#0f172a; font-size:13px;">' + escAiName + '</div>' +
-        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; margin-top:2px;">📞 ' + escPhone + '</a>' +
+      '<td class="col-ai-contact">' +
+        '<div style="font-weight:700; color:#0f172a; font-size:12.5px;">' + escAiName + '</div>' +
+        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:11.5px; text-decoration:none; display:inline-flex; align-items:center; gap:3px; margin-top:2px;">📞 ' + escPhone + '</a>' +
       '</td>' +
-      '<td>' +
-        '<div style="font-weight:700; color:#1e293b; font-size:12.5px; line-height:1.3;">' + escIssue + '</div>' +
+      '<td class="col-fault">' +
+        '<div style="font-weight:700; color:#1e293b; font-size:12px; line-height:1.3;">' + escIssue + '</div>' +
         '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
-      '<td>' + badgeHtml + '</td>' +
-      '<td>' +
-        '<div style="font-size:12px; max-width:240px; line-height:1.4;">' +
-          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:6px 8px; border-radius:6px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
-          (t.vendorName ? '<div style="color:#b91c1c; margin-top:4px; background:#fef2f2; padding:5px 8px; border-radius:6px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
-          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:11.5px;">Pending engineer review</span>' : '') +
+      '<td class="col-status" style="text-align: center;">' + badgeHtml + '</td>' +
+      '<td class="col-notes">' +
+        '<div style="font-size:11.5px; line-height:1.35;">' +
+          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:5px 7px; border-radius:6px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+          (t.vendorName ? '<div style="color:#b91c1c; margin-top:3px; background:#fef2f2; padding:4px 7px; border-radius:6px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
+          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:11px;">Pending engineer review</span>' : '') +
         '</div>' +
       '</td>' +
-      '<td>' +
+      '<td class="col-actions" style="text-align: center;">' +
         '<div class="action-grid-buttons">' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Edit & Manage Service Call (புகார் திருத்து & தீர்வு செய்க)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Edit & Manage Service Call (புகார் திருத்து & தீர்வு செய்க)">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+          '</button>' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip (சர்வீஸ் ஸ்லிப் அச்சிடு)">' +
             '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
           '</button>' +
