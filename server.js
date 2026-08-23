@@ -854,15 +854,6 @@ if (pathname === '/api/data' && req.method === 'GET') {
       if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
       return true;
     });
-    try {
-      const cookies = parseCookies(req);
-      if (cookies.htl_del) {
-        const deletedArr = JSON.parse(decodeURIComponent(cookies.htl_del) || '[]');
-        if (Array.isArray(deletedArr) && deletedArr.length > 0) {
-          tickets = tickets.filter(t => t && t.ticketId && !deletedArr.includes(String(t.ticketId).trim()));
-        }
-      }
-    } catch(e) {}
     const session = getAuthenticatedSession(req);
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
@@ -1007,15 +998,6 @@ if (pathname === '/api/data' && req.method === 'GET') {
       if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
       return true;
     });
-    try {
-      const cookies = parseCookies(req);
-      if (cookies.htl_del) {
-        const deletedArr = JSON.parse(decodeURIComponent(cookies.htl_del) || '[]');
-        if (Array.isArray(deletedArr) && deletedArr.length > 0) {
-          tickets = tickets.filter(t => t && t.ticketId && !deletedArr.includes(String(t.ticketId).trim()));
-        }
-      }
-    } catch(e) {}
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
     return;
