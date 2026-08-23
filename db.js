@@ -146,10 +146,19 @@ function loadTicketsFromJson() {
       if (Array.isArray(b) && b.length > 0) list = b;
     } catch(e) {}
   }
-  if (list.length === 0) {
+  if (list.length === 0 || list.length < 15) {
     try {
-      const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
-      if (Array.isArray(bundled)) list = bundled;
+      const bundled = JSON.parse(fs.readFileSync(path.join(__dirname, 'data', 'htl_itsm_tickets.json'), 'utf8'));
+      if (Array.isArray(bundled) && bundled.length > 0) {
+        // Merge bundled tickets
+        const localIds = new Set(list.map(t => String(t.ticketId).trim()));
+        bundled.forEach(bt => {
+          if (!localIds.has(String(bt.ticketId).trim())) {
+            list.push(bt);
+            localIds.add(String(bt.ticketId).trim());
+          }
+        });
+      }
     } catch(e) {}
   }
 
