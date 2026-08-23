@@ -4224,56 +4224,82 @@ function generateTableRowsHtml(list) {
     window.triggerDriveBackup = triggerDriveBackup;
 
     function openActionModal(ticketId) {
-      const cleanTid = String(ticketId || "").trim();
-      currentEditingTicketId = cleanTid;
-      
-      const t = allTickets.find(function(i) {
-        const iTid = String(i.ticketId || i.id || "").trim();
-        return iTid === cleanTid || iTid.includes(cleanTid) || cleanTid.includes(iTid);
-      });
-
-      const setElText = function(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; };
-      const setElVal = function(id, v) { const el = document.getElementById(id); if (el) el.value = v; };
-
-      if (t) {
-        setElText("modalTicketBadge", t.ticketId || cleanTid);
-        setElText("modalTicketTitle", "Manage Incident: " + (t.ticketId || cleanTid));
-        setElText("modalTicketSub", (t.schoolName || "School") + " • " + (t.block || "Block") + " (UDISE: " + (t.udise || "-") + ")");
+      try {
+        const cleanTid = String(ticketId || "").trim();
+        currentEditingTicketId = cleanTid;
         
-        setElVal("modalStatus", t.status || "New / Under Review");
-        setElVal("modalPriority", t.priority || "Medium");
-        setElVal("modalVendorName", t.vendorName || "");
-        setElVal("modalVendorTicket", t.vendorTicketNo || "");
-        setElVal("modalParts", t.partsRequired || "");
-        setElVal("modalNotes", t.resolutionNotes || "");
+        // 1. Instantly display modal with high priority
+        const m = document.getElementById("actionModal");
+        if (m) {
+          m.classList.add("active");
+          m.style.setProperty("display", "flex", "important");
+          m.style.setProperty("opacity", "1", "important");
+          m.style.setProperty("visibility", "visible", "important");
+          m.style.setProperty("pointer-events", "auto", "important");
+        }
 
-        const vBox = document.getElementById("vendorBox");
-        if (vBox) vBox.style.display = (t.status === "Vendor Escalated") ? "block" : "none";
+        // 2. Find ticket in memory
+        const t = (allTickets || []).find(function(i) {
+          if (!i) return false;
+          const iTid = String(i.ticketId || i.id || "").trim();
+          return iTid === cleanTid || (cleanTid && iTid.includes(cleanTid)) || (iTid && cleanTid.includes(iTid));
+        });
 
-        editPhoto1 = t.photo1Url || "";
-        editPhoto2 = t.photo2Url || "";
-        editPhoto3 = t.photo3Url || "";
-        editPhoto4 = t.photo4Url || "";
-        updatePhotoPreviews();
+        const setElText = function(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt || ""; };
+        const setElVal = function(id, v) { const el = document.getElementById(id); if (el) el.value = v || ""; };
 
-        const tCat = t.resolutionCategory || (t.status === "Resolved Remotely" ? "Resolved Remotely" : (t.status === "Solved by Direct Visit" ? "Solved by Direct Visit" : "Pending"));
-        selectCategory(tCat);
-      } else {
-        setElText("modalTicketBadge", cleanTid);
-        setElText("modalTicketTitle", "Manage Incident: " + cleanTid);
-      }
+        if (t) {
+          setElText("modalTicketBadge", t.ticketId || cleanTid);
+          setElText("modalTicketTitle", "Manage Incident: " + (t.ticketId || cleanTid));
+          setElText("modalTicketSub", (t.schoolName || "School") + " • " + (t.block || "Block") + " (UDISE: " + (t.udise || "-") + ")");
+          
+          setElVal("modalStatus", t.status || "New / Under Review");
+          setElVal("modalPriority", t.priority || "Medium");
+          setElVal("modalVendorName", t.vendorName || "");
+          setElVal("modalVendorTicket", t.vendorTicketNo || "");
+          setElVal("modalParts", t.partsRequired || "");
+          setElVal("modalNotes", t.resolutionNotes || "");
 
-      const m = document.getElementById("actionModal");
-      if (m) {
-        m.style.display = "flex";
+          const vBox = document.getElementById("vendorBox");
+          if (vBox) vBox.style.display = (t.status === "Vendor Escalated") ? "block" : "none";
+
+          editPhoto1 = t.photo1Url || "";
+          editPhoto2 = t.photo2Url || "";
+          editPhoto3 = t.photo3Url || "";
+          editPhoto4 = t.photo4Url || "";
+          if (typeof updatePhotoPreviews === 'function') updatePhotoPreviews();
+
+          const tCat = t.resolutionCategory || (t.status === "Resolved Remotely" ? "Resolved Remotely" : (t.status === "Solved by Direct Visit" ? "Solved by Direct Visit" : "Pending"));
+          if (typeof selectCategory === 'function') selectCategory(tCat);
+        } else {
+          setElText("modalTicketBadge", cleanTid || "HTL-INCIDENT");
+          setElText("modalTicketTitle", "Manage Incident: " + (cleanTid || "Service Call"));
+        }
+      } catch (err) {
+        console.error('Error in openActionModal:', err);
       }
     }
     window.openActionModal = openActionModal;
+
     window.closeActionModal = function() {
       const m = document.getElementById("actionModal");
-      if (m) m.style.display = "none";
+      if (m) {
+        m.classList.remove("active");
+        m.style.setProperty("display", "none", "important");
+      }
       currentEditingTicketId = null;
     };
+
+    // Global Delegated Click Handler for Edit / Manage Buttons
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('.btn-table-manage');
+      if (btn) {
+        e.preventDefault();
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-tid') || btn.dataset.tid;
+        if (tid) openActionModal(tid);
+      }
+    });
 
     function applyQuickFix(text, cat) {
       document.getElementById('modalNotes').value = text;
