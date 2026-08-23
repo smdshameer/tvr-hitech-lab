@@ -329,7 +329,7 @@ async function initDatabase() {
     console.log('✅ PostgreSQL Schema & Indexes verified.');
     const countRes = await pool.query('SELECT count(*) FROM tickets');
     const rowCount = parseInt(countRes.rows[0].count, 10);
-    if (rowCount === 0 && fs.existsSync(DB_FILE)) {
+    if (true) { // Always ensure authentic baseline tickets exist
       console.log('🚀 Migrating existing JSON tickets to PostgreSQL...');
       const tickets = loadTicketsFromJson();
       let migratedCount = 0;
