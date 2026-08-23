@@ -3119,25 +3119,37 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     /* Hardware Accelerated Modal System */
     .drawer-overlay {
-      position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65);
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-      z-index: 99999; display: flex; align-items: center; justify-content: center;
-      padding: 1rem; opacity: 0; visibility: hidden; pointer-events: none;
-      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.2s step-end;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 99999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
     }
     .drawer-overlay.active {
-      opacity: 1; visibility: visible; pointer-events: auto;
-      transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s step-start;
+      display: flex !important;
     }
     .drawer {
-      width: 100%; max-width: 660px; max-height: 90vh;
-      background: var(--bg-card); border-radius: var(--radius-lg);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--border-color);
-      display: flex; flex-direction: column; transform: scale(0.96);
-      transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-      overflow: hidden; margin: auto;
+      width: 100%;
+      max-width: 660px;
+      max-height: 90vh;
+      background: var(--bg-card);
+      border-radius: var(--radius-lg, 16px);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), 0 0 0 1px var(--border-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      margin: auto;
+      animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .drawer-overlay.active .drawer { transform: scale(1); }
+    @keyframes modalPopIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
 
     .drawer-header {
       padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);
@@ -3646,7 +3658,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (kTableCount) kTableCount.textContent = total + ' Calls';
     }
 
-    let allTickets = ${JSON.stringify(initialTickets || [])};
+
     function escapeHtml(str) {
       if (str === null || str === undefined) return '';
       return String(str)
