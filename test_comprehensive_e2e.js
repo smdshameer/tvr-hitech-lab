@@ -426,9 +426,9 @@ async function runAudit() {
   }
 
   // ----------------------------------------------------
-  // DIMENSION 23: Live Production Form Submission Simulation
+  // DIMENSION 23: Safe Form Submission Ingestion & Validation
   // ----------------------------------------------------
-  console.log('\n--- DIMENSION 23: Live Form Submission Simulation ---');
+  console.log('\n--- DIMENSION 23: Safe Form Submission Ingestion & Validation ---');
   try {
     const formPayload = JSON.stringify({
       schoolId: 'TVR-011',
@@ -438,9 +438,9 @@ async function runAudit() {
       district: 'Thiruvarur',
       aiName: 'Kothaibharathi Tamilmani',
       phone: '9042489993',
-      issue: 'Live Simulation Test Call',
+      issue: 'Local Ingestion Test Call',
       duration: 'Today',
-      serialNo: 'SIM-2026-LIVE',
+      serialNo: 'SIM-2026-LOCAL',
       priority: 'Critical',
       photo1Base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       photo2Base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -450,7 +450,7 @@ async function runAudit() {
     });
 
     const submitRes = await new Promise((resolve, reject) => {
-      const req = https.request('https://hitech-lab.vercel.app/api/tickets', {
+      const req = http.request('http://127.0.0.1:10000/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(formPayload) }
       }, (res) => {
@@ -465,9 +465,13 @@ async function runAudit() {
       req.end();
     });
 
-    recordTest('Dim 23: Form Submit', 'Live Production POST /api/tickets Form Ingestion', submitRes && submitRes.success, submitRes ? submitRes.ticketId : 'Failed');
+    if (submitRes && submitRes.ticketId) {
+      await db.deleteTicket(submitRes.ticketId, 'Audit Test Clean');
+    }
+
+    recordTest('Dim 23: Form Submit', 'POST /api/tickets Form Ingestion & Cleanup', submitRes && submitRes.success, submitRes ? submitRes.ticketId : 'Failed');
   } catch (err) {
-    recordTest('Dim 23: Form Submit', 'Live Form Submission', false, err.message);
+    recordTest('Dim 23: Form Submit', 'Form Submission Ingestion', false, err.message);
   }
 
   // ----------------------------------------------------

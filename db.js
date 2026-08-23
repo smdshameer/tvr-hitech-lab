@@ -355,7 +355,7 @@ let lastGasSyncTime = 0;
 let gasSyncPromise = null;
 
 async function syncGasTickets() {
-  if (Date.now() - lastGasSyncTime < 2000) return; // 2s cache
+  if (Date.now() - lastGasSyncTime < 5000) return; // 5s cache
   if (gasSyncPromise) return gasSyncPromise;
 
   gasSyncPromise = (async () => {
@@ -366,37 +366,42 @@ async function syncGasTickets() {
       if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
         let localTickets = loadTicketsFromJson();
         let added = 0;
-        
-        // Process in chronological order
+
         remoteTickets.forEach(rt => {
           if (!rt || !rt.ticketId || isTestOrPurgedTicket(rt)) return;
+          const rtIssue = String(rt.issue || '').toLowerCase();
+          if (rtIssue.includes('simulation') || rtIssue.includes('e2e test')) return;
+
+          const rtUdise = String(rt.udise || '').trim();
           const rtTime = String(rt.createdDate || rt.createdAt || '').trim();
+          const rtPhoto1 = String(rt.photo1Url || '').trim();
+          const rtDrive = String(rt.googleDriveFolderUrl || '').trim();
           const rtId = String(rt.ticketId || '').trim();
-          
-          // Match by ID AND timestamp, or by ID if only 1 ticket with that ID exists
-          const exists = localTickets.find(lt => {
+
+          // Robust Deduplication: Check if this exact ticket already exists in local DB
+          const alreadyExists = localTickets.some(lt => {
             const ltId = String(lt.ticketId || '').trim();
             const ltTime = String(lt.createdDate || lt.createdAt || '').trim();
-            return (ltId === rtId && ltTime === rtTime) || (ltId === rtId && !ltTime && !rtTime);
+            const ltUdise = String(lt.udise || '').trim();
+            const ltPhoto1 = String(lt.photo1Url || '').trim();
+            const ltDrive = String(lt.googleDriveFolderUrl || '').trim();
+
+            if (ltId === rtId) return true;
+            if (rtDrive && ltDrive && rtDrive === ltDrive) return true;
+            if (rtPhoto1 && ltPhoto1 && rtPhoto1 === ltPhoto1) return true;
+            if (rtUdise && ltUdise && rtUdise === ltUdise && rtTime && ltTime && rtTime === ltTime) return true;
+            return false;
           });
 
-          if (!exists) {
-            let assignedId = rtId;
-            if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId)) {
-              let suf = 2;
-              while (localTickets.some(lt => String(lt.ticketId).trim() === `${rtId}-${suf}`)) {
-                suf++;
-              }
-              assignedId = `${rtId}-${suf}`;
-              rt.ticketId = assignedId;
-            }
+          if (!alreadyExists) {
             localTickets.unshift(rt);
             added++;
           }
         });
+
         if (added > 0) {
           saveTicketsToJson(localTickets);
-          console.log('🔄 [CLOUD SYNC] Merged ' + added + ' new tickets from Google Sheets into local cache!');
+          console.log('🔄 [CLOUD SYNC] Cleanly imported ' + added + ' genuine new tickets from Google Sheets!');
         }
       }
       lastGasSyncTime = Date.now();
