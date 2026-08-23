@@ -646,7 +646,7 @@ async function initDatabase() {
             duration, ups_serial_number, resolution_type, vendor_name,
             vendor_ticket_no, parts_required, resolution_notes,
             resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
           ON CONFLICT (ticket_id) DO NOTHING
         `, [
           t.ticketId,
@@ -754,7 +754,7 @@ async function syncGasTickets() {
                   duration, ups_serial_number, resolution_type, vendor_name,
                   vendor_ticket_no, parts_required, resolution_notes,
                   resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
                 ON CONFLICT (ticket_id) DO NOTHING
               `, [
                 rt.ticketId,
@@ -813,7 +813,7 @@ async function seedPostgresBaseline() {
           duration, ups_serial_number, resolution_type, vendor_name,
           vendor_ticket_no, parts_required, resolution_notes,
           resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
         ON CONFLICT (ticket_id) DO NOTHING
       `, [
         t.ticketId,
@@ -934,7 +934,7 @@ async function createTicket(ticketData) {
           duration, ups_serial_number, resolution_type, vendor_name,
           vendor_ticket_no, parts_required, resolution_notes,
           resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
       `, [
         ticketData.ticketId,
         ticketData.createdAt,
