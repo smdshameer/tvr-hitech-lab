@@ -1,4 +1,4 @@
-const PERMANENT_PURGED_IDS = new Set(["HTL-TVR-05301","HTL-TVR-05301-2","HTL-TVR-05301-3","HTL-TVR-05301-4","HTL-TVR-99999","TEST-PING-001","HTL-TVR-00204","HTL-TVR-05201"]);
+const DUMMY_TEST_IDS = new Set(["HTL-TVR-99999", "TEST-PING-001"]);
 
 // ========================================================
 // GOOGLE SHEETS / DRIVE CLOUD DATABASE ENGINE
@@ -127,10 +127,8 @@ if (process.env.DATABASE_URL) {
 function isTestOrPurgedTicket(t) {
   if (!t || !t.ticketId) return true;
   const tid = String(t.ticketId).trim();
-  if (PERMANENT_PURGED_IDS.has(tid)) return true;
-  // Purge specific old static test tickets
-  const oldTestIds = ['HTL-TVR-05301', 'HTL-TVR-05301-2', 'HTL-TVR-05301-3', 'HTL-TVR-05301-4', 'HTL-TVR-99999', 'TEST-PING-001', 'HTL-TVR-00204', 'HTL-TVR-05201'];
-  if (oldTestIds.includes(tid)) return true;
+  const name = String(t.schoolName || '').toLowerCase();
+  if (tid === 'HTL-TVR-99999' || tid === 'TEST-PING-001' || name.includes('test school for verification')) return true;
   return false;
 }
 
@@ -357,7 +355,7 @@ let lastGasSyncTime = 0;
 let gasSyncPromise = null;
 
 async function syncGasTickets() {
-  if (Date.now() - lastGasSyncTime < 3000) return; // 3s cache
+  if (Date.now() - lastGasSyncTime < 2000) return; // 2s cache
   if (gasSyncPromise) return gasSyncPromise;
 
   gasSyncPromise = (async () => {
@@ -368,16 +366,18 @@ async function syncGasTickets() {
       if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
         let localTickets = loadTicketsFromJson();
         let added = 0;
+        
+        // Process in chronological order
         remoteTickets.forEach(rt => {
           if (!rt || !rt.ticketId || isTestOrPurgedTicket(rt)) return;
           const rtTime = String(rt.createdDate || rt.createdAt || '').trim();
           const rtId = String(rt.ticketId || '').trim();
           
-          // Check if exact ticket exists by ID and created timestamp
+          // Match by ID AND timestamp, or by ID if only 1 ticket with that ID exists
           const exists = localTickets.find(lt => {
             const ltId = String(lt.ticketId || '').trim();
             const ltTime = String(lt.createdDate || lt.createdAt || '').trim();
-            return ltId === rtId && (ltTime === rtTime || (!rtTime && !ltTime));
+            return (ltId === rtId && ltTime === rtTime) || (ltId === rtId && !ltTime && !rtTime);
           });
 
           if (!exists) {
