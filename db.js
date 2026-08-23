@@ -343,6 +343,45 @@ async function initDatabase() {
   }
 }
 
+let lastGasSyncTime = 0;
+let gasSyncPromise = null;
+
+async function syncGasTickets() {
+  if (Date.now() - lastGasSyncTime < 4000) return; // 4s cache
+  if (gasSyncPromise) return gasSyncPromise;
+
+  gasSyncPromise = (async () => {
+    try {
+      if (!GOOGLE_APPS_SCRIPT_ENDPOINT) return;
+      const resp = await fetchGasApi(GOOGLE_APPS_SCRIPT_ENDPOINT);
+      const remoteTickets = (resp && resp.tickets) ? resp.tickets : (Array.isArray(resp) ? resp : null);
+      if (Array.isArray(remoteTickets) && remoteTickets.length > 0) {
+        let localTickets = loadTicketsFromJson();
+        let added = 0;
+        remoteTickets.forEach(rt => {
+          if (!rt || !rt.ticketId) return;
+          const exists = localTickets.find(lt => String(lt.ticketId).trim() === String(rt.ticketId).trim());
+          if (!exists) {
+            localTickets.unshift(rt);
+            added++;
+          }
+        });
+        if (added > 0) {
+          saveTicketsToJson(localTickets);
+          console.log('🔄 [CLOUD SYNC] Merged ' + added + ' new tickets from Google Sheets into local cache!');
+        }
+      }
+      lastGasSyncTime = Date.now();
+    } catch (e) {
+      console.warn('Gas sync warning:', e.message);
+    } finally {
+      gasSyncPromise = null;
+    }
+  })();
+
+  return gasSyncPromise;
+}
+
 async function getAllTickets() {
   if (usePostgres && pool) {
     try {
@@ -352,6 +391,15 @@ async function getAllTickets() {
       console.error('Postgres query error, falling back to JSON:', e.message);
     }
   }
+
+  // Trigger non-blocking Google Sheets live sync with 2.5s timeout
+  try {
+    await Promise.race([
+      syncGasTickets(),
+      new Promise(res => setTimeout(res, 2500))
+    ]);
+  } catch(e) {}
+
   return loadTicketsFromJson();
 }
 
