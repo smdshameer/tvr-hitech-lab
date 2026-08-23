@@ -2144,11 +2144,6 @@ function getTeacherPortalHtml() {
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
-      if (!q) {
-        suggestBox.style.display = "none";
-        suggestBox.innerHTML = "";
-        return;
-      }
       const matches = filterSchools(q);
       renderSuggestions(matches);
     }
@@ -2161,13 +2156,8 @@ function getTeacherPortalHtml() {
     });
 
     searchInput.addEventListener("focus", function() {
-      const q = this.value.trim();
-      if (q) {
-        const matches = filterSchools(q);
-        renderSuggestions(matches);
-      } else {
-        suggestBox.style.display = "none";
-      }
+      const matches = filterSchools(this.value.trim());
+      renderSuggestions(matches);
     });
     function openOtherSchool() {
       select.value = 'OTHER';
