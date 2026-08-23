@@ -821,7 +821,20 @@ async function handleRequest(req, res) {
 
   // 6. API: Data & Analytics (Strictly Scoped for Privacy)
   
-  if (pathname === '/api/debug-tickets' && req.method === 'GET') {
+  
+  if (pathname === '/api/seed-baseline' && req.method === 'POST') {
+    try {
+      const tickets = await db.getAllTickets();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, count: tickets.length, tickets: tickets.map(t => t.ticketId) }));
+    } catch(err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message, stack: err.stack }));
+    }
+    return;
+  }
+
+if (pathname === '/api/debug-tickets' && req.method === 'GET') {
     const rawAll = await db.getAllTickets();
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
