@@ -1,0 +1,698 @@
+[
+  {
+    "timestamp": "22/8/2026, 4:33:39 pm",
+    "isoTime": "2026-08-22T11:03:39.929Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "22/8/2026, 4:25:10 pm",
+    "isoTime": "2026-08-22T10:55:10.329Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "22/8/2026, 4:20:10 pm",
+    "isoTime": "2026-08-22T10:50:10.471Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 10:38:12 pm",
+    "isoTime": "2026-08-21T17:08:12.909Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 10:36:10 pm",
+    "isoTime": "2026-08-21T17:06:10.608Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 2:45:32 pm",
+    "isoTime": "2026-08-21T09:15:32.753Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 2:30:52 pm",
+    "isoTime": "2026-08-21T09:00:52.600Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 2:15:02 pm",
+    "isoTime": "2026-08-21T08:45:02.923Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 2:05:32 pm",
+    "isoTime": "2026-08-21T08:35:32.204Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:55:34 pm",
+    "isoTime": "2026-08-21T08:25:34.439Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:51:30 pm",
+    "isoTime": "2026-08-21T08:21:30.900Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:46:22 pm",
+    "isoTime": "2026-08-21T08:16:22.474Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.436Z",
+    "action": "LOGOUT",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.433Z",
+    "action": "LOGOUT",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.431Z",
+    "action": "FULL_DATA_RESET_DENIED",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "status": "INCORRECT_PASSWORD"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.428Z",
+    "action": "FULL_DATA_RESET_DENIED",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Anonymous / PIN Entry",
+    "status": "INCORRECT_PASSWORD"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.426Z",
+    "action": "TICKET_DELETED",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.420Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.414Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.411Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:37:44 pm",
+    "isoTime": "2026-08-21T08:07:44.307Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:06:49 pm",
+    "isoTime": "2026-08-21T07:36:49.493Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 1:01:08 pm",
+    "isoTime": "2026-08-21T07:31:08.978Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:57:23 pm",
+    "isoTime": "2026-08-21T07:27:23.404Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:52:38 pm",
+    "isoTime": "2026-08-21T07:22:38.626Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:45:55 pm",
+    "isoTime": "2026-08-21T07:15:55.728Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:40:25 pm",
+    "isoTime": "2026-08-21T07:10:25.719Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:30:51 pm",
+    "isoTime": "2026-08-21T07:00:51.589Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:25:48 pm",
+    "isoTime": "2026-08-21T06:55:48.703Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:20:12 pm",
+    "isoTime": "2026-08-21T06:50:12.364Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:15:42 pm",
+    "isoTime": "2026-08-21T06:45:42.178Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 12:03:37 pm",
+    "isoTime": "2026-08-21T06:33:37.613Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:57:42 am",
+    "isoTime": "2026-08-21T06:27:42.955Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:55:16 am",
+    "isoTime": "2026-08-21T06:25:16.838Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:47:30 am",
+    "isoTime": "2026-08-21T06:17:31.018Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:42:09 am",
+    "isoTime": "2026-08-21T06:12:09.736Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:35:56 am",
+    "isoTime": "2026-08-21T06:05:56.091Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:32:14 am",
+    "isoTime": "2026-08-21T06:02:14.797Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:27:49 am",
+    "isoTime": "2026-08-21T05:57:49.275Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:26:07 am",
+    "isoTime": "2026-08-21T05:56:07.131Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:24:15 am",
+    "isoTime": "2026-08-21T05:54:15.243Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 11:12:29 am",
+    "isoTime": "2026-08-21T05:42:29.041Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 10:22:27 am",
+    "isoTime": "2026-08-21T04:52:27.111Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "21/8/2026, 10:16:01 am",
+    "isoTime": "2026-08-21T04:46:01.238Z",
+    "action": "TICKET_CREATED",
+    "ip": "::ffff:127.0.0.1",
+    "ticketId": "HTL-TVR-05301-3",
+    "school": "GGHSS KORADACHERY",
+    "udise": "33200305301"
+  },
+  {
+    "timestamp": "21/8/2026, 10:16:01 am",
+    "isoTime": "2026-08-21T04:46:01.231Z",
+    "action": "TICKET_CREATED",
+    "ip": "::ffff:127.0.0.1",
+    "ticketId": "HTL-TVR-05301-2",
+    "school": "GGHSS KORADACHERY",
+    "udise": "33200305301"
+  },
+  {
+    "timestamp": "21/8/2026, 10:16:01 am",
+    "isoTime": "2026-08-21T04:46:01.223Z",
+    "action": "TICKET_CREATED",
+    "ip": "::ffff:127.0.0.1",
+    "ticketId": "HTL-TVR-05301",
+    "school": "GGHSS KORADACHERY",
+    "udise": "33200305301"
+  },
+  {
+    "timestamp": "21/8/2026, 9:09:55 am",
+    "isoTime": "2026-08-21T03:39:55.503Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 10:09:27 am",
+    "isoTime": "2026-08-20T04:39:27.607Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 10:09:27 am",
+    "isoTime": "2026-08-20T04:39:27.602Z",
+    "action": "TICKET_CREATED",
+    "ip": "::ffff:127.0.0.1",
+    "ticketId": "HTL-TVR-99901",
+    "school": "Test Higher Secondary School",
+    "udise": "33209999901"
+  },
+  {
+    "timestamp": "20/8/2026, 10:04:57 am",
+    "isoTime": "2026-08-20T04:34:57.762Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 9:47:41 am",
+    "isoTime": "2026-08-20T04:17:41.397Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 8:21:55 am",
+    "isoTime": "2026-08-20T02:51:55.117Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 8:03:44 am",
+    "isoTime": "2026-08-20T02:33:44.611Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 7:58:29 am",
+    "isoTime": "2026-08-20T02:28:29.316Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::ffff:127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 1:16:34 am",
+    "isoTime": "2026-08-19T19:46:34.837Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 1:16:34 am",
+    "isoTime": "2026-08-19T19:46:34.677Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 1:08:08 am",
+    "isoTime": "2026-08-19T19:38:08.586Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 1:08:08 am",
+    "isoTime": "2026-08-19T19:38:08.392Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:54:11 am",
+    "isoTime": "2026-08-19T19:24:11.902Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:54:11 am",
+    "isoTime": "2026-08-19T19:24:11.766Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:48:29 am",
+    "isoTime": "2026-08-19T19:18:29.984Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:48:29 am",
+    "isoTime": "2026-08-19T19:18:29.814Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:38:41 am",
+    "isoTime": "2026-08-19T19:08:41.779Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:38:41 am",
+    "isoTime": "2026-08-19T19:08:41.627Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:31:06 am",
+    "isoTime": "2026-08-19T19:01:06.608Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:31:06 am",
+    "isoTime": "2026-08-19T19:01:06.448Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:29:38 am",
+    "isoTime": "2026-08-19T18:59:38.062Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:29:37 am",
+    "isoTime": "2026-08-19T18:59:37.873Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:29:23 am",
+    "isoTime": "2026-08-19T18:59:23.839Z",
+    "action": "TICKET_UPDATED",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "ticketId": "HTL-TVR-00507",
+    "status": "Vendor Escalated"
+  },
+  {
+    "timestamp": "20/8/2026, 12:29:23 am",
+    "isoTime": "2026-08-19T18:59:23.670Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.440Z",
+    "action": "LOGIN_RATE_LIMITED",
+    "ip": "::1",
+    "status": "BLOCKED"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.436Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.433Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.429Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.425Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.415Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.386Z",
+    "action": "TICKET_CREATED",
+    "ip": "::1",
+    "ticketId": "HTL-TVR-22334",
+    "school": "Test Duplicate School",
+    "udise": "33201122334"
+  },
+  {
+    "timestamp": "20/8/2026, 12:11:52 am",
+    "isoTime": "2026-08-19T18:41:52.298Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.734Z",
+    "action": "LOGIN_RATE_LIMITED",
+    "ip": "::1",
+    "status": "BLOCKED"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.731Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.729Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.726Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.722Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.716Z",
+    "action": "LOGIN_FAILED",
+    "ip": "::1",
+    "username": "baduser",
+    "status": "INVALID_CREDENTIALS"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.690Z",
+    "action": "TICKET_CREATED",
+    "ip": "::1",
+    "ticketId": "HTL-TVR-22334",
+    "school": "Test Duplicate School",
+    "udise": "33201122334"
+  },
+  {
+    "timestamp": "20/8/2026, 12:02:11 am",
+    "isoTime": "2026-08-19T18:32:11.593Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "::1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  }
+]
