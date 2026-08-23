@@ -2076,49 +2076,70 @@ function getTeacherPortalHtml() {
       });
     }
 
+    function chooseSchool(id) {
+      if (!id) return;
+      const cleanId = String(id).trim();
+      if (cleanId === "OTHER") {
+        openOtherSchool();
+        return;
+      }
+      
+      const item = schoolsData.find(function(s) {
+        return String(s.id).trim() === cleanId || String(s.udise).trim() === cleanId;
+      });
+
+      if (item) {
+        select.value = item.id;
+        document.getElementById("verSchoolName").textContent = item.schoolName;
+        document.getElementById("verBlock").textContent = item.block + " Block";
+        document.getElementById("verUdise").textContent = item.udise;
+        document.getElementById("verAiName").textContent = item.aiName || "-";
+        document.getElementById("verPhone").textContent = item.aiPhone || "-";
+
+        verCard.style.display = "block";
+        searchWrap.style.display = "none";
+        if (customBox) customBox.style.display = "none";
+
+        const aiField = document.getElementById("aiName");
+        const phoneField = document.getElementById("aiPhone");
+        if (aiField && item.aiName && item.aiName !== "Not Assigned" && item.aiName !== "Not Found") {
+          aiField.value = item.aiName;
+        }
+        if (phoneField && item.aiPhone && item.aiPhone !== "Not Found" && item.aiPhone !== "-") {
+          phoneField.value = item.aiPhone;
+        }
+      }
+      suggestBox.style.display = "none";
+    }
+    window.chooseSchool = chooseSchool;
+
     function renderSuggestions(matches) {
-      var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:2px dashed #93c5fd; text-align:center; color:#1d4ed8; font-weight:800; padding:13px; margin-top:4px; border-radius:8px; cursor:pointer;">' +
+      var otherBtn = '<div class="suggest-item" onclick="openOtherSchool()" onmousedown="openOtherSchool()" style="background:#eff6ff; border-top:2px dashed #93c5fd; text-align:center; color:#1d4ed8; font-weight:800; padding:13px; margin-top:4px; border-radius:8px; cursor:pointer;">' +
         '➕ உங்கள் பள்ளி இந்தப் பட்டியலில் இல்லையா? புதிய பள்ளியைச் சேர்க்கவும் (Add New / Other School)' +
       '</div>';
 
       if (!matches || matches.length === 0) {
         suggestBox.innerHTML = '<div style="padding:18px 14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை (No matching school).<br><small style="color:#94a3b8; margin-top:4px; display:block;">UDISE எண் அல்லது பள்ளியின் பெயரைச் சரிபார்க்கவும்.</small></div>' + otherBtn;
-        suggestBox.style.display = 'block';
+        suggestBox.style.display = "block";
         return;
       }
 
       suggestBox.innerHTML = matches.slice(0, 40).map(function(s) {
-        return '<div class="suggest-item" data-id="' + s.id + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
+        const safeId = String(s.id || "").replace(/'/g, "\\'");
+        return '<div class="suggest-item" onclick="chooseSchool(\'' + safeId + '\')" onmousedown="chooseSchool(\'' + safeId + '\')" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
             '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + '</div>' +
             '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
           '</div>' +
           '<div class="suggest-meta" style="font-size:12px; color:#475569; margin-top:6px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
             '<span style="background:#f1f5f9; padding:2px 8px; border-radius:6px; font-weight:700; color:#334155;">📍 ' + s.block + ' Block</span>' +
-            '<span style="color:#16a34a; font-weight:700;">👤 AI: ' + (s.aiName || 'Not Assigned') + '</span>' +
-            '<span style="color:#2563eb; font-weight:700;">📞 ' + (s.aiPhone || '-') + '</span>' +
+            '<span style="color:#16a34a; font-weight:700;">👤 AI: ' + (s.aiName || "Not Assigned") + '</span>' +
+            '<span style="color:#2563eb; font-weight:700;">📞 ' + (s.aiPhone || "-") + '</span>' +
           '</div>' +
         '</div>';
-      }).join('') + otherBtn;
-      suggestBox.style.display = 'block';
+      }).join("") + otherBtn;
+      suggestBox.style.display = "block";
     }
-
-    suggestBox.addEventListener('mousedown', function(e) {
-      e.preventDefault();
-      const item = e.target.closest('.suggest-item');
-      if (item && item.dataset && item.dataset.id) {
-        if (item.dataset.id === 'OTHER') openOtherSchool();
-        else chooseSchool(item.dataset.id);
-      }
-    });
-
-    suggestBox.addEventListener('click', function(e) {
-      const item = e.target.closest('.suggest-item');
-      if (item && item.dataset && item.dataset.id) {
-        if (item.dataset.id === 'OTHER') openOtherSchool();
-        else chooseSchool(item.dataset.id);
-      }
-    });
 
     function handleSearchInput() {
       const q = searchInput.value.trim();
@@ -2126,37 +2147,17 @@ function getTeacherPortalHtml() {
       renderSuggestions(matches);
     }
 
-    searchInput.addEventListener('input', handleSearchInput);
-    searchInput.addEventListener('change', handleSearchInput);
-    searchInput.addEventListener('keyup', handleSearchInput);
-    searchInput.addEventListener('paste', function() {
+    searchInput.addEventListener("input", handleSearchInput);
+    searchInput.addEventListener("change", handleSearchInput);
+    searchInput.addEventListener("keyup", handleSearchInput);
+    searchInput.addEventListener("paste", function() {
       setTimeout(handleSearchInput, 50);
     });
 
-    searchInput.addEventListener('focus', function() {
+    searchInput.addEventListener("focus", function() {
       const matches = filterSchools(this.value.trim());
       renderSuggestions(matches);
     });
-    function chooseSchool(id) {
-      select.value = id;
-      suggestBox.style.display = 'none';
-      const item = schoolsData.find(function(s) { return s.id === id; });
-      if (item) {
-        document.getElementById('verSchoolName').textContent = item.schoolName;
-        document.getElementById('verBlock').textContent = item.block;
-        document.getElementById('verUdise').textContent = item.udise;
-        document.getElementById('verAiName').textContent = item.aiName || '-';
-        document.getElementById('verPhone').textContent = item.aiPhone || '-';
-
-        verCard.style.display = 'block';
-        searchWrap.style.display = 'none';
-        if (customBox) customBox.style.display = 'none';
-
-        if (item.aiName && item.aiName !== 'Not Found') document.getElementById('aiName').value = item.aiName;
-        if (item.aiPhone && item.aiPhone !== 'Not Found') document.getElementById('aiPhone').value = item.aiPhone;
-      }
-    }
-
     function openOtherSchool() {
       select.value = 'OTHER';
       if (customBox) customBox.style.display = 'block';
