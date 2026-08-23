@@ -3035,6 +3035,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       </div>
       <div class="actions">
         <button type="button" onclick="openResetModal()" class="btn btn-reset">🔄 Reset All</button>
+        <button type="button" onclick="triggerDriveBackup()" class="btn" style="background:#0284c7; color:#fff; border:none; font-weight:700; cursor:pointer;" title="5TB Google Drive Live Snapshot">💾 5TB Drive Backup</button>
+        <a href="https://lookerstudio.google.com" target="_blank" class="btn" style="background:#4f46e5; color:#fff; border:none; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="District Executive BI Dashboard">📊 Looker Studio BI</a>
         <a href="/head" class="btn btn-blue">📊 Executive Report</a>
         <a href="/download-excel" class="btn btn-green">📥 Export Master CSV</a>
         <a href="/login" class="btn btn-logout">🔒 Switch / Logout</a>
