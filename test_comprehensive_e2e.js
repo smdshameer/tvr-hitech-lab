@@ -272,7 +272,7 @@ async function runComprehensiveAudit() {
   console.log('\n--- DIMENSION 7: Live Vercel Production Smoke Test ---');
   try {
     const liveHtml = await new Promise((resolve, reject) => {
-      const req = https.get('https://tvr-hitech-lab-jejv.vercel.app/?cache=' + Date.now(), res => {
+      const req = https.get('https://hitech-lab.vercel.app/?cache=' + Date.now(), res => {
         let b = '';
         res.on('data', c => b += c);
         res.on('end', () => resolve(b));

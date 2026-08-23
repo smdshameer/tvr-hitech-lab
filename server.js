@@ -2957,7 +2957,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       top: 0;
       background: var(--bg-card);
       z-index: 10;
-      padding: 0.55rem 0.65rem;
+      padding: 0.75rem 0.75rem;
       font-weight: 700;
       color: var(--text-secondary, #475569);
       text-transform: uppercase;
@@ -2969,11 +2969,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       vertical-align: middle;
     }
     .data-table td {
-      padding: 0.5rem 0.65rem;
+      padding: 0.85rem 0.75rem;
       border-bottom: 1px solid var(--border-color);
       color: var(--text-primary);
       vertical-align: middle;
-      line-height: 1.25;
+      line-height: 1.4;
     }
     .data-table tbody tr {
       transition: background-color 0.12s ease;
