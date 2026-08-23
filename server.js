@@ -1211,6 +1211,7 @@ function getLoginHtml() {
       }
     });
   </script>
+  <div id="htlToast" style="display:none;"></div>
 </body>
 </html>`;
 }
@@ -3645,7 +3646,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (kTableCount) kTableCount.textContent = total + ' Calls';
     }
 
-    let allTickets = [];
+    let allTickets = ${JSON.stringify(initialTickets || [])};
     function escapeHtml(str) {
       if (str === null || str === undefined) return '';
       return String(str)
