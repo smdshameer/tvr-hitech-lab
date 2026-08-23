@@ -822,6 +822,14 @@ async function handleRequest(req, res) {
   // 6. API: Data & Analytics (Strictly Scoped for Privacy)
   if (pathname === '/api/data' && req.method === 'GET') {
     let tickets = await db.getAllTickets();
+    tickets = tickets.filter(t => {
+      if (!t || !t.ticketId) return false;
+      const iss = String(t.issue || '').toLowerCase();
+      const rem = String(t.remarks || '').toLowerCase();
+      if (iss.includes('simulation') || rem.includes('simulation')) return false;
+      if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
+      return true;
+    });
     try {
       const cookies = parseCookies(req);
       if (cookies.htl_del) {
@@ -967,6 +975,14 @@ async function handleRequest(req, res) {
     // Ensure CSRF token for authenticated dashboard actions (update/delete)
     ensureCsrfToken(req, res);
     let tickets = await db.getAllTickets();
+    tickets = tickets.filter(t => {
+      if (!t || !t.ticketId) return false;
+      const iss = String(t.issue || '').toLowerCase();
+      const rem = String(t.remarks || '').toLowerCase();
+      if (iss.includes('simulation') || rem.includes('simulation')) return false;
+      if (t.ticketId.match(/-[0-9]{2,}$/)) return false;
+      return true;
+    });
     try {
       const cookies = parseCookies(req);
       if (cookies.htl_del) {
