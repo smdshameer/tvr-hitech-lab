@@ -347,7 +347,7 @@ let lastGasSyncTime = 0;
 let gasSyncPromise = null;
 
 async function syncGasTickets() {
-  if (Date.now() - lastGasSyncTime < 4000) return; // 4s cache
+  if (Date.now() - lastGasSyncTime < 3000) return; // 3s cache
   if (gasSyncPromise) return gasSyncPromise;
 
   gasSyncPromise = (async () => {
@@ -360,8 +360,26 @@ async function syncGasTickets() {
         let added = 0;
         remoteTickets.forEach(rt => {
           if (!rt || !rt.ticketId) return;
-          const exists = localTickets.find(lt => String(lt.ticketId).trim() === String(rt.ticketId).trim());
+          const rtTime = String(rt.createdDate || rt.createdAt || '').trim();
+          const rtId = String(rt.ticketId || '').trim();
+          
+          // Check if exact ticket exists by ID and created timestamp
+          const exists = localTickets.find(lt => {
+            const ltId = String(lt.ticketId || '').trim();
+            const ltTime = String(lt.createdDate || lt.createdAt || '').trim();
+            return ltId === rtId && (ltTime === rtTime || (!rtTime && !ltTime));
+          });
+
           if (!exists) {
+            let assignedId = rtId;
+            if (localTickets.some(lt => String(lt.ticketId).trim() === assignedId)) {
+              let suf = 2;
+              while (localTickets.some(lt => String(lt.ticketId).trim() === `${rtId}-${suf}`)) {
+                suf++;
+              }
+              assignedId = `${rtId}-${suf}`;
+              rt.ticketId = assignedId;
+            }
             localTickets.unshift(rt);
             added++;
           }
@@ -392,7 +410,7 @@ async function getAllTickets() {
     }
   }
 
-  // Trigger non-blocking Google Sheets live sync with 2.5s timeout
+  // Always run fast cloud sync
   try {
     await Promise.race([
       syncGasTickets(),
