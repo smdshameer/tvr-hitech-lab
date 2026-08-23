@@ -1246,7 +1246,7 @@ function getTeacherPortalHtml() {
       display: inline-block; background: rgba(255, 255, 255, 0.2); padding: 4px 12px;
       border-radius: 999px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px;
     }
-    .header-card h1 { font-size: 19px; font-weight: 800; margin-bottom: 4px; }
+    .header-card h1 { font-size: 19px; font-weight: 800; margin-bottom: 2px; }
     .header-card p { font-size: 13px; opacity: 0.92; }
 
     .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -1288,7 +1288,7 @@ function getTeacherPortalHtml() {
       border-radius: 10px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s;
     }
     .radio-option:hover { background: #f8fafc; border-color: #cbd5e1; }
-    .radio-option input { margin-top: 3px; accent-color: var(--primary); }
+    .radio-option input { margin-top: 1.5px; accent-color: var(--primary); }
     .radio-option strong { font-size: 13px; display: block; color: var(--text); }
     .radio-option span { font-size: 11.5px; color: var(--text-muted); display: block; margin-top: 1px; }
 
@@ -1351,8 +1351,8 @@ function getTeacherPortalHtml() {
     }
     .suggest-item:hover, .suggest-item:active { background: #f0f7ff; }
     .suggest-title { color: #1e3a8a; font-size: 13.5px; font-weight: 800; }
-    .suggest-meta { font-size: 12px; color: #475569; margin-top: 3px; display: flex; flex-wrap: wrap; gap: 8px; }
-    .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 3px; }
+    .suggest-meta { font-size: 12px; color: #475569; margin-top: 1.5px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .suggest-ai { font-size: 11.5px; color: #16a34a; font-weight: 700; margin-top: 1.5px; }
 
     /* Executive-Grade Photo Upload UI */
     .photo-upload-grid {
@@ -1417,7 +1417,7 @@ function getTeacherPortalHtml() {
       font-size: 11.5px;
       color: #64748b;
       font-weight: 600;
-      margin-top: 3px;
+      margin-top: 1.5px;
     }
     .photo-drop-zone {
       background: #f8fafc;
@@ -2605,17 +2605,17 @@ function generateTableRowsHtml(list) {
       '</td>' +
       '<td>' +
         '<div style="color: var(--text-primary); font-weight: 700; font-size: 0.88rem; line-height: 1.3;">' + escSchoolName + '</div>' +
-        '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 3px; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">' +
+        '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1.5px; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">' +
           'UDISE: <span style="color: var(--primary); font-weight: 700;">' + escUdise + '</span>' +
           '<span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: #1e3a8a;">' + escBlock + '</span>' +
         '</div>' +
       '</td>' +
       '<td>' +
         '<div style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem;">' + escAiName + '</div>' +
-        '<a href="tel:' + cleanPhone + '" class="font-mono" style="color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;">📞 ' + escPhone + '</a>' +
+        '<a href="tel:' + cleanPhone + '" class="font-mono" style="color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 1.5px;">📞 ' + escPhone + '</a>' +
       '</td>' +
       '<td style="max-width: 240px;">' +
-        '<div style="font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 4px;">' + escIssue + '</div>' +
+        '<div style="font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 2px;">' + escIssue + '</div>' +
         '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
       '<td style="text-align: center; white-space: nowrap;">' + badgeHtml + '</td>' +
@@ -2912,32 +2912,32 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Data Table Card Container - Field Call Tracker System */
+    /* Data Table Card Container - Ultra-Compact Zero-Waste Layout */
     .table-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg, 16px);
+      border-radius: var(--radius-lg, 14px);
       box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
     .table-header-bar {
-      padding: 0.75rem 1.15rem;
+      padding: 0.55rem 0.9rem;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
     .table-title {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-weight: 700;
       color: var(--text-primary);
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
     .table-responsive {
       width: 100%;
@@ -2948,7 +2948,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       table-layout: auto;
     }
     .data-table th {
@@ -2956,25 +2956,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       top: 0;
       background: var(--bg-card);
       z-index: 10;
-      padding: 0.7rem 0.75rem;
+      padding: 0.5rem 0.55rem;
       font-weight: 700;
       color: var(--text-secondary, #475569);
       text-transform: uppercase;
-      font-size: 0.7rem;
-      letter-spacing: 0.04em;
+      font-size: 0.67rem;
+      letter-spacing: 0.03em;
       border-bottom: 2px solid var(--border-color);
       white-space: nowrap;
       user-select: none;
       vertical-align: middle;
     }
     .data-table td {
-      padding: 0.65rem 0.75rem;
+      padding: 0.45rem 0.55rem;
       border-bottom: 1px solid var(--border-color);
       color: var(--text-primary);
       vertical-align: middle;
+      line-height: 1.25;
     }
     .data-table tbody tr {
-      transition: background-color 0.15s ease;
+      transition: background-color 0.12s ease;
     }
     .data-table tbody tr:hover {
       background-color: var(--primary-light, #eff6ff);
@@ -2986,69 +2987,69 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       right: 0;
       z-index: 15;
       background: var(--bg-card);
-      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
+      box-shadow: -3px 0 6px rgba(0, 0, 0, 0.04);
       text-align: center;
-      padding: 0.7rem 0.6rem;
+      padding: 0.5rem 0.45rem;
     }
     .data-table td:last-child {
       position: sticky;
       right: 0;
       z-index: 5;
       background: var(--bg-card);
-      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.05);
+      box-shadow: -3px 0 6px rgba(0, 0, 0, 0.04);
       text-align: center;
-      padding: 0.65rem 0.6rem;
+      padding: 0.45rem 0.45rem;
     }
     .data-table tbody tr:hover td:last-child {
       background-color: var(--primary-light, #eff6ff);
     }
 
-    /* Photo Thumbnails */
+    /* Photo Thumbnails (Compact 26px Grid) */
     .thumb-grid {
       display: flex;
-      gap: 3px;
+      gap: 2.5px;
       align-items: center;
     }
     .thumb-img {
-      width: 28px;
-      height: 28px;
+      width: 26px;
+      height: 26px;
       object-fit: cover;
-      border-radius: 5px;
+      border-radius: 4px;
       border: 1px solid var(--border-color, #cbd5e1);
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
       cursor: pointer;
       transition: all 0.15s ease;
       flex-shrink: 0;
     }
     .thumb-img:hover {
-      transform: scale(1.25);
+      transform: scale(1.3);
       border-color: var(--primary);
       box-shadow: 0 3px 8px rgba(37,99,235,0.3);
       z-index: 20;
       position: relative;
     }
     .thumb-placeholder {
-      width: 28px;
-      height: 28px;
-      border-radius: 5px;
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
       background: var(--bg-main);
       border: 1px dashed var(--border-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--text-muted);
       flex-shrink: 0;
     }
 
-    /* Modern Pill Badges (field-call-tracker Design) */
+    /* Modern Pill Badges (Compact 9999px) */
     .badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.3rem;
-      padding: 0.2rem 0.55rem;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
       border-radius: 9999px;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 700;
       white-space: nowrap;
     }
@@ -3074,10 +3075,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     .prio-pill {
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       font-weight: 700;
-      padding: 0.1rem 0.45rem;
-      border-radius: 4px;
+      padding: 0.08rem 0.4rem;
+      border-radius: 3px;
       display: inline-block;
     }
     .prio-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
@@ -3085,20 +3086,20 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .prio-med { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
     .prio-low { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
-    /* Action Buttons (Compact 30px) */
-    .action-grid-buttons { display: flex; gap: 4px; justify-content: center; align-items: center; white-space: nowrap; }
+    /* Action Buttons (Compact 28px) */
+    .action-grid-buttons { display: flex; gap: 3px; justify-content: center; align-items: center; white-space: nowrap; }
     .btn-table-action {
-      width: 30px; height: 30px; border-radius: 6px;
+      width: 28px; height: 28px; border-radius: 5px;
       display: inline-flex; align-items: center; justify-content: center;
-      cursor: pointer; border: none; text-decoration: none; transition: all 0.15s ease;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.06); flex-shrink: 0;
+      cursor: pointer; border: none; text-decoration: none; transition: all 0.12s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05); flex-shrink: 0;
     }
     .btn-table-manage { background: #2563eb; color: #ffffff; }
-    .btn-table-manage:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35); }
+    .btn-table-manage:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3); }
     .btn-table-slip { background: #0f172a; color: #ffffff; }
-    .btn-table-slip:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.3); }
+    .btn-table-slip:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.25); }
     .btn-table-del { background: #dc2626; color: #ffffff; }
-    .btn-table-del:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35); }
+    .btn-table-del:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 3px 8px rgba(220, 38, 38, 0.3); }
 
     .font-mono {
       font-family: var(--font-mono, 'JetBrains Mono', monospace);
@@ -3164,7 +3165,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .modal-photo-card {
       background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 6px; text-align: center;
     }
-    .modal-photo-label { font-size: 10.5px; font-weight: 800; color: var(--text-secondary); margin-bottom: 4px; display: block; }
+    .modal-photo-label { font-size: 10.5px; font-weight: 800; color: var(--text-secondary); margin-bottom: 2px; display: block; }
     .modal-photo-preview-wrap {
       height: 68px; background: var(--bg-main); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-color);
       display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 5px;
@@ -3179,7 +3180,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .form-group { display: flex; flex-direction: column; gap: 0.35rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.25rem; }
     .form-label { font-size: 0.78rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.03em; }
     .form-control {
       width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border-color);
@@ -3691,17 +3692,17 @@ function generateTableRowsHtml(list) {
         '</td>' +
         '<td>' +
           '<div style="color: var(--text-primary); font-weight: 700; font-size: 0.88rem; line-height: 1.3;">' + escSchoolName + '</div>' +
-          '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 3px; display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">' +
+          '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1.5px; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">' +
             'UDISE: <span style="color: var(--primary); font-weight: 700;">' + escUdise + '</span>' +
             '<span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: #1e3a8a;">' + escBlock + '</span>' +
           '</div>' +
         '</td>' +
         '<td>' +
           '<div style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem;">' + escAiName + '</div>' +
-          '<a href="tel:' + cleanPhone + '" class="font-mono" style="color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 3px;">📞 ' + escPhone + '</a>' +
+          '<a href="tel:' + cleanPhone + '" class="font-mono" style="color: var(--primary); font-weight: 700; font-size: 0.78rem; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 1.5px;">📞 ' + escPhone + '</a>' +
         '</td>' +
         '<td style="max-width: 240px;">' +
-          '<div style="font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 4px;">' + escIssue + '</div>' +
+          '<div style="font-size: 0.84rem; font-weight: 600; color: var(--text-primary); line-height: 1.35; margin-bottom: 2px;">' + escIssue + '</div>' +
           '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
         '</td>' +
         '<td style="text-align: center; white-space: nowrap;">' + badgeHtml + '</td>' +
