@@ -2554,11 +2554,11 @@ function normalizeImageUrl(url) {
 
 function generateTableRowsHtml(list) {
   if (!list || list.length === 0) {
-    return '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 No complaints registered yet.</td></tr>';
+    return '<tr><td colspan="8" style="text-align:center; padding: 48px 20px; color: #64748b; font-size:14px; font-weight:600;"><div style="font-size:28px; margin-bottom:8px;">📋</div>No reported incidents found.</td></tr>';
   }
   return list.map(function(t) {
     const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-    let badgeHtml = '<span class="badge badge-open">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</span>';
+    let badgeHtml = '<span class="badge badge-open">🟡 New / Under Review</span>';
     if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved Remotely</span>';
     else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by Direct Visit</span>';
     else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor Escalated</span>';
@@ -2589,43 +2589,43 @@ function generateTableRowsHtml(list) {
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td>' +
-        '<strong style="color:#1e3a8a; font-size:13.5px;">' + escTicketId + '</strong>' +
-        '<div style="color:#64748b; font-size:11.5px; margin-top:2px;">' + escCreatedDate + '</div>' +
+        '<div style="font-weight:800; color:#1e3a8a; font-size:13.5px; letter-spacing:0.3px;">' + escTicketId + '</div>' +
+        '<div style="color:#64748b; font-size:11.5px; margin-top:3px; font-weight:500;">' + escCreatedDate + '</div>' +
       '</td>' +
       '<td>' +
         '<div class="thumb-grid">' +
           (normalizeImageUrl(t.photo1Url) ? '<img src="' + normalizeImageUrl(t.photo1Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="1. UPS Display">' : '<div class="thumb-placeholder" title="No Photo 1">📷</div>') +
-          (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall UPS">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
+          (normalizeImageUrl(t.photo2Url) ? '<img src="' + normalizeImageUrl(t.photo2Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="2. Overall Setup">' : '<div class="thumb-placeholder" title="No Photo 2">🏫</div>') +
           (normalizeImageUrl(t.photo3Url) ? '<img src="' + normalizeImageUrl(t.photo3Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="3. Battery MCB">' : '<div class="thumb-placeholder" title="No Photo 3">🔋</div>') +
           (normalizeImageUrl(t.photo4Url) ? '<img src="' + normalizeImageUrl(t.photo4Url) + '" class="thumb-img" onclick="showImgModal(this.src)" title="4. Isolation Transformer">' : '<div class="thumb-placeholder" title="No Photo 4">🔌</div>') +
         '</div>' +
       '</td>' +
       '<td>' +
-        '<strong style="color:#0f172a; font-size:13.5px;">' + escSchoolName + '</strong>' +
-        '<div style="color:#64748b; font-size:12px; margin-top:2px;">' + escBlock + ' Block • <strong style="color:#2563eb;">' + escUdise + '</strong></div>' +
+        '<div style="color:#0f172a; font-weight:700; font-size:13.5px; line-height:1.3;">' + escSchoolName + '</div>' +
+        '<div style="color:#64748b; font-size:12px; margin-top:3px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
       '</td>' +
       '<td>' +
-        '<div style="font-weight:700; color:#0f172a;">' + escAiName + '</div>' +
-        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none;">📞 ' + escPhone + '</a>' +
+        '<div style="font-weight:700; color:#0f172a; font-size:13px;">' + escAiName + '</div>' +
+        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:12px; text-decoration:none; display:inline-flex; align-items:center; gap:4px; margin-top:2px;">📞 ' + escPhone + '</a>' +
       '</td>' +
       '<td>' +
-        '<div style="font-weight:700; color:#1e3a8a; font-size:12.5px;">' + escIssue + '</div>' +
+        '<div style="font-weight:700; color:#1e293b; font-size:12.5px; line-height:1.3;">' + escIssue + '</div>' +
         '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
       '<td>' + badgeHtml + '</td>' +
       '<td>' +
-        '<div style="font-size:12px; max-width:240px;">' +
-          (t.resolutionNotes ? '<div><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
-          (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
-          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic;">Pending engineer review</span>' : '') +
+        '<div style="font-size:12px; max-width:240px; line-height:1.4;">' +
+          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:6px 8px; border-radius:6px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+          (t.vendorName ? '<div style="color:#b91c1c; margin-top:4px; background:#fef2f2; padding:5px 8px; border-radius:6px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
+          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:11.5px;">Pending engineer review</span>' : '') +
         '</div>' +
       '</td>' +
       '<td>' +
-        '<div class="action-col">' +
+        '<div class="action-grid-buttons">' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage">⚙️ Manage & Fix</button>' +
-          '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp AI</a>' +
-          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Service Slip</button>' +
-          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action" style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-weight:700; cursor:pointer;" title="Delete this ticket">🗑️ Delete</button>' +
+          '<a href="' + waLink + '" target="_blank" class="btn-table-action btn-table-wa">💬 WhatsApp</a>' +
+          '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip">📄 Slip</button>' +
+          '<button type="button" onclick="window.deleteSingleTicket(\'' + escTicketId + '\')" class="btn-table-action btn-table-del" title="Delete Ticket">🗑️</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
