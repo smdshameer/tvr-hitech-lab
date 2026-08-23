@@ -124,19 +124,26 @@ if (process.env.DATABASE_URL) {
 }
 
 function loadTicketsFromJson() {
-  try {
-    const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
-    if (Array.isArray(bundled) && bundled.length > 0) {
-      return bundled.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
-    }
-  } catch(e) {}
-  
+  if (fs.existsSync(DB_FILE)) {
+    try {
+      const b = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      if (Array.isArray(b) && b.length > 0) return b.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+    } catch(e) {}
+  }
+
   if (fs.existsSync(BUNDLED_DB_FILE)) {
     try {
       const b = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8'));
       if (Array.isArray(b) && b.length > 0) return b.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
     } catch(e) {}
   }
+
+  try {
+    const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
+    if (Array.isArray(bundled) && bundled.length > 0) {
+      return bundled.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+    }
+  } catch(e) {}
 
   return [];
 }

@@ -2229,6 +2229,8 @@ function getTeacherPortalHtml() {
       suggestBox.style.display = 'none';
       setTimeout(function() { searchInput.focus(); }, 50);
     }
+    window.openOtherSchool = openOtherSchool;
+    window.resetSchoolSelection = resetSchoolSelection;
 
     document.addEventListener('click', function(e) {
       if (!searchInput.contains(e.target) && !suggestBox.contains(e.target)) {
