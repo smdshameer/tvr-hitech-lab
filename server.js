@@ -3637,6 +3637,7 @@ function generateTableRowsHtml(list) {
     if (!list || list.length === 0) {
       return '<tr><td colspan="8" style="text-align:center; padding: 3rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">📋</div>No service calls registered yet.</td></tr>';
     }
+
     return list.map(function(t) {
       const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
       let badgeHtml = '<span class="badge badge-status-pending">🟡 New / Under Review</span>';
@@ -3717,38 +3718,22 @@ function generateTableRowsHtml(list) {
     window.generateTableRowsHtml = generateTableRowsHtml;
     window.escapeHtml = escapeHtml;
 
-    function getDeletedList() {
-      try {
-        const s = JSON.parse(sessionStorage.getItem('htl_deleted_user_v3') || '[]');
-        const l = JSON.parse(localStorage.getItem('htl_deleted_user_v3') || '[]');
-        let c = [];
-        const cMatch = document.cookie.match(/(^|;\s*)htl_del=([^;]+)/);
-        if (cMatch) {
-          try { c = JSON.parse(decodeURIComponent(cMatch[2]) || '[]'); } catch(err){}
-        }
-        return Array.from(new Set([...s, ...l, ...c]));
-      } catch(e) { return []; }
-    }
+        // Auto-clear legacy suppression storage and cookies on page boot
+    try {
+      localStorage.removeItem('htl_deleted_user_v3');
+      localStorage.removeItem('htl_deleted_tickets');
+      localStorage.removeItem('htl_deleted_tickets_v2');
+      sessionStorage.removeItem('htl_deleted_user_v3');
+      document.cookie = 'htl_del=; path=/; max-age=0; SameSite=Lax';
+    } catch(e) {}
 
-    function saveDeletedList(list) {
-      try {
-        const cleanArr = Array.from(new Set(list));
-        sessionStorage.setItem('htl_deleted_user_v3', JSON.stringify(cleanArr));
-        localStorage.setItem('htl_deleted_user_v3', JSON.stringify(cleanArr));
-        document.cookie = 'htl_del=' + encodeURIComponent(JSON.stringify(cleanArr)) + '; path=/; max-age=31536000; SameSite=Lax';
-      } catch(e) {}
-    }
+    function getDeletedList() { return []; }
+    function saveDeletedList(list) {}
 
     try {
       const initEl = document.getElementById('initialTicketsData');
       if (initEl && initEl.textContent) {
         allTickets = JSON.parse(initEl.textContent) || [];
-      }
-      const delList = getDeletedList();
-      if (delList.length > 0) {
-        allTickets = allTickets.filter(function(t) {
-          return t && t.ticketId && !delList.includes(String(t.ticketId).trim());
-        });
       }
     } catch(e) {}
 
