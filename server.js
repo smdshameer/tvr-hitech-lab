@@ -3720,31 +3720,17 @@ function generateTableRowsHtml(list) {
 
         // Auto-clear legacy suppression storage and cookies on page boot
     try {
+      localStorage.removeItem('htl_user_deleted_v4');
       localStorage.removeItem('htl_deleted_user_v3');
       localStorage.removeItem('htl_deleted_tickets');
       localStorage.removeItem('htl_deleted_tickets_v2');
       sessionStorage.removeItem('htl_deleted_user_v3');
+      sessionStorage.removeItem('htl_session_deleted');
+      document.cookie = 'htl_del=; path=/; max-age=0; SameSite=Lax';
     } catch(e) {}
 
-    function getDeletedList() {
-      try {
-        const stored = localStorage.getItem('htl_user_deleted_v4');
-        if (stored) {
-          const arr = JSON.parse(stored);
-          if (Array.isArray(arr)) return arr;
-        }
-      } catch(e) {}
-      return [];
-    }
-
-    function saveDeletedList(list) {
-      try {
-        if (!Array.isArray(list)) list = [];
-        localStorage.setItem('htl_user_deleted_v4', JSON.stringify(list));
-        const val = encodeURIComponent(JSON.stringify(list));
-        document.cookie = 'htl_del=' + val + '; path=/; max-age=31536000; SameSite=Lax';
-      } catch(e) {}
-    }
+    function getDeletedList() { return []; }
+    function saveDeletedList(list) {}
 
     try {
       const initEl = document.getElementById('initialTicketsData');
@@ -3828,10 +3814,7 @@ function generateTableRowsHtml(list) {
         if (res.ok) {
           const data = await res.json();
           if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            const delList = getDeletedList();
-            allTickets = data.tickets.filter(function(t) {
-              return t && t.ticketId && !delList.includes(String(t.ticketId).trim());
-            });
+            allTickets = data.tickets;
             const kpiTot = document.getElementById('kpiTotal');
             if (kpiTot) kpiTot.textContent = data.totalSchools || 183;
           }
