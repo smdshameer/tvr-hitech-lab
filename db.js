@@ -1,3 +1,4 @@
+const PERMANENT_PURGED_IDS = new Set(["HTL-TVR-05301","HTL-TVR-05301-2","HTL-TVR-05301-3","HTL-TVR-05301-4","HTL-TVR-99999","TEST-PING-001","HTL-TVR-00204","HTL-TVR-05201"]);
 
 // ========================================================
 // GOOGLE SHEETS / DRIVE CLOUD DATABASE ENGINE
@@ -123,34 +124,43 @@ if (process.env.DATABASE_URL) {
   console.log('ℹ️ DATABASE_URL not set. Running in local JSON persistence mode.');
 }
 
+function isTestOrPurgedTicket(t) {
+  if (!t || !t.ticketId) return true;
+  const tid = String(t.ticketId).trim();
+  if (PERMANENT_PURGED_IDS.has(tid)) return true;
+  // Purge specific old static test tickets
+  const oldTestIds = ['HTL-TVR-05301', 'HTL-TVR-05301-2', 'HTL-TVR-05301-3', 'HTL-TVR-05301-4', 'HTL-TVR-99999', 'TEST-PING-001', 'HTL-TVR-00204', 'HTL-TVR-05201'];
+  if (oldTestIds.includes(tid)) return true;
+  return false;
+}
+
 function loadTicketsFromJson() {
+  let list = [];
   if (fs.existsSync(DB_FILE)) {
     try {
       const b = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-      if (Array.isArray(b) && b.length > 0) return b.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+      if (Array.isArray(b) && b.length > 0) list = b;
     } catch(e) {}
   }
-
-  if (fs.existsSync(BUNDLED_DB_FILE)) {
+  if (list.length === 0 && fs.existsSync(BUNDLED_DB_FILE)) {
     try {
       const b = JSON.parse(fs.readFileSync(BUNDLED_DB_FILE, 'utf8'));
-      if (Array.isArray(b) && b.length > 0) return b.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
+      if (Array.isArray(b) && b.length > 0) list = b;
+    } catch(e) {}
+  }
+  if (list.length === 0) {
+    try {
+      const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
+      if (Array.isArray(bundled)) list = bundled;
     } catch(e) {}
   }
 
-  try {
-    const bundled = JSON.parse(JSON.stringify(require('./data/htl_itsm_tickets.json')));
-    if (Array.isArray(bundled) && bundled.length > 0) {
-      return bundled.filter(t => t && t.ticketId && !deletedTicketIds.has(String(t.ticketId).trim()));
-    }
-  } catch(e) {}
-
-  return [];
+  return list.filter(t => !isTestOrPurgedTicket(t) && !deletedTicketIds.has(String(t.ticketId).trim()));
 }
 
 // Synchronous version for Google Sheets sync (serverless-safe: reads from DB_FILE directly)
 function getAllTicketsSync() {
-  return loadTicketsFromJson();
+  return loadTicketsFromJson().filter(t => t && t.ticketId && !PERMANENT_PURGED_IDS.has(String(t.ticketId).trim()));
 }
 
 function saveTicketsToJson(list) {
@@ -359,7 +369,7 @@ async function syncGasTickets() {
         let localTickets = loadTicketsFromJson();
         let added = 0;
         remoteTickets.forEach(rt => {
-          if (!rt || !rt.ticketId) return;
+          if (!rt || !rt.ticketId || isTestOrPurgedTicket(rt)) return;
           const rtTime = String(rt.createdDate || rt.createdAt || '').trim();
           const rtId = String(rt.ticketId || '').trim();
           
