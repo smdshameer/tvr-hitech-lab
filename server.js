@@ -4042,44 +4042,60 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     window.triggerDriveBackup = triggerDriveBackup;
 
     function openActionModal(ticketId) {
-      currentEditingTicketId = ticketId;
-      const t = allTickets.find(i => i.ticketId === ticketId);
+      const cleanTid = String(ticketId || "").trim();
+      currentEditingTicketId = cleanTid;
+      
+      const t = allTickets.find(function(i) {
+        const iTid = String(i.ticketId || i.id || "").trim();
+        return iTid === cleanTid || iTid.includes(cleanTid) || cleanTid.includes(iTid);
+      });
+
+      const setElText = function(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; };
+      const setElVal = function(id, v) { const el = document.getElementById(id); if (el) el.value = v; };
+
       if (t) {
-        const setElText = function(id, txt) { const el = document.getElementById(id); if (el) el.textContent = txt; };
-        const setElVal = function(id, v) { const el = document.getElementById(id); if (el) el.value = v; };
-
-        setElText('modalTicketBadge', t.ticketId || 'TICKET');
-        setElText('modalTicketTitle', 'Manage Incident: ' + (t.ticketId || ''));
-        setElText('modalTicketSub', (t.schoolName || '') + ' • ' + (t.block || '') + ' Block (UDISE: ' + (t.udise || '') + ')');
+        setElText("modalTicketBadge", t.ticketId || cleanTid);
+        setElText("modalTicketTitle", "Manage Incident: " + (t.ticketId || cleanTid));
+        setElText("modalTicketSub", (t.schoolName || "School") + " • " + (t.block || "Block") + " (UDISE: " + (t.udise || "-") + ")");
         
-        setElVal('modalStatus', t.status || 'New / Under Review');
-        setElVal('modalPriority', t.priority || 'Medium');
-        setElVal('modalVendorName', t.vendorName || '');
-        setElVal('modalVendorTicket', t.vendorTicketNo || '');
-        setElVal('modalParts', t.partsRequired || '');
-        setElVal('modalNotes', t.resolutionNotes || '');
+        setElVal("modalStatus", t.status || "New / Under Review");
+        setElVal("modalPriority", t.priority || "Medium");
+        setElVal("modalVendorName", t.vendorName || "");
+        setElVal("modalVendorTicket", t.vendorTicketNo || "");
+        setElVal("modalParts", t.partsRequired || "");
+        setElVal("modalNotes", t.resolutionNotes || "");
 
-        const vBox = document.getElementById('vendorBox');
-        if (vBox) vBox.style.display = (t.status === 'Vendor Escalated') ? 'block' : 'none';
+        const vBox = document.getElementById("vendorBox");
+        if (vBox) vBox.style.display = (t.status === "Vendor Escalated") ? "block" : "none";
 
-        editPhoto1 = t.photo1Url || '';
-        editPhoto2 = t.photo2Url || '';
-        editPhoto3 = t.photo3Url || '';
-        editPhoto4 = t.photo4Url || '';
+        editPhoto1 = t.photo1Url || "";
+        editPhoto2 = t.photo2Url || "";
+        editPhoto3 = t.photo3Url || "";
+        editPhoto4 = t.photo4Url || "";
         updatePhotoPreviews();
 
-        const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
+        const tCat = t.resolutionCategory || (t.status === "Resolved Remotely" ? "Resolved Remotely" : (t.status === "Solved by Direct Visit" ? "Solved by Direct Visit" : "Pending"));
         selectCategory(tCat);
-
-        const m = document.getElementById('actionModal');
-        if (m) m.style.display = 'flex';
+      } else {
+        setElText("modalTicketBadge", cleanTid);
+        setElText("modalTicketTitle", "Manage Incident: " + cleanTid);
       }
-    }
 
-    function closeActionModal() {
-      document.getElementById('actionModal').style.display = 'none';
-      currentEditingTicketId = null;
+      const m = document.getElementById("actionModal");
+      if (m) {
+        m.style.display = "flex";
+      }
+
+      try {
+        fetchAiDiagnosis(cleanTid);
+      } catch(e) {}
     }
+    window.openActionModal = openActionModal;
+    window.closeActionModal = function() {
+      const m = document.getElementById("actionModal");
+      if (m) m.style.display = "none";
+      currentEditingTicketId = null;
+    };
 
     function applyQuickFix(text, cat) {
       document.getElementById('modalNotes').value = text;
