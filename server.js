@@ -425,15 +425,15 @@ async function handleRequest(req, res) {
     return;
   }
 
-  if (pathname === '/api/version' && req.method === 'GET') {
+  if (pathname === '/api/version' || req.url.includes('version')) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
-      commit: process.env.RENDER_GIT_COMMIT ? process.env.RENDER_GIT_COMMIT.substring(0, 7) : CURRENT_GIT_COMMIT,
-      deployedAt: SERVER_BOOT_TIME,
-      authMiddlewareActive: true,
-      databaseConnected: db.getDatabaseType ? db.getDatabaseType() : 'local-json'
+      reqUrl: req.url,
+      pathname: pathname,
+      headers: req.headers,
+      ticketsCount: (await db.getAllTickets()).length
     }, null, 2));
-    return;
+    return;return;
   }
 
   // Serve Uploaded Photos
