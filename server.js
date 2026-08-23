@@ -2554,14 +2554,14 @@ function normalizeImageUrl(url) {
 
 function generateTableRowsHtml(list) {
   if (!list || list.length === 0) {
-    return '<tr><td colspan="8" style="text-align:center; padding: 48px 20px; color: #64748b; font-size:14px; font-weight:600;"><div style="font-size:28px; margin-bottom:8px;">📋</div>No service calls registered yet.</td></tr>';
+    return '<tr><td colspan="8" style="text-align:center; padding: 36px 16px; color: #64748b; font-size:13px; font-weight:600;"><div style="font-size:24px; margin-bottom:6px;">📋</div>No service calls registered yet.</td></tr>';
   }
   return list.map(function(t) {
     const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
-    let badgeHtml = '<span class="badge badge-open">🟡 New /<br>Under Review</span>';
-    if (tCat === 'Resolved Remotely') badgeHtml = '<span class="badge badge-remote">🟢 Resolved<br>Remotely</span>';
-    else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-direct">🔵 Solved by<br>Direct Visit</span>';
-    else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-vendor">🔴 Vendor<br>Escalated</span>';
+    let badgeHtml = '<div class="badge badge-open">🟡 New /<br>Under Review</div>';
+    if (tCat === 'Resolved Remotely') badgeHtml = '<div class="badge badge-remote">🟢 Resolved<br>Remotely</div>';
+    else if (tCat === 'Solved by Direct Visit') badgeHtml = '<div class="badge badge-direct">🔵 Solved by<br>Direct Visit</div>';
+    else if (t.status === 'Vendor Escalated') badgeHtml = '<div class="badge badge-vendor">🔴 Vendor<br>Escalated</div>';
 
     let prioClass = 'prio-med';
     const p = t.priority || 'Medium';
@@ -2585,8 +2585,8 @@ function generateTableRowsHtml(list) {
 
     return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td class="col-ticket-id">' +
-        '<div style="font-weight:800; color:#1e3a8a; font-size:13px; letter-spacing:0.2px;">' + escTicketId + '</div>' +
-        '<div style="color:#64748b; font-size:11px; margin-top:2px; font-weight:500;">' + escCreatedDate + '</div>' +
+        '<div style="font-weight:800; color:#1e3a8a; font-size:12.5px; letter-spacing:0.2px;">' + escTicketId + '</div>' +
+        '<div style="color:#64748b; font-size:10.5px; margin-top:2px; font-weight:500;">' + escCreatedDate + '</div>' +
       '</td>' +
       '<td class="col-photos">' +
         '<div class="thumb-grid">' +
@@ -2597,35 +2597,35 @@ function generateTableRowsHtml(list) {
         '</div>' +
       '</td>' +
       '<td class="col-school">' +
-        '<div style="color:#0f172a; font-weight:700; font-size:13px; line-height:1.3;">' + escSchoolName + '</div>' +
-        '<div style="color:#64748b; font-size:11.5px; margin-top:2px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
+        '<div style="color:#0f172a; font-weight:700; font-size:12.5px; line-height:1.25;">' + escSchoolName + '</div>' +
+        '<div style="color:#64748b; font-size:11px; margin-top:2px;"><span style="color:#1e3a8a; font-weight:600;">' + escBlock + '</span> • <span style="color:#2563eb; font-weight:700;">' + escUdise + '</span></div>' +
       '</td>' +
       '<td class="col-ai-contact">' +
-        '<div style="font-weight:700; color:#0f172a; font-size:12.5px;">' + escAiName + '</div>' +
-        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:11.5px; text-decoration:none; display:inline-flex; align-items:center; gap:3px; margin-top:2px;">📞 ' + escPhone + '</a>' +
+        '<div style="font-weight:700; color:#0f172a; font-size:12px;">' + escAiName + '</div>' +
+        '<a href="tel:' + cleanPhone + '" style="color:#2563eb; font-weight:700; font-size:11px; text-decoration:none; display:inline-flex; align-items:center; gap:2px; margin-top:2px;">📞 ' + escPhone + '</a>' +
       '</td>' +
       '<td class="col-fault">' +
-        '<div style="font-weight:700; color:#1e293b; font-size:12px; line-height:1.3;">' + escIssue + '</div>' +
+        '<div style="font-weight:700; color:#1e293b; font-size:11.5px; line-height:1.25;">' + escIssue + '</div>' +
         '<span class="prio-pill ' + prioClass + '">' + escPriority + '</span>' +
       '</td>' +
       '<td class="col-status" style="text-align: center;">' + badgeHtml + '</td>' +
       '<td class="col-notes">' +
-        '<div style="font-size:11.5px; line-height:1.35;">' +
-          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:5px 7px; border-radius:6px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
-          (t.vendorName ? '<div style="color:#b91c1c; margin-top:3px; background:#fef2f2; padding:4px 7px; border-radius:6px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
-          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:11px;">Pending engineer review</span>' : '') +
+        '<div style="font-size:11px; line-height:1.3;">' +
+          (t.resolutionNotes ? '<div style="color:#1e293b; background:#f8fafc; padding:4px 6px; border-radius:5px; border-left:3px solid #3b82f6;"><strong>Notes:</strong> ' + escResolutionNotes + '</div>' : '') +
+          (t.vendorName ? '<div style="color:#b91c1c; margin-top:2px; background:#fef2f2; padding:3px 6px; border-radius:5px; border-left:3px solid #ef4444;"><strong>Vendor:</strong> ' + escVendorName + ' (' + escVendorTicketNo + ')</div>' : '') +
+          (!t.resolutionNotes && !t.vendorName ? '<span style="color:#94a3b8; font-style:italic; font-size:10.5px;">Pending engineer review</span>' : '') +
         '</div>' +
       '</td>' +
       '<td class="col-actions" style="text-align: center;">' +
         '<div class="action-grid-buttons">' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="openActionModal(this.dataset.tid)" class="btn-table-action btn-table-manage" title="Edit & Manage Service Call (புகார் திருத்து & தீர்வு செய்க)">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>' +
           '</button>' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="printServiceSlip(this.dataset.tid)" class="btn-table-action btn-table-slip" title="Print Service Slip (சர்வீஸ் ஸ்லிப் அச்சிடு)">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>' +
           '</button>' +
           '<button type="button" data-tid="' + escTicketId + '" onclick="window.deleteSingleTicket(this.dataset.tid)" class="btn-table-action btn-table-del" title="Delete Service Call (அழைப்பை நீக்கு)">' +
-            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>' +
           '</button>' +
         '</div>' +
       '</td>' +
@@ -2904,89 +2904,112 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
-    /* Data Table Card */
+        /* Precision Compact Data Table */
     .table-card {
       background: var(--bg-card); border: 1px solid var(--border-color);
       border-radius: var(--radius-lg); box-shadow: var(--shadow-sm);
       overflow: hidden; display: flex; flex-direction: column;
     }
     .table-header-bar {
-      padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color);
-      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+      padding: 0.75rem 1.1rem; border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
     }
     .table-title {
-      font-size: 1rem; font-weight: 800; color: var(--text-primary);
-      display: flex; align-items: center; gap: 0.5rem; letter-spacing: -0.01em;
+      font-size: 0.92rem; font-weight: 800; color: var(--text-primary);
+      display: flex; align-items: center; gap: 0.45rem; letter-spacing: -0.01em;
     }
     .table-responsive { width: 100%; overflow-x: auto; max-height: 640px; }
-    .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    .data-table {
+      width: 100%; border-collapse: collapse; text-align: left;
+      font-size: 0.82rem; table-layout: auto;
+    }
     .data-table th {
       position: sticky; top: 0; background: var(--bg-card); z-index: 10;
-      padding: 0.85rem 1rem; font-weight: 800; color: var(--text-secondary);
-      text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em;
+      padding: 0.65rem 0.6rem; font-weight: 800; color: var(--text-secondary);
+      text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.04em;
       border-bottom: 2px solid var(--border-color); white-space: nowrap;
+      vertical-align: middle; line-height: 1.2;
     }
     .data-table td {
-      padding: 0.85rem 1rem; border-bottom: 1px solid var(--border-color);
+      padding: 0.6rem 0.6rem; border-bottom: 1px solid var(--border-color);
       color: var(--text-primary); vertical-align: middle;
     }
-    .data-table tbody tr { transition: background-color 0.15s ease; }
+    .data-table tbody tr { transition: background-color 0.12s ease; }
     .data-table tbody tr:hover { background-color: var(--primary-light); }
 
+    /* Precision Column Sizing Matching Text Width Perfectly */
+    .col-ticket-id { width: 110px; min-width: 105px; max-width: 115px; white-space: nowrap; text-align: left; }
+    .col-photos { width: 140px; min-width: 135px; max-width: 145px; text-align: left; }
+    .col-school { min-width: 170px; max-width: 230px; text-align: left; }
+    .col-ai-contact { width: 140px; min-width: 130px; max-width: 150px; text-align: left; }
+    .col-fault { min-width: 160px; max-width: 220px; text-align: left; }
+    .col-status { width: 120px; min-width: 115px; max-width: 125px; text-align: center; }
+    .col-notes { min-width: 160px; max-width: 230px; text-align: left; }
+    .col-actions { width: 118px; min-width: 112px; max-width: 122px; text-align: center; white-space: nowrap; }
+
     /* Fixed Sticky Action Column on the right */
-    .data-table th:last-child {
+    .data-table th.col-actions {
       position: sticky; right: 0; z-index: 15; background: var(--bg-card);
-      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.04); text-align: center;
+      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.04); text-align: center;
     }
-    .data-table td:last-child {
+    .data-table td.col-actions {
       position: sticky; right: 0; z-index: 5; background: var(--bg-card);
-      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.04); text-align: center;
+      box-shadow: -4px 0 8px rgba(0, 0, 0, 0.04); text-align: center;
     }
-    .data-table tbody tr:hover td:last-child { background-color: var(--primary-light); }
+    .data-table tbody tr:hover td.col-actions { background-color: var(--primary-light); }
 
-    /* Photo Thumbnails */
-    .thumb-grid { display: flex; gap: 5px; }
+    /* Photo Thumbnails (Compact 30px Grid) */
+    .thumb-grid { display: flex; gap: 3px; align-items: center; }
     .thumb-img {
-      width: 44px; height: 44px; object-fit: cover; border-radius: 8px; cursor: pointer;
-      border: 1.5px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.06); transition: all 0.15s ease;
+      width: 30px; height: 30px; object-fit: cover; border-radius: 5px; cursor: pointer;
+      border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.15s ease;
+      flex-shrink: 0;
     }
-    .thumb-img:hover { transform: scale(1.15); border-color: var(--primary); box-shadow: 0 4px 10px rgba(37,99,235,0.25); }
+    .thumb-img:hover { transform: scale(1.2); border-color: var(--primary); box-shadow: 0 3px 8px rgba(37,99,235,0.3); z-index: 20; position: relative; }
     .thumb-placeholder {
-      width: 44px; height: 44px; border-radius: 8px; background: var(--bg-main); border: 1px dashed var(--border-color);
-      display: flex; align-items: center; justify-content: center; font-size: 15px; color: var(--text-muted);
+      width: 30px; height: 30px; border-radius: 5px; background: var(--bg-main); border: 1px dashed var(--border-color);
+      display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-muted);
+      flex-shrink: 0;
     }
 
-    /* Badges */
+    /* Badges with Force Multi-Line Wrap */
     .badge {
-      display: inline-flex; align-items: center; gap: 0.35rem;
-      padding: 0.25rem 0.65rem; border-radius: var(--radius-full);
-      font-size: 0.74rem; font-weight: 800; white-space: nowrap;
+      display: inline-block !important;
+      padding: 3px 6px !important;
+      border-radius: 6px !important;
+      font-size: 10.5px !important;
+      font-weight: 800 !important;
+      white-space: normal !important;
+      text-align: center !important;
+      line-height: 1.25 !important;
+      max-width: 112px !important;
+      box-sizing: border-box !important;
     }
     .badge-remote { background: var(--status-completed-bg); color: var(--status-completed-text); border: 1px solid var(--status-completed-border); }
     .badge-direct { background: var(--status-direct-bg); color: var(--status-direct-text); border: 1px solid var(--status-direct-border); }
     .badge-vendor { background: var(--status-incomplete-bg); color: var(--status-incomplete-text); border: 1px solid var(--status-incomplete-border); }
     .badge-open { background: var(--status-progress-bg); color: var(--status-progress-text); border: 1px solid var(--status-progress-border); }
 
-    .prio-pill { font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 6px; display: inline-block; margin-top: 3px; }
+    .prio-pill { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 4px; display: inline-block; margin-top: 2px; }
     .prio-crit { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
     .prio-high { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
     .prio-med { background: #fef9c3; color: #854d0e; border: 1px solid #fef08a; }
     .prio-low { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
-    /* Action SVG Buttons */
-    .action-grid-buttons { display: flex; gap: 6px; justify-content: center; align-items: center; white-space: nowrap; }
+    /* Action SVG Buttons (Compact 32px Grid) */
+    .action-grid-buttons { display: flex; gap: 4px; justify-content: center; align-items: center; white-space: nowrap; }
     .btn-table-action {
-      width: 36px; height: 36px; border-radius: 9px;
+      width: 32px; height: 32px; border-radius: 7px;
       display: inline-flex; align-items: center; justify-content: center;
-      cursor: pointer; border: none; text-decoration: none; transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.06); flex-shrink: 0;
+      cursor: pointer; border: none; text-decoration: none; transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06); flex-shrink: 0;
     }
     .btn-table-manage { background: #2563eb; color: #ffffff; }
-    .btn-table-manage:hover { background: #1d4ed8; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(37, 99, 235, 0.35); }
+    .btn-table-manage:hover { background: #1d4ed8; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35); }
     .btn-table-slip { background: #0f172a; color: #ffffff; }
-    .btn-table-slip:hover { background: #1e293b; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(15, 23, 42, 0.3); }
+    .btn-table-slip:hover { background: #1e293b; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(15, 23, 42, 0.3); }
     .btn-table-del { background: #dc2626; color: #ffffff; }
-    .btn-table-del:hover { background: #b91c1c; transform: translateY(-2px); box-shadow: 0 5px 12px rgba(220, 38, 38, 0.35); }
+    .btn-table-del:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(220, 38, 38, 0.35); }
 
     /* Hardware Accelerated Modal System */
     .drawer-overlay {
