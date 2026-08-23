@@ -820,7 +820,18 @@ async function handleRequest(req, res) {
   }
 
   // 6. API: Data & Analytics (Strictly Scoped for Privacy)
-  if (pathname === '/api/data' && req.method === 'GET') {
+  
+  if (pathname === '/api/debug-tickets' && req.method === 'GET') {
+    const rawAll = await db.getAllTickets();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      count: rawAll.length,
+      sample: rawAll.map(t => ({ id: t.ticketId, school: t.schoolName, date: t.createdDate || t.createdAt }))
+    }));
+    return;
+  }
+
+if (pathname === '/api/data' && req.method === 'GET') {
     let tickets = await db.getAllTickets();
     tickets = tickets.filter(t => {
       if (!t || !t.ticketId) return false;
