@@ -596,7 +596,19 @@ async function handleRequest(req, res) {
         const allTickets = await db.getAllTickets();
         const schoolUdise = String(data.udise || '').trim();
         const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
-        const baseTicketId = 'HTL-TVR-' + cleanSuffix;
+        
+        // Authoritative directory binding
+        const matchedSchool = (db.masterSchools || []).find(s => String(s.udise || '').trim() === schoolUdise || (data.schoolId && String(s.id).trim() === String(data.schoolId).trim()));
+        let resolvedDistrict = 'Thiruvarur';
+        if (matchedSchool && matchedSchool.district) {
+          resolvedDistrict = matchedSchool.district;
+        } else if (String(data.district || '').toLowerCase().includes('nagapattinam') || schoolUdise.startsWith('3319')) {
+          resolvedDistrict = 'Nagapattinam';
+        }
+
+        const isNgp = resolvedDistrict.toLowerCase().includes('nagapattinam');
+        const distPrefix = isNgp ? 'HTL-NGP-' : 'HTL-TVR-';
+        const baseTicketId = distPrefix + cleanSuffix;
 
         // Check existing active IDs in database
         const existingIds = new Set(allTickets.map(t => String(t.ticketId || '').trim()));
@@ -605,7 +617,6 @@ async function handleRequest(req, res) {
         if (!existingIds.has(baseTicketId)) {
           ticketId = baseTicketId;
         } else {
-          // If base ID exists, assign lowest available suffix (-2, -3...)
           let suffixNum = 2;
           while (existingIds.has(`${baseTicketId}-${suffixNum}`)) {
             suffixNum++;
@@ -621,7 +632,7 @@ async function handleRequest(req, res) {
           schoolId: data.schoolId || '',
           schoolName: data.schoolName || '',
           udise: data.udise || '',
-          district: 'Thiruvarur',
+          district: resolvedDistrict,
           block: data.block || '',
           aiName: data.aiName || '',
           phone: data.phone || '',
@@ -1585,6 +1596,15 @@ function getTeacherPortalHtml() {
       }
     }
 
+    .dist-pill {
+      background: #f1f5f9; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 999px;
+      padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s ease;
+    }
+    .dist-pill.active {
+      background: #2563eb; color: #ffffff; border-color: #1d4ed8; box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+    }
+    .dist-pill:hover:not(.active) { background: #e2e8f0; }
+
     .verified-school-card {
       display: none; background: #ecfdf5; border: 2px solid #10b981; border-radius: 14px;
       padding: 16px 18px; margin-bottom: 14px; position: relative;
@@ -1606,7 +1626,7 @@ function getTeacherPortalHtml() {
     <div class="header-card">
       <span class="badge">Hi-Tech Lab ITSM Service Desk</span>
       <h1>UPS Service Desk & Call Registration</h1>
-      <p>திருவாரூர் மாவட்ட Hi-Tech Lab பழுதுபதிவு மற்றும் சேவை மையம் (183 பள்ளிகள்)</p>
+      <p>திருவாரூர் & நாகப்பட்டினம் மாவட்ட Hi-Tech Lab பழுதுபதிவு மற்றும் சேவை மையம் (262 பள்ளிகள்)</p>
     </div>
 
     <div class="tabs">
@@ -1620,9 +1640,16 @@ function getTeacherPortalHtml() {
         
         <div class="form-group">
           <label class="form-label">பள்ளியைத் தேர்ந்தெடுக்கவும் (Search & Select School) <span class="req">*</span></label>
+          <!-- District Filter Pills -->
+          <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;">
+            <button type="button" class="dist-pill active" id="pillAll" onclick="setDistrictFilter('ALL')">🌐 அனைத்து மாவட்டங்கள் (262 Labs)</button>
+            <button type="button" class="dist-pill" id="pillTvr" onclick="setDistrictFilter('Thiruvarur')">🏛️ திருவாரூர் (182 Labs)</button>
+            <button type="button" class="dist-pill" id="pillNgp" onclick="setDistrictFilter('Nagapattinam')">🏛️ நாகப்பட்டினம் (80 Labs)</button>
+          </div>
+
           <div class="school-search-wrap" id="searchWrap">
             <div class="search-input-group">
-              <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 எ.கா: 33201000507 அல்லது பள்ளியின் பெயர் / வட்டாரம்..." autocomplete="off">
+              <input type="text" id="schoolSearchInput" class="school-search-input" placeholder="🔍 UDISE எண் (எ.கா: 33190600901) / AI பெயர் (Nisha) / பள்ளிப் பெயர்..." autocomplete="off">
               <button type="button" onclick="openOtherSchool()" class="btn-other-school-edge" title="பள்ளி பட்டியலில் இல்லையா? புதிய பள்ளியைப் பதிவு செய்ய கிளிக் செய்யவும்">
                 <span class="other-icon">➕</span>
                 <span>மற்ற பள்ளி</span>
@@ -1632,14 +1659,19 @@ function getTeacherPortalHtml() {
           </div>
 
           <div id="verifiedSchoolCard" class="verified-school-card">
-            <span class="badge-ver">✅ பள்ளி தேர்வு செய்யப்பட்டது (School Selected)</span>
+            <span class="badge-ver">✅ AI Directory-ல் உறுதிப்படுத்தப்பட்டது (Verified Official Record)</span>
             <div class="verified-school-name" id="verSchoolName">-</div>
             <div class="verified-grid">
+              <div>🏛️ மாவட்டம்: <strong id="verDistrict">-</strong></div>
               <div>📍 வட்டாரம்: <strong id="verBlock">-</strong></div>
-              <div>🔢 UDISE: <strong id="verUdise">-</strong></div>
+              <div>🔢 UDISE Code: <strong id="verUdise">-</strong></div>
+              <div>🏫 வகை: <strong id="verCategory">-</strong></div>
               <div>👤 AI பொறுப்பாளர்: <strong id="verAiName">-</strong></div>
               <div>📞 தொடர்பு எண்: <strong id="verPhone">-</strong></div>
             </div>
+            <input type="hidden" id="selectedDistrict" name="district" value="Thiruvarur">
+            <input type="hidden" id="selectedCategory" name="category" value="">
+            <input type="hidden" id="selectedEmpId" name="empId" value="">
             <button type="button" onclick="resetSchoolSelection()" class="btn-reselect">🔄 வேறு பள்ளியைத் தேர்வு செய்ய (Change School)</button>
           </div>
 
@@ -2021,31 +2053,52 @@ function getTeacherPortalHtml() {
     }
     window.switchTab = switchTab;
 
+    let activeDistrictFilter = 'ALL';
+
+    function setDistrictFilter(dist) {
+      activeDistrictFilter = dist;
+      ['pillAll', 'pillTvr', 'pillNgp'].forEach(id => {
+        const p = document.getElementById(id);
+        if (p) p.classList.remove('active');
+      });
+      if (dist === 'ALL' && document.getElementById('pillAll')) document.getElementById('pillAll').classList.add('active');
+      else if (dist === 'Thiruvarur' && document.getElementById('pillTvr')) document.getElementById('pillTvr').classList.add('active');
+      else if (dist === 'Nagapattinam' && document.getElementById('pillNgp')) document.getElementById('pillNgp').classList.add('active');
+      handleSearchInput();
+    }
+    window.setDistrictFilter = setDistrictFilter;
+
     function filterSchools(query) {
       const q = (query || '').trim().toLowerCase();
-      if (!q) return [];
-
       const digits = q.replace(/\D/g, '');
       const terms = q.split(/[\s,-]+/).filter(Boolean);
 
       return schoolsData.filter(function(s) {
+        // District filter check
+        if (activeDistrictFilter !== 'ALL') {
+          const sDist = String(s.district || (s.id && s.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur'));
+          if (sDist.toLowerCase() !== activeDistrictFilter.toLowerCase()) return false;
+        }
+
+        if (!q) return true;
+
         const u = String(s.udise || '').replace(/\D/g, '');
         const name = (s.schoolName || '').toLowerCase();
         const block = (s.block || '').toLowerCase();
         const ai = (s.aiName || '').toLowerCase();
+        const empId = (s.empId || '').toLowerCase();
+        const dist = (s.district || '').toLowerCase();
         const id = (s.id || '').toLowerCase();
 
-        // 1. Match by numeric UDISE (even 1 or 2 digits like 3320, 05301, 507)
-        if (digits.length >= 1 && u.includes(digits)) {
-          return true;
-        }
+        // 1. Match by numeric UDISE
+        if (digits.length >= 2 && u.includes(digits)) return true;
 
-        // 2. Match by School ID
-        if (id.includes(q)) return true;
+        // 2. Match by School ID or EmpID
+        if (id.includes(q) || empId.includes(q)) return true;
 
-        // 3. Match by Name / Block / AI Name
+        // 3. Match across AI Name, School Name, Block, or District
         return terms.every(function(term) {
-          return name.includes(term) || block.includes(term) || ai.includes(term) || u.includes(term);
+          return name.includes(term) || block.includes(term) || ai.includes(term) || u.includes(term) || empId.includes(term) || dist.includes(term);
         });
       });
     }
@@ -2069,11 +2122,18 @@ function getTeacherPortalHtml() {
         const setTxt = function(elId, val) { const el = document.getElementById(elId); if (el) el.textContent = val; };
         const setVal = function(elId, val) { const el = document.getElementById(elId); if (el) el.value = val; };
 
-        setTxt("verSchoolName", item.schoolName);
+        const sDist = item.district || (item.id && item.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur');
+        setTxt("verSchoolName", item.schoolName + (item.category ? ' (' + item.category + ')' : ''));
+        setTxt("verDistrict", sDist);
         setTxt("verBlock", (item.block || "") + " Block");
         setTxt("verUdise", item.udise);
-        setTxt("verAiName", item.aiName || "-");
+        setTxt("verCategory", item.category || "General");
+        setTxt("verAiName", item.aiName || "Not Assigned");
         setTxt("verPhone", item.aiPhone || "-");
+
+        setVal("selectedDistrict", sDist);
+        setVal("selectedCategory", item.category || "");
+        setVal("selectedEmpId", item.empId || "");
 
         const vCard = document.getElementById("verifiedSchoolCard");
         const sWrap = document.getElementById("searchWrap");
@@ -2102,21 +2162,25 @@ function getTeacherPortalHtml() {
       '</div>';
 
       if (!matches || matches.length === 0) {
-        suggestBox.innerHTML = '<div style="padding:18px 14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி கிடைக்கவில்லை (No matching school).<br><small style="color:#94a3b8; margin-top:4px; display:block;">UDISE எண் அல்லது பள்ளியின் பெயரைச் சரிபார்க்கவும்.</small></div>' + otherBtn;
+        suggestBox.innerHTML = '<div style="padding:18px 14px; color:#64748b; font-size:13px; text-align:center;">❌ பள்ளி / AI விவரம் கிடைக்கவில்லை.<br><small style="color:#94a3b8; margin-top:4px; display:block;">UDISE எண் (எ.கா: 33190600901) அல்லது AI ஆசிரியர் பெயரை உள்ளிட்டுத் தேடவும்.</small></div>' + otherBtn;
         suggestBox.style.display = "block";
         return;
       }
 
-      suggestBox.innerHTML = matches.slice(0, 40).map(function(s) {
+      suggestBox.innerHTML = matches.slice(0, 50).map(function(s) {
+        const sDist = s.district || (s.id && s.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur');
+        const distBadgeColor = sDist.toLowerCase() === 'nagapattinam' ? '#f59e0b' : '#3b82f6';
         return '<div class="suggest-item" data-id="' + s.id + '" onpointerdown="chooseSchool(this.dataset.id)" onmousedown="chooseSchool(this.dataset.id)" onclick="chooseSchool(this.dataset.id)" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
-            '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + '</div>' +
+            '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + (s.category ? ' <span style="font-size:11.5px; color:#64748b; font-weight:600;">[' + s.category + ']</span>' : '') + '</div>' +
             '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
           '</div>' +
           '<div class="suggest-meta" style="font-size:12px; color:#475569; margin-top:6px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
+            '<span style="background:' + (sDist.toLowerCase() === 'nagapattinam' ? '#fef3c7' : '#dbeafe') + '; color:' + (sDist.toLowerCase() === 'nagapattinam' ? '#92400e' : '#1e40af') + '; padding:2px 8px; border-radius:6px; font-weight:800; font-size:11px;">🏛️ ' + sDist + '</span>' +
             '<span style="background:#f1f5f9; padding:2px 8px; border-radius:6px; font-weight:700; color:#334155;">📍 ' + s.block + ' Block</span>' +
-            '<span style="color:#16a34a; font-weight:700;">👤 AI: ' + (s.aiName || "Not Assigned") + '</span>' +
+            '<span style="color:#16a34a; font-weight:800;">👤 AI: ' + (s.aiName || "Not Assigned") + '</span>' +
             '<span style="color:#2563eb; font-weight:700;">📞 ' + (s.aiPhone || "-") + '</span>' +
+            (s.empId ? '<span style="color:#64748b; font-size:11px;">🆔 ' + s.empId + '</span>' : '') +
           '</div>' +
         '</div>';
       }).join("") + otherBtn;
@@ -3300,20 +3364,35 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     <section class="filter-card">
       <div class="search-box">
         <span class="search-box-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" placeholder="Search by UDISE, Ticket ID, School Name, AI Teacher, Block, Issue..." autocomplete="off" spellcheck="false">
+        <input type="text" id="searchInput" class="search-input" oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" placeholder="Search by UDISE, Ticket ID, School Name, AI Teacher, Block, District, Issue..." autocomplete="off" spellcheck="false">
       </div>
+      <select id="districtFilter" class="filter-select" onchange="window.renderTable()">
+        <option value="">All Districts (அனைத்து மாவட்டங்கள் - 262 Labs)</option>
+        <option value="Thiruvarur">Thiruvarur (திருவாரூர் - 182 Labs)</option>
+        <option value="Nagapattinam">Nagapattinam (நாகப்பட்டினம் - 80 Labs)</option>
+      </select>
       <select id="blockFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
-        <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
-        <option value="Kottur">Kottur (கோட்டூர்)</option>
-        <option value="Kudavasal">Kudavasal (குடவாசல்)</option>
-        <option value="Mannargudi">Mannargudi (மன்னார்குடி)</option>
-        <option value="Muthupet">Muthupet (முத்துப்பேட்டை)</option>
-        <option value="Nannilam">Nannilam (நன்னிலம்)</option>
-        <option value="Needamangalam">Needamangalam (நீடாமங்கலம்)</option>
-        <option value="Thirumakkottai">Thirumakkottai (திருமக்கோட்டை)</option>
-        <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
-        <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
+        <optgroup label="Thiruvarur District Blocks">
+          <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
+          <option value="Kottur">Kottur (கோட்டூர்)</option>
+          <option value="Kudavasal">Kudavasal (குடவாசல்)</option>
+          <option value="Mannargudi">Mannargudi (மன்னார்குடி)</option>
+          <option value="Muthupet">Muthupet (முத்துப்பேட்டை)</option>
+          <option value="Nannilam">Nannilam (நன்னிலம்)</option>
+          <option value="Needamangalam">Needamangalam (நீடாமங்கலம்)</option>
+          <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
+          <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
+          <option value="Valangaiman">Valangaiman (வலங்கைமான்)</option>
+        </optgroup>
+        <optgroup label="Nagapattinam District Blocks">
+          <option value="Vedaranyam">Vedaranyam (வேதாரண்யம்)</option>
+          <option value="Nagapattinam">Nagapattinam (நாகப்பட்டினம்)</option>
+          <option value="Kilvelur">Kilvelur (கீழ்வேளூர்)</option>
+          <option value="Keezhaiyur">Keezhaiyur (கீழையூர்)</option>
+          <option value="Thirumarugal">Thirumarugal (திருமருகல்)</option>
+          <option value="Thalainayar">Thalainayar (தலைஞாயிறு)</option>
+        </optgroup>
       </select>
       <select id="categoryFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Resolution Categories</option>
@@ -3682,6 +3761,7 @@ function generateTableRowsHtml(list) {
           '<div style="color: var(--text-primary); font-weight: 700; font-size: 0.88rem; line-height: 1.3;">' + escSchoolName + '</div>' +
           '<div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-top: 1.5px; display: flex; align-items: center; gap: 0.25rem; flex-wrap: wrap;">' +
             'UDISE: <span style="color: var(--primary); font-weight: 700;">' + escUdise + '</span>' +
+            '<span class="badge" style="background:' + ((t.district && t.district.toLowerCase() === 'nagapattinam') || (t.ticketId && t.ticketId.includes('NGP')) ? '#fef3c7; color:#92400e; border:1px solid #fde68a;' : '#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;') + ' font-size: 0.68rem; font-weight: 800; padding: 1px 6px;">' + (t.district || ((t.ticketId && t.ticketId.includes('NGP')) ? 'Nagapattinam' : 'Thiruvarur')) + '</span>' +
             '<span class="badge" style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 0.1rem 0.45rem; font-size: 0.68rem; font-weight: 700; color: #1e3a8a;">' + escBlock + '</span>' +
           '</div>' +
         '</td>' +
@@ -3930,6 +4010,9 @@ function generateTableRowsHtml(list) {
         const bClear = document.getElementById('btnClearSearch');
         if (bClear) bClear.style.display = search ? 'block' : 'none';
 
+        const dEl = document.getElementById('districtFilter');
+        const dist = (dEl ? (dEl.value || '') : '').trim().toLowerCase();
+
         const bEl = document.getElementById('blockFilter');
         const block = (bEl ? (bEl.value || '') : '').trim().toLowerCase();
         
@@ -3961,14 +4044,18 @@ function generateTableRowsHtml(list) {
             else if (tSchool.includes(search) || tUdise.includes(search) || tAi.includes(search) || tTid.includes(search) || tIssue.includes(search) || tBlock.includes(search)) matchSearch = true;
           }
 
-          // 2. Match Block
+          // 2. Match District
+          const tDist = (t.district || (t.ticketId && t.ticketId.includes('NGP') ? 'Nagapattinam' : 'Thiruvarur')).toLowerCase();
+          const matchDist = !dist || tDist.includes(dist);
+
+          // 3. Match Block
           const matchBlock = !block || tBlock.includes(block);
 
-          // 3. Match Category
+          // 4. Match Category
           const tCat = t.resolutionCategory || (t.status === 'Resolved Remotely' ? 'Resolved Remotely' : (t.status === 'Solved by Direct Visit' ? 'Solved by Direct Visit' : 'Pending'));
           const matchCat = !cat || tCat === cat;
 
-          return matchSearch && matchBlock && matchCat;
+          return matchSearch && matchDist && matchBlock && matchCat;
         });
 
         
@@ -4020,7 +4107,7 @@ function generateTableRowsHtml(list) {
           return;
         }
 
-                const currentSig = search + '|' + block + '|' + cat + '|' + JSON.stringify(filtered.map(function(t) { 
+                const currentSig = search + '|' + dist + '|' + block + '|' + cat + '|' + JSON.stringify(filtered.map(function(t) { 
           return t.ticketId + '_' + t.status + '_' + (t.createdDate || t.createdAt || '') + '_' + (t.issue || ''); 
         }));
 

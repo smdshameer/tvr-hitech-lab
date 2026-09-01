@@ -99,8 +99,10 @@ function doPost(e) {
       return updateTicketRow(sheet, data);
     }
 
-    // 3. ACTION: CREATE TICKET (Default)
-    var rootFolderName = "Thiruvarur_HTL_UPS_Photos";
+    // 3. ACTION: CREATE TICKET (Default - District Aware Dual Drive Roots)
+    var distStr = String(data.district || 'Thiruvarur').trim();
+    var isNagapattinam = distStr.toLowerCase().indexOf('nagapattinam') !== -1;
+    var rootFolderName = isNagapattinam ? "Nagapattinam_HTL_UPS_Photos" : "Thiruvarur_HTL_UPS_Photos";
     var rootFolder;
     var folders = DriveApp.getFoldersByName(rootFolderName);
     if (folders.hasNext()) {

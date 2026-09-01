@@ -68,10 +68,16 @@ async function runAudit() {
   console.log('\n--- DIMENSION 2: School Search, Filter & 1-Click Select ---');
   try {
     const schools = db.masterSchools || [];
-    recordTest('Dim 2: Schools', 'Master Schools Directory Loaded', schools.length >= 182, `${schools.length} schools`);
+    recordTest('Dim 2: Schools', 'Master Schools Directory Loaded', schools.length >= 262, `${schools.length} schools (Thiruvarur: 182 + Nagapattinam: 80)`);
     
     const koradachery = schools.find(s => s.udise === '33200305301');
-    recordTest('Dim 2: Schools', 'Koradachery School Search Resolution', !!koradachery && koradachery.aiName.includes('Kothaibharathi'), koradachery ? koradachery.schoolName : 'Not found');
+    recordTest('Dim 2: Schools', 'Thiruvarur School Resolution (Koradachery)', !!koradachery && koradachery.aiName.includes('Kothaibharathi'), koradachery ? koradachery.schoolName : 'Not found');
+
+    const periyakuthagai = schools.find(s => s.udise === '33190600901');
+    recordTest('Dim 2: Schools', 'Nagapattinam AI Directory Resolution (Nisha)', !!periyakuthagai && periyakuthagai.aiName === 'Nisha' && periyakuthagai.block === 'Vedaranyam', periyakuthagai ? periyakuthagai.schoolName : 'Not found');
+
+    const multiAiSchool = schools.filter(s => s.udise === '33190103130');
+    recordTest('Dim 2: Schools', 'Nagapattinam Multi-AI School Resolution (MGHSS)', multiAiSchool.length === 4, `${multiAiSchool.length} AI Instructors mapped`);
   } catch (err) {
     recordTest('Dim 2: Schools', 'School Search Resolution', false, err.message);
   }
