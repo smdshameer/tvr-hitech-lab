@@ -1934,16 +1934,19 @@ if (pathname === '/api/data' && req.method === 'GET') {
 // ========================================================
 // 6. WORKING-HOURS SELF-PING KEEP-ALIVE
 // ========================================================
-setInterval(() => {
-  try {
-    const now = new Date();
-    const istHours = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
-    if (istHours >= 8 && istHours < 18) {
-      const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000/';
-      http.get(pingUrl, () => {}).on('error', () => {});
-    }
-  } catch(e){}
-}, 10 * 60 * 1000);
+if (!isServerless) {
+  const keepAliveTimer = setInterval(() => {
+    try {
+      const now = new Date();
+      const istHours = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getHours();
+      if (istHours >= 8 && istHours < 18) {
+        const pingUrl = process.env.RENDER_EXTERNAL_URL || 'http://localhost:10000/';
+        http.get(pingUrl, () => {}).on('error', () => {});
+      }
+    } catch(e){}
+  }, 10 * 60 * 1000);
+  if (keepAliveTimer.unref) keepAliveTimer.unref();
+}
 
 async function ensureTlsCertificates() {
   if (isServerless) return null;

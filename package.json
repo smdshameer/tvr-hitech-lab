@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
-    "pg": "^8.23.0",
-    "selfsigned": "^5.5.0"
+    "pg": "^8.23.0"
   }
 }
