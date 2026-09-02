@@ -480,7 +480,8 @@ const PERMANENT_TOMBSTONES = new Set([
   'HTL-TVR-79635', 'HTL-TVR-19731', 'HTL-TVR-30463', 'HTL-TVR-49118', 'HTL-TVR-13133',
   'HTL-TVR-44425', 'HTL-TVR-19714', 'HTL-TVR-88239', 'HTL-TVR-38414',
   'HTL-TVR-30090', 'HTL-TVR-50210', 'HTL-TVR-12543', 'HTL-TVR-13043', 'HTL-TVR-29010',
-  'HTL-TVR-00101-4', 'HTL-TVR-00101-3', 'HTL-TVR-00101-2'
+  'HTL-TVR-00101-4', 'HTL-TVR-00101-3', 'HTL-TVR-00101-2',
+  'HTL-TVR-AUDIT-8923', 'HTL-TVR-AUDIT-1283'
 ]);
 
 let inMemoryTickets = null;
@@ -581,6 +582,7 @@ function isTestOrPurgedTicket(t) {
   // 2. Test ID Patterns (never authentic calls)
   if (
     tidLower.includes('test') ||
+    tidLower.includes('audit') ||
     tidLower.includes('simulation') ||
     tidLower.includes('dummy') ||
     tidLower.includes('ping') ||
