@@ -446,26 +446,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-function normalizeTicketDate(dateStr) {
-  if (!dateStr || typeof dateStr !== 'string') return dateStr;
-  const s = dateStr.trim();
-  const gmtMatch = s.match(/([A-Za-z]+)\s+([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
-  if (gmtMatch) {
-    const months = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
-    const month = months[gmtMatch[2]] || '09';
-    const day = String(gmtMatch[3]).padStart(2, '0');
-    const year = gmtMatch[4];
-    let hours = parseInt(gmtMatch[5], 10);
-    const mins = gmtMatch[6];
-    const secs = gmtMatch[7];
-    const ampm = hours >= 12 ? 'pm' : 'am';
-    hours = hours % 12 || 12;
-    const finalDay = (month === '02' && day === '09') ? '02' : day;
-    const finalMonth = (month === '02' && day === '09') ? '09' : month;
-    return `${finalDay}/${finalMonth}/${year}, ${String(hours).padStart(2, '0')}:${mins}:${secs} ${ampm}`;
-  }
-  return s;
-}
 
 function parseTicketTimestamp(dateStr) {
   if (!dateStr) return 0;
