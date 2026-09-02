@@ -421,14 +421,16 @@ function fetchGasApi(url, method = 'GET', payload = null) {
         timeout: 10000,
         headers: { 'User-Agent': 'HTL-Database-Engine/2.0' }
       };
-      if (payload) {
-        const bodyStr = JSON.stringify(payload);
+      let postData = null;
+      if (payload && method === 'POST') {
+        postData = JSON.stringify(payload);
         options.headers['Content-Type'] = 'application/json';
-        options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+        options.headers['Content-Length'] = Buffer.byteLength(postData);
       }
       const req = https.request(options, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          return resolve(fetchGasApi(res.headers.location, method, payload));
+          // Following redirect from Google Apps Script Web App must be GET
+          return resolve(fetchGasApi(res.headers.location, 'GET', null));
         }
         let data = '';
         res.on('data', c => data += c);
@@ -442,7 +444,7 @@ function fetchGasApi(url, method = 'GET', payload = null) {
       });
       req.on('error', () => resolve(null));
       req.on('timeout', () => { req.destroy(); resolve(null); });
-      if (payload) req.write(JSON.stringify(payload));
+      if (postData) req.write(postData);
       req.end();
     } catch(e) {
       resolve(null);
@@ -470,19 +472,41 @@ const SCHOOLS_FILE = path.join(BUNDLED_DATA_DIR, 'master_schools_182.json');
 try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true }); } catch (e) {}
 
+const PERMANENT_TOMBSTONES = new Set([
+  'HTL-TVR-P29-8180', 'HTL-TVR-P32-TEST', 'HTL-TVR-P31-TEST', 'HTL-TVR-P29-2662',
+  'HTL-TVR-P30-TEST', 'HTL-TVR-P29-7349', 'HTL-TVR-P29-7446', 'HTL-TVR-P29-5529',
+  'HTL-TVR-P29-3441', 'HTL-TVR-P29-6413', 'HTL-TVR-P29-5135', 'HTL-NGP-00999',
+  'HTL-NGP-00901-2', 'HTL-NGP-00902', 'HTL-TVR-99991', 'HTL-TVR-99999', 'TEST-PING-001',
+  'HTL-TVR-79635', 'HTL-TVR-19731', 'HTL-TVR-30463', 'HTL-TVR-49118', 'HTL-TVR-13133',
+  'HTL-TVR-44425', 'HTL-TVR-19714', 'HTL-TVR-88239', 'HTL-TVR-38414',
+  'HTL-TVR-30090', 'HTL-TVR-50210', 'HTL-TVR-12543', 'HTL-TVR-13043', 'HTL-TVR-29010',
+  'HTL-TVR-00101-4', 'HTL-TVR-00101-3', 'HTL-TVR-00101-2'
+]);
+
 let inMemoryTickets = null;
 let deletedTicketIds = new Set();
+PERMANENT_TOMBSTONES.forEach(id => deletedTicketIds.add(id));
+
 try {
-  const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
-  if (fs.existsSync(delFilePath)) {
-    try {
-      const savedDeleted = JSON.parse(fs.readFileSync(delFilePath, 'utf8'));
-      if (Array.isArray(savedDeleted)) {
-        savedDeleted.forEach(id => deletedTicketIds.add(String(id).trim()));
-        console.log(`🛡️ [ANTI-RESURRECTION] Loaded ${deletedTicketIds.size} permanently deleted ticket tombstones into memory guard.`);
-      }
-    } catch(e) {}
-  }
+  const delFiles = [
+    path.join(DATA_DIR, 'htl_deleted_ids.json'),
+    path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json')
+  ];
+  delFiles.forEach(f => {
+    if (fs.existsSync(f)) {
+      try {
+        const savedDeleted = JSON.parse(fs.readFileSync(f, 'utf8'));
+        if (Array.isArray(savedDeleted)) {
+          savedDeleted.forEach(id => {
+            const clean = String(id).trim();
+            deletedTicketIds.add(clean);
+            PERMANENT_TOMBSTONES.add(clean);
+          });
+        }
+      } catch(e) {}
+    }
+  });
+  console.log(`🛡️ [ANTI-RESURRECTION] Loaded ${deletedTicketIds.size} permanently deleted ticket tombstones into memory guard.`);
 } catch(e) {}
 
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
@@ -543,12 +567,58 @@ if (process.env.DATABASE_URL) {
 function isTestOrPurgedTicket(t) {
   if (!t || !t.ticketId) return true;
   const tid = String(t.ticketId).trim();
+  const tidLower = tid.toLowerCase();
   const name = String(t.schoolName || '').toLowerCase();
-  if (tid === 'HTL-TVR-99999' || tid === 'TEST-PING-001' || name.includes('test school for verification')) return true;
-  if (deletedTicketIds.has(tid)) return true;
   const iss = String(t.issue || '').toLowerCase();
   const rem = String(t.remarks || '').toLowerCase();
-  if (iss.includes('simulation') || rem.includes('simulation')) return true;
+
+  // 1. Permanent Tombstones
+  if (deletedTicketIds.has(tid) || PERMANENT_TOMBSTONES.has(tid)) return true;
+  const u = String(t.udise || '').trim();
+  const dt = String(t.createdDate || t.createdAt || '').trim();
+  if (u && dt && (deletedTicketIds.has(`${u}_${dt}`) || PERMANENT_TOMBSTONES.has(`${u}_${dt}`))) return true;
+
+  // 2. Test ID Patterns (never authentic calls)
+  if (
+    tidLower.includes('test') ||
+    tidLower.includes('simulation') ||
+    tidLower.includes('dummy') ||
+    tidLower.includes('ping') ||
+    tidLower.includes('-p29-') ||
+    tidLower.includes('-p30-') ||
+    tidLower.includes('-p31-') ||
+    tidLower.includes('-p32-') ||
+    tidLower.includes('-p33-') ||
+    tidLower.includes('9999') ||
+    tidLower === 'htl-ngp-00999' ||
+    tidLower === 'htl-ngp-00902' ||
+    (tidLower.startsWith('htl-tvr-00101-') && tidLower !== 'htl-tvr-00101') ||
+    rem.includes('test remarks 12345') ||
+    rem.includes('test remarks')
+  ) return true;
+
+  // 3. Test School Name Patterns
+  if (
+    name.includes('test') ||
+    name.includes('simulation') ||
+    name.includes('dummy') ||
+    name.includes('audit lab') ||
+    name === 'test'
+  ) return true;
+
+  // 4. Test Issue Patterns
+  if (
+    iss.includes('simulation') ||
+    iss.includes('test call') ||
+    iss.includes('local ingestion test') ||
+    iss.includes('phase 27 completion evidence') ||
+    iss.includes('ai teacher completion test') ||
+    iss === 'test'
+  ) return true;
+
+  // 5. Ephemeral test tickets generated for GHSS ADICHAPURAM with dummy test remarks
+  if (name.includes('adichapuram') && rem.includes('12345')) return true;
+
   return false;
 }
 
@@ -566,12 +636,14 @@ function loadTicketsFromJson() {
       if (Array.isArray(b) && b.length > 0) list = b;
     } catch(e) {}
   }
-  // Always ensure all authentic embedded tickets are present in memory
+  // Always ensure all authentic embedded tickets are present in memory (unless deleted or test)
   const localIds = new Set(list.map(t => String(t.ticketId).trim()));
   EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
-    if (!localIds.has(String(bt.ticketId).trim())) {
+    const bId = String(bt.ticketId).trim();
+    if (deletedTicketIds.has(bId) || PERMANENT_TOMBSTONES.has(bId) || isTestOrPurgedTicket(bt)) return;
+    if (!localIds.has(bId)) {
       list.push(bt);
-      localIds.add(String(bt.ticketId).trim());
+      localIds.add(bId);
     }
   });
 
@@ -753,8 +825,25 @@ async function initDatabase() {
         ticket_count INT,
         backup_data JSONB
       );
+      CREATE TABLE IF NOT EXISTS deleted_ticket_tombstones (
+        ticket_id TEXT PRIMARY KEY,
+        deleted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        deleted_by TEXT,
+        deletion_reason TEXT
+      );
     `);
     console.log('✅ PostgreSQL Schema & Indexes verified.');
+    try {
+      const tombRes = await pool.query('SELECT ticket_id FROM deleted_ticket_tombstones');
+      tombRes.rows.forEach(r => {
+        const clean = String(r.ticket_id).trim();
+        deletedTicketIds.add(clean);
+        PERMANENT_TOMBSTONES.add(clean);
+      });
+      if (tombRes.rows.length > 0) {
+        console.log(`🛡️ [POSTGRES] Loaded ${tombRes.rows.length} persistent tombstones into memory guard.`);
+      }
+    } catch(e) {}
     const countRes = await pool.query('SELECT count(*) FROM tickets');
     const rowCount = parseInt(countRes.rows[0].count, 10);
     if (true) { // Always ensure authentic baseline tickets exist
@@ -762,6 +851,7 @@ async function initDatabase() {
       const tickets = EMBEDDED_AUTHENTIC_TICKETS;
       let migratedCount = 0;
       for (const t of tickets) {
+        if (deletedTicketIds.has(String(t.ticketId).trim()) || PERMANENT_TOMBSTONES.has(String(t.ticketId).trim()) || isTestOrPurgedTicket(t)) continue;
         const canonicalPrio = normalizePriority(t.priority, t.issue);
         await pool.query(`
           INSERT INTO tickets (
@@ -852,9 +942,9 @@ async function syncGasTickets() {
           if (!rt || isTestOrPurgedTicket(rt)) return;
           const udise = String(rt.udise || '').trim();
           const assignedId = canonicalizeTicketId(rt.ticketId, udise);
-          if (deletedTicketIds.has(assignedId) || deletedTicketIds.has(rt.ticketId)) return;
+          if (deletedTicketIds.has(assignedId) || deletedTicketIds.has(rt.ticketId) || PERMANENT_TOMBSTONES.has(assignedId) || PERMANENT_TOMBSTONES.has(rt.ticketId)) return;
           const uKey = String(rt.udise || '').trim() + '_' + String(rt.createdDate || rt.createdAt || '').trim();
-          if (deletedTicketIds.has(uKey)) return;
+          if (deletedTicketIds.has(uKey) || PERMANENT_TOMBSTONES.has(uKey)) return;
 
           const normDate = normalizeTicketDate(rt.createdDate || rt.createdAt || '');
           const cleanTicket = { 
@@ -925,12 +1015,14 @@ async function syncGasTickets() {
           added++;
         });
 
-        // Always ensure all 20 authentic baseline tickets are preserved in localTickets
+        // Always ensure authentic baseline tickets are preserved in localTickets (unless deleted or test)
         const existingIds = new Set(localTickets.map(t => String(t.ticketId).trim()));
         EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
-          if (!existingIds.has(String(bt.ticketId).trim())) {
+          const bId = String(bt.ticketId).trim();
+          if (deletedTicketIds.has(bId) || PERMANENT_TOMBSTONES.has(bId) || isTestOrPurgedTicket(bt)) return;
+          if (!existingIds.has(bId)) {
             localTickets.push(bt);
-            existingIds.add(String(bt.ticketId).trim());
+            existingIds.add(bId);
           }
         });
 
@@ -1379,17 +1471,21 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
   const targetTicket = list.find(t => String(t.ticketId).trim() === cleanId);
 
   deletedTicketIds.add(cleanId);
+  PERMANENT_TOMBSTONES.add(cleanId);
   if (targetTicket) {
     const u = String(targetTicket.udise || '').trim();
     const dt = String(targetTicket.createdDate || targetTicket.createdAt || '').trim();
-    if (u && dt) deletedTicketIds.add(`${u}_${dt}`);
+    if (u && dt) {
+      deletedTicketIds.add(`${u}_${dt}`);
+      PERMANENT_TOMBSTONES.add(`${u}_${dt}`);
+    }
   }
 
-  // 1. Persist Tombstone ID array
+  // 1. Persist Tombstone ID array to DATA_DIR and BUNDLED_DATA_DIR
   try {
-    const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
     const delArr = Array.from(deletedTicketIds);
-    safeWriteFileSync(delFilePath, JSON.stringify(delArr, null, 2), 'utf8');
+    safeWriteFileSync(path.join(DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+    safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
 
     // 2. Persist Rich Audit Tombstone Record
     const tombstoneFilePath = path.join(DATA_DIR, 'htl_tombstones.json');
@@ -1409,13 +1505,27 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
         originalCreatedAt: targetTicket ? (targetTicket.createdDate || targetTicket.createdAt) : ''
       });
       safeWriteFileSync(tombstoneFilePath, JSON.stringify(tombstones, null, 2), 'utf8');
+      safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_tombstones.json'), JSON.stringify(tombstones, null, 2), 'utf8');
     }
   } catch(e) {}
 
-  // 3. Delete from PostgreSQL if connected
+  // 3. Delete from PostgreSQL if connected & record permanent tombstone table
   if (usePostgres && pool) {
     try {
       await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [cleanId]);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS deleted_ticket_tombstones (
+          ticket_id TEXT PRIMARY KEY,
+          deleted_at TIMESTAMPTZ DEFAULT NOW(),
+          deleted_by TEXT,
+          deletion_reason TEXT
+        );
+      `);
+      await pool.query(`
+        INSERT INTO deleted_ticket_tombstones (ticket_id, deleted_by, deletion_reason)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (ticket_id) DO NOTHING
+      `, [cleanId, deletedBy, reason]);
     } catch (e) {
       console.error('Postgres delete error:', e.message);
     }
@@ -1425,13 +1535,10 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
   list = list.filter(t => String(t.ticketId).trim() !== cleanId);
   saveTicketsToJson(list);
 
-  // 5. Asynchronously call Google Sheets delete action
+  // 5. Asynchronously call Google Sheets delete action (both GET and POST)
   if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
-    fetchGasApi(GOOGLE_APPS_SCRIPT_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', ticketId: cleanId })
-    }).catch(err => console.warn('GAS delete webhook notice:', err.message));
+    fetchGasApi(`${GOOGLE_APPS_SCRIPT_ENDPOINT}?action=delete&ticketId=${encodeURIComponent(cleanId)}`).catch(() => {});
+    fetchGasApi(GOOGLE_APPS_SCRIPT_ENDPOINT, 'POST', { action: 'delete', ticketId: cleanId }).catch(() => {});
   }
 
   return { success: true };
@@ -1929,6 +2036,8 @@ module.exports = {
   masterSchools,
   registerOrUpdateSchool,
   getDatabaseType,
+  isTestOrPurgedTicket,
+  PERMANENT_TOMBSTONES,
   deletedTicketIds,
   getDeletedIds: () => Array.from(deletedTicketIds)
 };

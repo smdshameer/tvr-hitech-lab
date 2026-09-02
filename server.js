@@ -1716,13 +1716,7 @@ async function handleRequest(req, res) {
 
 if (pathname === '/api/data' && req.method === 'GET') {
     let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => {
-      if (!t || !t.ticketId) return false;
-      const iss = String(t.issue || '').toLowerCase();
-      const rem = String(t.remarks || '').toLowerCase();
-      if (iss.includes('simulation') || rem.includes('simulation')) return false;
-      return true;
-    });
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
     tickets.sort((a, b) => parseTicketTimestamp(b.createdDate || b.createdAt) - parseTicketTimestamp(a.createdDate || a.createdAt));
     const session = getAuthenticatedSession(req);
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
@@ -1878,13 +1872,7 @@ if (pathname === '/api/data' && req.method === 'GET') {
     // Ensure CSRF token for authenticated dashboard actions (update/delete)
     ensureCsrfToken(req, res);
     let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => {
-      if (!t || !t.ticketId) return false;
-      const iss = String(t.issue || '').toLowerCase();
-      const rem = String(t.remarks || '').toLowerCase();
-      if (iss.includes('simulation') || rem.includes('simulation')) return false;
-      return true;
-    });
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
     return;
@@ -1900,7 +1888,8 @@ if (pathname === '/api/data' && req.method === 'GET') {
     }
     // Ensure CSRF token for authenticated dashboard actions
     ensureCsrfToken(req, res);
-    const tickets = await db.getAllTickets();
+    let tickets = await db.getAllTickets();
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml(tickets));
     return;
@@ -6649,6 +6638,7 @@ function generateTableRowsHtml(list) {
 }
 
 function getITSMWorkbenchHtml(initialTickets = []) {
+  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t));
   initialTickets.sort((a, b) => {
     function p(s) {
       if (!s) return 0;
@@ -8466,13 +8456,20 @@ function generateTableRowsHtml(list) {
         const searchDigits = search.replace(/\D/g, '');
         
         const filtered = allTickets.filter(function(t) {
+          if (!t || !t.ticketId) return false;
+          const tTid = (t.ticketId || '').toLowerCase();
           const tSchool = (t.schoolName || '').toLowerCase();
+          const tIssue = (t.issue || '').toLowerCase();
+          const tRem = (t.remarks || '').toLowerCase();
+          if (tTid.includes('test') || tTid.includes('p29') || tTid.includes('p30') || tTid.includes('p31') || tTid.includes('p32') || tTid.includes('audit') || tTid.includes('simulation') || tTid.includes('dummy') || tTid.includes('9999') || tTid === 'htl-ngp-00999' || tTid === 'htl-ngp-00902' || (tTid.startsWith('htl-tvr-00101-') && tTid !== 'htl-tvr-00101') || tSchool.includes('test') || tSchool.includes('simulation') || tSchool.includes('audit lab') || tIssue.includes('simulation') || tIssue.includes('test') || tRem.includes('test remarks 12345')) return false;
+          try {
+            const curDel = getDeletedList();
+            if (curDel.includes(t.ticketId)) return false;
+          } catch(e) {}
           const tUdise = String(t.udise || '').toLowerCase();
           const tUdiseDigits = String(t.udise || '').replace(/\D/g, '');
           const tAi = (t.aiName || '').toLowerCase();
           const tPhoneDigits = String(t.phone || '').replace(/\D/g, '');
-          const tTid = (t.ticketId || '').toLowerCase();
-          const tIssue = (t.issue || '').toLowerCase();
           const tBlock = (t.block || '').toLowerCase();
 
           // 1. Match Search
@@ -9525,6 +9522,7 @@ function generateTableRowsHtml(list) {
 }
 
 function getITSMExecutiveHtml(initialTickets = []) {
+  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t));
   const masterSchools = db.masterSchools || [];
   const totalSchools = masterSchools.length || 262;
   const totalReported = initialTickets.length;
