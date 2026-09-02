@@ -114,7 +114,7 @@ async function runAudit() {
   // DIMENSION 5: Backend Data Creation & Ingestion
   // ----------------------------------------------------
   console.log('\n--- DIMENSION 5: Backend Data Creation & Ingestion ---');
-  const testId = 'HTL-TVR-05301-TMP-' + Date.now().toString().slice(-4);
+  const testId = 'HTL-TVR-05301-MOCK-' + Date.now().toString().slice(-4);
   try {
     const testPayload = {
       ticketId: testId,
