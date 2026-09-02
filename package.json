@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node test_comprehensive_e2e.js"
+    "test": "node tests/web-gps-camera.test.js && node test_comprehensive_e2e.js",
+    "test:web": "node tests/web-gps-camera.test.js"
   },
   "keywords": [
     "hitech-lab",
@@ -21,6 +22,7 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "selfsigned": "^5.5.0"
   }
 }

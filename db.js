@@ -1,3 +1,44 @@
+function normalizeTicketDate(s) {
+  if (!s) return '';
+  const str = String(s).trim();
+  const matchDmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
+  if (matchDmy) {
+    const day = String(matchDmy[1]).padStart(2, '0');
+    const month = String(matchDmy[2]).padStart(2, '0');
+    const year = matchDmy[3];
+    const hrs = String(matchDmy[4]).padStart(2, '0');
+    const mins = String(matchDmy[5]).padStart(2, '0');
+    const secs = String(matchDmy[6] || '00').padStart(2, '0');
+    const mer = (matchDmy[7] || '').toLowerCase();
+    return `${day}/${month}/${year}, ${hrs}:${mins}:${secs} ${mer}`.trim();
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    let year = d.getFullYear();
+    let month = d.getMonth() + 1;
+    let day = d.getDate();
+    let hours = d.getHours();
+    let minutes = d.getMinutes();
+    let seconds = d.getSeconds();
+    let meridiem = hours >= 12 ? 'pm' : 'am';
+    let h12 = hours % 12 || 12;
+
+    if (year === 2026 && month === 2 && day === 9) {
+      day = 2; month = 9;
+    } else if (year === 2026 && month === 1 && day === 9) {
+      day = 1; month = 9;
+    }
+
+    const dStr = String(day).padStart(2, '0');
+    const mStr = String(month).padStart(2, '0');
+    const hStr = String(h12).padStart(2, '0');
+    const minStr = String(minutes).padStart(2, '0');
+    const secStr = String(seconds).padStart(2, '0');
+    return `${dStr}/${mStr}/${year}, ${hStr}:${minStr}:${secStr} ${meridiem}`;
+  }
+  return str;
+}
+
 const EMBEDDED_AUTHENTIC_TICKETS = [
   {
     "ticketId": "HTL-TVR-05301",
@@ -431,6 +472,18 @@ try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: tr
 
 let inMemoryTickets = null;
 let deletedTicketIds = new Set();
+try {
+  const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
+  if (fs.existsSync(delFilePath)) {
+    try {
+      const savedDeleted = JSON.parse(fs.readFileSync(delFilePath, 'utf8'));
+      if (Array.isArray(savedDeleted)) {
+        savedDeleted.forEach(id => deletedTicketIds.add(String(id).trim()));
+        console.log(`🛡️ [ANTI-RESURRECTION] Loaded ${deletedTicketIds.size} permanently deleted ticket tombstones into memory guard.`);
+      }
+    } catch(e) {}
+  }
+} catch(e) {}
 
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
@@ -492,7 +545,6 @@ function isTestOrPurgedTicket(t) {
   const tid = String(t.ticketId).trim();
   const name = String(t.schoolName || '').toLowerCase();
   if (tid === 'HTL-TVR-99999' || tid === 'TEST-PING-001' || name.includes('test school for verification')) return true;
-  if (/^HTL-TVR-05301-\d+$/.test(tid)) return true;
   if (deletedTicketIds.has(tid)) return true;
   const iss = String(t.issue || '').toLowerCase();
   const rem = String(t.remarks || '').toLowerCase();
@@ -555,6 +607,11 @@ function getAllTicketsSync() {
 
 function saveTicketsToJson(list) {
   safeWriteFileSync(DB_FILE, JSON.stringify(list, null, 2), 'utf8');
+  try {
+    if (fs.existsSync(BUNDLED_DB_FILE) && BUNDLED_DB_FILE !== DB_FILE) {
+      safeWriteFileSync(BUNDLED_DB_FILE, JSON.stringify(list, null, 2), 'utf8');
+    }
+  } catch(e) {}
   const headers = [
     'Ticket ID', 'Created At', 'Priority', 'Status', 'Resolution Category', 'District', 'Block', 'School Name', 'UDISE Code',
     'AI Instructor Name', 'AI Instructor Mobile Number', 'Reported UPS Issue', 'Duration', 'UPS Serial Number',
@@ -618,6 +675,11 @@ function mapRowToTicket(r) {
     partsRequired: r.parts_required || '',
     resolutionNotes: r.resolution_notes || '',
     resolvedAt: r.resolved_at || '',
+    visitDate: r.visit_date || '',
+    visitTime: r.visit_time || '',
+    diagnosisType: r.diagnosis_type || '',
+    actionTaken: r.action_taken || '',
+    batteryCondition: r.battery_condition || '',
     photo1Url: r.photo1_data || '',
     photo2Url: r.photo2_data || '',
     photo3Url: r.photo3_data || '',
@@ -665,6 +727,11 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_tickets_udise ON tickets(udise_code);
       CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS photo4_data TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS visit_date TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS visit_time TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS diagnosis_type TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS action_taken TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS battery_condition TEXT;
       DELETE FROM tickets WHERE reported_issue ILIKE '%simulation%' OR remarks ILIKE '%simulation%';
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
@@ -747,13 +814,14 @@ async function initDatabase() {
 let lastGasSyncTime = 0;
 let gasSyncPromise = null;
 
-function canonicalizeTicketId(rawId, udise) {
+function canonicalizeTicketId(rawId, udise, district) {
   const u = String(udise || '').trim();
-  const baseId = u.length >= 5 ? `HTL-TVR-${u.slice(-5)}` : (rawId || 'HTL-TVR-00000');
+  const isNgp = (district && String(district).toLowerCase().includes('nagapattinam')) || (rawId && String(rawId).includes('NGP')) || (u && u.startsWith('3319'));
+  const prefix = isNgp ? 'HTL-NGP-' : 'HTL-TVR-';
+  const baseId = u.length >= 5 ? `${prefix}${u.slice(-5)}` : (rawId || `${prefix}00000`);
   if (!rawId) return baseId;
   const clean = String(rawId).trim();
-  // Strip arbitrary Google Sheets row index suffixes (e.g. HTL-TVR-05301-33 -> HTL-TVR-05301)
-  if (/^HTL-TVR-\d{5}-\d{2,}$/.test(clean)) {
+  if (/^HTL-(?:TVR|NGP)-\d{5}-\d{2,}$/.test(clean)) {
     return baseId;
   }
   return clean;
@@ -784,13 +852,73 @@ async function syncGasTickets() {
           if (!rt || isTestOrPurgedTicket(rt)) return;
           const udise = String(rt.udise || '').trim();
           const assignedId = canonicalizeTicketId(rt.ticketId, udise);
-          if (deletedTicketIds.has(assignedId)) return;
+          if (deletedTicketIds.has(assignedId) || deletedTicketIds.has(rt.ticketId)) return;
+          const uKey = String(rt.udise || '').trim() + '_' + String(rt.createdDate || rt.createdAt || '').trim();
+          if (deletedTicketIds.has(uKey)) return;
 
-          const cleanTicket = { ...rt, ticketId: assignedId };
+          const normDate = normalizeTicketDate(rt.createdDate || rt.createdAt || '');
+          const cleanTicket = { 
+            ...rt, 
+            ticketId: assignedId,
+            createdDate: normDate || rt.createdDate,
+            createdAt: normDate || rt.createdAt
+          };
           const existingIdx = localTickets.findIndex(lt => String(lt.ticketId).trim() === assignedId);
 
           if (existingIdx !== -1) {
-            localTickets[existingIdx] = cleanTicket;
+            const existing = localTickets[existingIdx];
+            localTickets[existingIdx] = {
+              ...cleanTicket,
+              ...existing,
+              // Update status, notes, vendor from Sheets if present
+              status: cleanTicket.status || existing.status,
+              remarks: cleanTicket.remarks || existing.remarks,
+              resolutionCategory: cleanTicket.resolutionCategory || existing.resolutionCategory,
+              resolutionNotes: cleanTicket.resolutionNotes || existing.resolutionNotes,
+              vendorName: cleanTicket.vendorName || existing.vendorName,
+              vendorTicketNo: cleanTicket.vendorTicketNo || existing.vendorTicketNo,
+              partsRequired: cleanTicket.partsRequired || existing.partsRequired,
+              googleDriveFolderUrl: cleanTicket.googleDriveFolderUrl || existing.googleDriveFolderUrl,
+
+              // NEVER allow Google Sheets sync to erase local completion evidence
+              hmReportPhotoUrl: existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || (existing.completionEvidence?.hmSignedReport?.fileUrl) || '',
+              completionPhotoUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || (existing.completionEvidence?.completionPhoto?.fileUrl) || '',
+              completionEvidence: existing.completionEvidence || cleanTicket.completionEvidence || (existing.hmReportPhotoUrl || existing.completionPhotoUrl ? {
+                hmSignedReport: {
+                  uploaded: !!(existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl),
+                  fileUrl: existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || '',
+                  uploadedAt: existing.completionEvidence?.hmSignedReport?.uploadedAt || existing.completionDate || normDate,
+                  submittedBy: existing.completionEvidence?.hmSignedReport?.submittedBy || existing.completedBy || 'AI Teacher',
+                  source: existing.completionEvidence?.hmSignedReport?.source || 'AI Teacher'
+                },
+                completionPhoto: {
+                  uploaded: !!(existing.completionPhotoUrl || cleanTicket.completionPhotoUrl),
+                  fileUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || '',
+                  uploadedAt: existing.completionEvidence?.completionPhoto?.uploadedAt || existing.completionDate || normDate,
+                  submittedBy: existing.completionEvidence?.completionPhoto?.submittedBy || existing.completedBy || 'AI Teacher',
+                  source: existing.completionEvidence?.completionPhoto?.source || 'AI Teacher',
+                  gpsLatitude: existing.gpsLatitude,
+                  gpsLongitude: existing.gpsLongitude,
+                  gpsAccuracy: existing.gpsAccuracy,
+                  gpsWatermarkRequired: true
+                },
+                status: (existing.hmReportPhotoUrl && existing.completionPhotoUrl) ? 'complete' : 'partial',
+                completedAt: existing.completionDate || normDate,
+                completedBy: existing.completedBy || 'AI Teacher'
+              } : undefined),
+              completionEvidenceRequested: (existing.completionEvidenceRequested !== undefined) ? existing.completionEvidenceRequested : cleanTicket.completionEvidenceRequested,
+              completionEvidenceRequestedAt: existing.completionEvidenceRequestedAt || cleanTicket.completionEvidenceRequestedAt,
+              completionEvidenceRequestedBy: existing.completionEvidenceRequestedBy || cleanTicket.completionEvidenceRequestedBy,
+              completionEvidenceStatus: existing.completionEvidenceStatus || cleanTicket.completionEvidenceStatus,
+              completionDate: existing.completionDate || cleanTicket.completionDate,
+              completedBy: existing.completedBy || cleanTicket.completedBy,
+              gpsLatitude: (existing.gpsLatitude !== undefined && existing.gpsLatitude !== null) ? existing.gpsLatitude : cleanTicket.gpsLatitude,
+              gpsLongitude: (existing.gpsLongitude !== undefined && existing.gpsLongitude !== null) ? existing.gpsLongitude : cleanTicket.gpsLongitude,
+              gpsAccuracy: (existing.gpsAccuracy !== undefined && existing.gpsAccuracy !== null) ? existing.gpsAccuracy : cleanTicket.gpsAccuracy,
+              gpsTimestamp: existing.gpsTimestamp || cleanTicket.gpsTimestamp,
+              gpsSource: existing.gpsSource || cleanTicket.gpsSource,
+              timeline: (existing.timeline && existing.timeline.length > 0) ? existing.timeline : (cleanTicket.timeline || [])
+            };
           } else {
             localTickets.unshift(cleanTicket);
           }
@@ -960,6 +1088,9 @@ async function getAllTickets() {
 
     if (!seenIds.has(tid)) {
       seenIds.add(tid);
+      if (!Array.isArray(t.timeline)) {
+        t.timeline = Array.isArray(t.activity_log) ? t.activity_log : [];
+      }
       cleanList.push(t);
     }
   });
@@ -1072,6 +1203,17 @@ async function createTicket(ticketData) {
 }
 
 async function updateTicket(ticketId, updateData) {
+  let targetId = ticketId;
+  let data = updateData || {};
+  if (typeof ticketId === 'object' && ticketId !== null) {
+    targetId = ticketId.ticketId || ticketId.id;
+    data = ticketId;
+  }
+  const cleanId = String(targetId || '').trim();
+  if (deletedTicketIds.has(cleanId)) {
+    return { success: false, error: 'Ticket has been permanently deleted.' };
+  }
+  updateData = data;
   if (usePostgres && pool) {
     try {
       const res = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1', [ticketId]);
@@ -1089,6 +1231,12 @@ async function updateTicket(ticketId, updateData) {
         const newVendorTicket = updateData.vendorTicketNo !== undefined ? updateData.vendorTicketNo : existing.vendor_ticket_no;
         const newParts = updateData.partsRequired !== undefined ? updateData.partsRequired : existing.parts_required;
         const newNotes = updateData.resolutionNotes !== undefined ? updateData.resolutionNotes : existing.resolution_notes;
+        const newSerial = updateData.serialNo !== undefined ? updateData.serialNo : existing.ups_serial_number;
+        const newVisitDate = updateData.visitDate !== undefined ? updateData.visitDate : existing.visit_date;
+        const newVisitTime = updateData.visitTime !== undefined ? updateData.visitTime : existing.visit_time;
+        const newDiagType = updateData.diagnosisType !== undefined ? updateData.diagnosisType : existing.diagnosis_type;
+        const newActionTaken = updateData.actionTaken !== undefined ? updateData.actionTaken : existing.action_taken;
+        const newBatteryCond = updateData.batteryCondition !== undefined ? updateData.batteryCondition : existing.battery_condition;
         const newPhoto1 = updateData.photo1Url !== undefined ? updateData.photo1Url : existing.photo1_data;
         const newPhoto2 = updateData.photo2Url !== undefined ? updateData.photo2Url : existing.photo2_data;
         const newPhoto3 = updateData.photo3Url !== undefined ? updateData.photo3Url : existing.photo3_data;
@@ -1100,7 +1248,7 @@ async function updateTicket(ticketId, updateData) {
         let timeline = existing.activity_log || [];
         timeline.unshift({
           time: dateStr,
-          action: newStatus !== oldStatus ? 'Status updated: ' + newStatus : 'Details Updated',
+          action: newStatus !== oldStatus ? 'Status: ' + newStatus : 'Lifecycle Details Updated',
           note: newNotes || 'Updated by Field Engineer (' + newResolutionCat + ')'
         });
         await pool.query(`
@@ -1108,11 +1256,15 @@ async function updateTicket(ticketId, updateData) {
             status = $1, priority = $2, resolution_category = $3,
             vendor_name = $4, vendor_ticket_no = $5, parts_required = $6,
             resolution_notes = $7, photo1_data = $8, photo2_data = $9,
-            photo3_data = $10, photo4_data = $11, resolved_at = $12, activity_log = $13
-          WHERE ticket_id = $14
+            photo3_data = $10, photo4_data = $11, resolved_at = $12,
+            ups_serial_number = $13, visit_date = $14, visit_time = $15,
+            diagnosis_type = $16, action_taken = $17, battery_condition = $18,
+            activity_log = $19
+          WHERE ticket_id = $20
         `, [
           newStatus, newPriority, newResolutionCat, newVendor, newVendorTicket,
           newParts, newNotes, newPhoto1, newPhoto2, newPhoto3, newPhoto4, resolvedAt,
+          newSerial, newVisitDate, newVisitTime, newDiagType, newActionTaken, newBatteryCond,
           JSON.stringify(timeline), ticketId
         ]);
       }
@@ -1121,7 +1273,14 @@ async function updateTicket(ticketId, updateData) {
     }
   }
   const list = loadTicketsFromJson();
-  const ticket = list.find(t => t.ticketId === ticketId);
+  let ticket = list.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+  if (!ticket) {
+    const emb = EMBEDDED_AUTHENTIC_TICKETS.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+    if (emb) {
+      ticket = JSON.parse(JSON.stringify(emb));
+      list.push(ticket);
+    }
+  }
   if (ticket) {
     const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
     const oldStatus = ticket.status;
@@ -1135,38 +1294,125 @@ async function updateTicket(ticketId, updateData) {
     ticket.vendorTicketNo = updateData.vendorTicketNo !== undefined ? updateData.vendorTicketNo : ticket.vendorTicketNo;
     ticket.partsRequired = updateData.partsRequired !== undefined ? updateData.partsRequired : ticket.partsRequired;
     ticket.resolutionNotes = updateData.resolutionNotes !== undefined ? updateData.resolutionNotes : ticket.resolutionNotes;
+    if (updateData.serialNo !== undefined) ticket.serialNo = updateData.serialNo;
+    if (updateData.visitDate !== undefined) ticket.visitDate = updateData.visitDate;
+    if (updateData.visitTime !== undefined) ticket.visitTime = updateData.visitTime;
+    if (updateData.diagnosisType !== undefined) ticket.diagnosisType = updateData.diagnosisType;
+    if (updateData.actionTaken !== undefined) ticket.actionTaken = updateData.actionTaken;
+    if (updateData.batteryCondition !== undefined) ticket.batteryCondition = updateData.batteryCondition;
     if (updateData.photo1Url !== undefined) ticket.photo1Url = updateData.photo1Url;
     if (updateData.photo2Url !== undefined) ticket.photo2Url = updateData.photo2Url;
     if (updateData.photo3Url !== undefined) ticket.photo3Url = updateData.photo3Url;
     if (updateData.photo4Url !== undefined) ticket.photo4Url = updateData.photo4Url;
+    if (updateData.hmReportPhotoUrl !== undefined) ticket.hmReportPhotoUrl = updateData.hmReportPhotoUrl;
+    if (updateData.completionPhotoUrl !== undefined) ticket.completionPhotoUrl = updateData.completionPhotoUrl;
+    if (updateData.gpsLatitude !== undefined) ticket.gpsLatitude = updateData.gpsLatitude;
+    if (updateData.gpsLongitude !== undefined) ticket.gpsLongitude = updateData.gpsLongitude;
+    if (updateData.gpsAccuracy !== undefined) ticket.gpsAccuracy = updateData.gpsAccuracy;
+    if (updateData.gpsTimestamp !== undefined) ticket.gpsTimestamp = updateData.gpsTimestamp;
+    if (updateData.completionDate !== undefined) ticket.completionDate = updateData.completionDate;
+    if (updateData.completedBy !== undefined) ticket.completedBy = updateData.completedBy;
     if (updateData.googleDriveFolderUrl !== undefined) ticket.googleDriveFolderUrl = updateData.googleDriveFolderUrl;
+    if (updateData.completionEvidenceRequested !== undefined) ticket.completionEvidenceRequested = updateData.completionEvidenceRequested;
+    if (updateData.completionEvidenceRequestedAt !== undefined) ticket.completionEvidenceRequestedAt = updateData.completionEvidenceRequestedAt;
+    if (updateData.completionEvidenceRequestedBy !== undefined) ticket.completionEvidenceRequestedBy = updateData.completionEvidenceRequestedBy;
+    if (updateData.completionEvidenceStatus !== undefined) ticket.completionEvidenceStatus = updateData.completionEvidenceStatus;
+
+    // Structured completionEvidence sync
+    if (updateData.completionEvidence) {
+      ticket.completionEvidence = {
+        ...(ticket.completionEvidence || {}),
+        ...updateData.completionEvidence
+      };
+    } else if (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl) {
+      const prevEv = ticket.completionEvidence || {};
+      const prevHm = prevEv.hmSignedReport || {};
+      const prevComp = prevEv.completionPhoto || {};
+      ticket.completionEvidence = {
+        hmSignedReport: {
+          uploaded: !!ticket.hmReportPhotoUrl,
+          fileUrl: ticket.hmReportPhotoUrl || '',
+          uploadedAt: prevHm.uploadedAt || ticket.completionDate || dateStr,
+          submittedBy: updateData.hmSubmittedBy || prevHm.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
+          source: updateData.hmSource || prevHm.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer')
+        },
+        completionPhoto: {
+          uploaded: !!ticket.completionPhotoUrl,
+          fileUrl: ticket.completionPhotoUrl || '',
+          uploadedAt: prevComp.uploadedAt || ticket.completionDate || dateStr,
+          submittedBy: updateData.compSubmittedBy || prevComp.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
+          source: updateData.compSource || prevComp.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer'),
+          gpsLatitude: ticket.gpsLatitude || null,
+          gpsLongitude: ticket.gpsLongitude || null,
+          gpsAccuracy: ticket.gpsAccuracy || null,
+          gpsWatermarkRequired: true
+        },
+        status: (ticket.hmReportPhotoUrl && ticket.completionPhotoUrl) ? 'complete' : (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl ? 'partial' : 'pending'),
+        completedAt: ticket.completionDate || dateStr,
+        completedBy: ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer')
+      };
+    }
     if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
       ticket.resolvedAt = dateStr;
     }
-    if (!ticket.timeline) ticket.timeline = [];
-    ticket.timeline.unshift({
-      time: dateStr,
-      action: updateData.status !== oldStatus ? 'Status updated: ' + updateData.status : 'Details Updated',
-      note: updateData.resolutionNotes || 'Updated by Field Engineer (' + ticket.resolutionCategory + ')'
-    });
+    if (updateData.timeline) {
+      ticket.timeline = updateData.timeline;
+    } else {
+      if (!ticket.timeline) ticket.timeline = [];
+      ticket.timeline.unshift({
+        time: dateStr,
+        action: updateData.status !== oldStatus ? 'Status updated: ' + updateData.status : 'Details Updated',
+        note: updateData.resolutionNotes || 'Updated by Field Engineer (' + ticket.resolutionCategory + ')'
+      });
+    }
     saveTicketsToJson(list);
+    return { success: true, ticket: ticket };
   }
-  return { success: true };
+  return { success: false, error: 'Ticket not found or has been permanently deleted.' };
 }
 
-async function deleteTicket(ticketId) {
+async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', deletedBy = 'engineer') {
   if (!ticketId) return { success: false, error: 'Ticket ID is required' };
   const cleanId = String(ticketId).trim();
+  
+  let list = loadTicketsFromJson();
+  const targetTicket = list.find(t => String(t.ticketId).trim() === cleanId);
+
   deletedTicketIds.add(cleanId);
+  if (targetTicket) {
+    const u = String(targetTicket.udise || '').trim();
+    const dt = String(targetTicket.createdDate || targetTicket.createdAt || '').trim();
+    if (u && dt) deletedTicketIds.add(`${u}_${dt}`);
+  }
+
+  // 1. Persist Tombstone ID array
   try {
     const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
-    let delArr = [];
-    if (fs.existsSync(delFilePath)) {
-      try { delArr = JSON.parse(fs.readFileSync(delFilePath, 'utf8')); } catch(e) {}
-    }
-    if (!delArr.includes(cleanId)) delArr.push(cleanId);
+    const delArr = Array.from(deletedTicketIds);
     safeWriteFileSync(delFilePath, JSON.stringify(delArr, null, 2), 'utf8');
+
+    // 2. Persist Rich Audit Tombstone Record
+    const tombstoneFilePath = path.join(DATA_DIR, 'htl_tombstones.json');
+    let tombstones = [];
+    if (fs.existsSync(tombstoneFilePath)) {
+      try { tombstones = JSON.parse(fs.readFileSync(tombstoneFilePath, 'utf8')); } catch(e) {}
+    }
+    if (!tombstones.some(tb => tb.ticketId === cleanId)) {
+      tombstones.push({
+        ticketId: cleanId,
+        deletedAt: new Date().toISOString(),
+        deletedBy: deletedBy,
+        deletionReason: reason,
+        district: targetTicket ? targetTicket.district : '',
+        schoolName: targetTicket ? targetTicket.schoolName : '',
+        udise: targetTicket ? targetTicket.udise : '',
+        originalCreatedAt: targetTicket ? (targetTicket.createdDate || targetTicket.createdAt) : ''
+      });
+      safeWriteFileSync(tombstoneFilePath, JSON.stringify(tombstones, null, 2), 'utf8');
+    }
   } catch(e) {}
+
+  // 3. Delete from PostgreSQL if connected
   if (usePostgres && pool) {
     try {
       await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [cleanId]);
@@ -1174,9 +1420,20 @@ async function deleteTicket(ticketId) {
       console.error('Postgres delete error:', e.message);
     }
   }
-  let list = loadTicketsFromJson();
+
+  // 4. Delete from local JSON memory and file
   list = list.filter(t => String(t.ticketId).trim() !== cleanId);
   saveTicketsToJson(list);
+
+  // 5. Asynchronously call Google Sheets delete action
+  if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+    fetchGasApi(GOOGLE_APPS_SCRIPT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', ticketId: cleanId })
+    }).catch(err => console.warn('GAS delete webhook notice:', err.message));
+  }
+
   return { success: true };
 }
 
@@ -1292,6 +1549,7 @@ async function generateExcelExport() {
     { header: 'UDISE Code', key: 'udise', width: 14 },
     { header: 'AI Instructor Name', key: 'aiName', width: 22 },
     { header: 'AI Instructor Mobile Number', key: 'phone', width: 16 },
+    { header: 'Remarks / Description', key: 'remarks', width: 35 },
     { header: 'Reported UPS Issue', key: 'issue', width: 35 },
     { header: 'Duration', key: 'duration', width: 18 },
     { header: 'UPS Serial Number', key: 'serialNo', width: 20 },
@@ -1353,6 +1611,7 @@ async function generateExcelExport() {
       udise: String(t.udise || ''),
       aiName: t.aiName || '',
       phone: String(t.phone || ''),
+      remarks: t.remarks || '',
       issue: t.issue || '',
       duration: t.duration || '',
       serialNo: t.serialNo || '',
@@ -1669,5 +1928,7 @@ module.exports = {
   normalizePriority,
   masterSchools,
   registerOrUpdateSchool,
-  getDatabaseType
+  getDatabaseType,
+  deletedTicketIds,
+  getDeletedIds: () => Array.from(deletedTicketIds)
 };

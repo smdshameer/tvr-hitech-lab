@@ -41,10 +41,18 @@ function doGet(e) {
       var tid = String(row[0] || '').trim();
       if (!tid) continue;
 
+      var rawDate = row[1];
+      var formattedDate = '';
+      if (rawDate instanceof Date) {
+        formattedDate = Utilities.formatDate(rawDate, "Asia/Kolkata", "dd/MM/yyyy, hh:mm:ss a");
+      } else if (rawDate) {
+        formattedDate = String(rawDate).trim();
+      }
+
       tickets.push({
         ticketId: tid,
-        createdDate: String(row[1] || ''),
-        createdAt: String(row[1] || ''),
+        createdDate: formattedDate || String(rawDate || ''),
+        createdAt: formattedDate || String(rawDate || ''),
         priority: String(row[2] || 'High'),
         status: String(row[3] || 'New / Under Review'),
         district: String(row[4] || 'Thiruvarur'),
@@ -99,41 +107,54 @@ function doPost(e) {
       return updateTicketRow(sheet, data);
     }
 
-    // 3. ACTION: CREATE TICKET (Default - District Aware Dual Drive Roots)
+    // 3. ACTION: CREATE TICKET (Hierarchical: District -> School [UDISE] -> Evidence & Completion Photos)
     var distStr = String(data.district || 'Thiruvarur').trim();
-    var isNagapattinam = distStr.toLowerCase().indexOf('nagapattinam') !== -1;
-    var rootFolderName = isNagapattinam ? "Nagapattinam_HTL_UPS_Photos" : "Thiruvarur_HTL_UPS_Photos";
-    var rootFolder;
-    var folders = DriveApp.getFoldersByName(rootFolderName);
-    if (folders.hasNext()) {
-      rootFolder = folders.next();
-    } else {
-      rootFolder = DriveApp.createFolder(rootFolderName);
+    var districtFolder = getOrCreateDistrictFolder(distStr);
+    var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
+    var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
+    getOrCreateSubFolder(schoolFolder, "Completion Photos"); // Ensure Completion Photos subfolder exists
+
+    var tid = String(data.ticketId || 'TICKET').trim();
+    var p1Url = data.photo1Url || saveBase64Image(evidenceFolder, data.photo1Base64, (tid ? tid + "_" : "") + "1_UPS_Display.jpg");
+    var p2Url = data.photo2Url || saveBase64Image(evidenceFolder, data.photo2Base64, (tid ? tid + "_" : "") + "2_Overall_Setup.jpg");
+    var p3Url = data.photo3Url || saveBase64Image(evidenceFolder, data.photo3Base64, (tid ? tid + "_" : "") + "3_Battery_MCB.jpg");
+    var p4Url = data.photo4Url || saveBase64Image(evidenceFolder, data.photo4Base64, (tid ? tid + "_" : "") + "4_Isolation_Transformer.jpg");
+
+    var timeStr = data.createdDate || Utilities.formatDate(new Date(), "Asia/Kolkata", "dd/MM/yyyy, hh:mm:ss a");
+    var sheetTimeStr = "'" + timeStr;
+    
+    // Idempotent Sheet Record Check
+    var existingRowIndex = -1;
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var idValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var r = 0; r < idValues.length; r++) {
+        if (String(idValues[r][0]).trim() === tid) {
+          existingRowIndex = r + 2;
+          break;
+        }
+      }
     }
 
-    var folderName = (data.ticketId || 'TICKET') + ' - ' + (data.schoolName || 'School') + ' (' + (data.udise || '') + ')';
-    var ticketFolder = rootFolder.createFolder(folderName);
-    ticketFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-
-    var p1Url = data.photo1Url || saveBase64Image(ticketFolder, data.photo1Base64, "1_UPS_Display.jpg");
-    var p2Url = data.photo2Url || saveBase64Image(ticketFolder, data.photo2Base64, "2_Overall_Setup.jpg");
-    var p3Url = data.photo3Url || saveBase64Image(ticketFolder, data.photo3Base64, "3_Battery_MCB.jpg");
-    var p4Url = data.photo4Url || saveBase64Image(ticketFolder, data.photo4Base64, "4_Isolation_Transformer.jpg");
-
-    var timeStr = data.createdDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-    sheet.appendRow([
-      data.ticketId || '', timeStr, data.priority || 'High', data.status || 'New / Under Review',
+    var rowPayload = [
+      tid, sheetTimeStr, data.priority || 'High', data.status || 'New / Under Review',
       data.district || 'Thiruvarur', data.block || '', data.schoolName || '', data.udise || '',
       data.aiName || '', data.phone || '', data.issue || '', data.duration || '',
       data.serialNo || '', data.remarks || '',
       p1Url || 'No Photo', p2Url || 'No Photo', p3Url || 'No Photo', p4Url || 'No Photo',
-      ticketFolder.getUrl()
-    ]);
+      schoolFolder.getUrl()
+    ];
+
+    if (existingRowIndex > 0) {
+      sheet.getRange(existingRowIndex, 1, 1, rowPayload.length).setValues([rowPayload]);
+    } else {
+      sheet.appendRow(rowPayload);
+    }
 
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
-      ticketId: data.ticketId,
-      folderUrl: ticketFolder.getUrl(),
+      ticketId: tid,
+      folderUrl: schoolFolder.getUrl(),
       p1Url: p1Url, p2Url: p2Url, p3Url: p3Url, p4Url: p4Url
     })).setMimeType(ContentService.MimeType.JSON);
 
@@ -191,11 +212,129 @@ function updateTicketRow(sheet, data) {
         var existing = sheet.getRange(rowNum, 14).getValue();
         sheet.getRange(rowNum, 14).setValue((existing ? existing + ' | ' : '') + (data.resolutionNotes || data.remarks));
       }
-      return ContentService.createTextOutput(JSON.stringify({ success: true, message: 'Ticket ' + tid + ' updated successfully in Google Sheets' }))
-        .setMimeType(ContentService.MimeType.JSON);
+
+      // Handle Completion Evidence Storage inside School Folder
+      // Structure: District / UDISE - School Name / Evidence / (HM Report)
+      //                                           / Completion Photos / (GPS Photo)
+      var hmUrl = data.hmReportPhotoUrl || '';
+      var compUrl = data.completionPhotoUrl || '';
+      if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
+        try {
+          var distStr = String(data.district || 'Thiruvarur').trim();
+          var districtFolder = getOrCreateDistrictFolder(distStr);
+          var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
+          var hmFolder = getOrCreateSubFolder(schoolFolder, "HM Reports");
+          var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
+
+          var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
+          var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
+
+          if (data.hmReportPhotoBase64) {
+            hmUrl = saveBase64Image(hmFolder, data.hmReportPhotoBase64, hmName);
+          }
+          if (data.completionPhotoBase64) {
+            compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
+          }
+        } catch(e){}
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Ticket ' + tid + ' updated successfully in Google Sheets',
+        hmReportPhotoUrl: hmUrl,
+        completionPhotoUrl: compUrl
+      })).setMimeType(ContentService.MimeType.JSON);
     }
   }
   return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Ticket not found for update' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Resolves or creates the District folder on Google Drive.
+ * Idempotent: searches existing folders before creating.
+ */
+function getOrCreateDistrictFolder(districtName) {
+  var dName = String(districtName || 'Thiruvarur').trim();
+  if (!dName) dName = 'Thiruvarur';
+  
+  var isNagapattinam = dName.toLowerCase().indexOf('nagapattinam') !== -1;
+  var canonicalName = isNagapattinam ? "Nagapattinam" : "Thiruvarur";
+
+  // Check exact canonical name
+  var folders = DriveApp.getFoldersByName(canonicalName);
+  if (folders.hasNext()) return folders.next();
+
+  // Check historical name (e.g. "Thiruvarur_HTL_UPS_Photos")
+  var altName = canonicalName + "_HTL_UPS_Photos";
+  var altFolders = DriveApp.getFoldersByName(altName);
+  if (altFolders.hasNext()) return altFolders.next();
+
+  // Check all top-level folders
+  var rootFolders = DriveApp.getFolders();
+  while (rootFolders.hasNext()) {
+    var f = rootFolders.next();
+    var fName = f.getName().toLowerCase();
+    if (fName === canonicalName.toLowerCase() || fName === (canonicalName + ' district').toLowerCase()) {
+      return f;
+    }
+  }
+
+  // If not found, create new District folder
+  var newFolder = DriveApp.createFolder(canonicalName);
+  newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newFolder;
+}
+
+/**
+ * Resolves or creates a unique school folder inside the District folder.
+ * Uses UDISE Code as the primary reliable identifier to prevent duplicates.
+ * Format: "UDISE - School Name"
+ */
+function getOrCreateSchoolFolder(districtFolder, udise, schoolName) {
+  var cleanUdise = String(udise || '').trim();
+  var cleanSchool = String(schoolName || 'School').trim().replace(/[\/\\:*?"<>|]/g, ' ');
+  
+  // 1. Search for existing school folder by UDISE inside District folder
+  if (cleanUdise) {
+    var subFolders = districtFolder.getFolders();
+    while (subFolders.hasNext()) {
+      var folder = subFolders.next();
+      var folderName = folder.getName();
+      if (folderName.indexOf(cleanUdise) !== -1) {
+        return folder;
+      }
+    }
+  }
+
+  // 2. If not found by UDISE, check by school name
+  if (cleanSchool && cleanSchool !== 'School') {
+    var subFoldersByName = districtFolder.getFolders();
+    while (subFoldersByName.hasNext()) {
+      var folderByName = subFoldersByName.next();
+      if (folderByName.getName().toLowerCase().indexOf(cleanSchool.toLowerCase()) !== -1) {
+        return folderByName;
+      }
+    }
+  }
+
+  // 3. Create unique school folder
+  var folderDisplayName = cleanUdise ? (cleanUdise + ' - ' + cleanSchool) : cleanSchool;
+  var newSchoolFolder = districtFolder.createFolder(folderDisplayName);
+  newSchoolFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newSchoolFolder;
+}
+
+/**
+ * Resolves or creates a subfolder ("Evidence" or "Completion Photos") inside the School folder.
+ */
+function getOrCreateSubFolder(schoolFolder, subFolderName) {
+  var folders = schoolFolder.getFoldersByName(subFolderName);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  var newSub = schoolFolder.createFolder(subFolderName);
+  newSub.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return newSub;
 }
 
 function saveBase64Image(folder, base64Data, filename) {
@@ -206,6 +345,24 @@ function saveBase64Image(folder, base64Data, filename) {
   try {
     var decoded = Utilities.base64Decode(raw);
     var blob = Utilities.newBlob(decoded, 'image/jpeg', filename);
+    var existingFiles = folder.getFilesByName(filename);
+    if (existingFiles.hasNext()) {
+      var existingFile = existingFiles.next();
+      existingFile.setContent(decoded);
+      return existingFile.getUrl();
+    }
+    // Also check for existing file matching the completion category
+    var allFiles = folder.getFiles();
+    while (allFiles.hasNext()) {
+      var f = allFiles.next();
+      var fName = f.getName();
+      if (fName === filename || 
+         (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1) || 
+         (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1)) {
+        f.setContent(decoded);
+        return f.getUrl();
+      }
+    }
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     return file.getUrl();

@@ -11,3 +11,15 @@ live_dump.html
 old_server.js
 old_4dc35ea.js
 scratch/
+certs/
+backups/
+*.cert
+*.key
+*.pem
+*.crt
+test_phase*.js
+phase*.md
+phase*_baseline.json
+local_baseline.json
+.env*
+.vercel/
