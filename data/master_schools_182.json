@@ -3142,5 +3142,113 @@
     "category": "MS",
     "aiPhone": "7708490126",
     "aiName": "Sangeetha Loganathan"
+  },
+  {
+    "id": "TVR-EXT-16700",
+    "slNo": 263,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Koradachery",
+    "udise": "3320016700",
+    "schoolName": "PUMS AUDIT SCHOOL",
+    "category": "MS",
+    "aiPhone": "9042489993",
+    "aiName": "Kothaibharathi Tamilmani"
+  },
+  {
+    "id": "TVR-EXT-12166",
+    "slNo": 264,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Koradachery",
+    "udise": "3320012166",
+    "schoolName": "PUMS AUDIT SCHOOL",
+    "category": "MS",
+    "aiPhone": "9042489993",
+    "aiName": "Kothaibharathi Tamilmani"
+  },
+  {
+    "id": "TVR-EXT-99999",
+    "slNo": 265,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Koradachery",
+    "udise": "33200399999",
+    "schoolName": "AUTOMATED AUDIT LAB",
+    "category": "School",
+    "aiPhone": "9042489999",
+    "aiName": "Audit Instructor"
+  },
+  {
+    "id": "TVR-EXT-84699",
+    "slNo": 266,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200184699",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
+  },
+  {
+    "id": "TVR-EXT-68753",
+    "slNo": 267,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200168753",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
+  },
+  {
+    "id": "TVR-EXT-71082",
+    "slNo": 268,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200171082",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
+  },
+  {
+    "id": "TVR-EXT-28539",
+    "slNo": 269,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200128539",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
+  },
+  {
+    "id": "TVR-EXT-67737",
+    "slNo": 270,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200167737",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
+  },
+  {
+    "id": "TVR-EXT-30829",
+    "slNo": 271,
+    "empId": "",
+    "district": "Thiruvarur",
+    "block": "Kottur",
+    "udise": "33200130829",
+    "schoolName": "GHSS ADICHAPURAM",
+    "category": "HSS",
+    "aiPhone": "9876543210",
+    "aiName": "Karthik AI"
   }
 ]

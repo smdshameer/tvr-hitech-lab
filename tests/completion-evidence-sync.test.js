@@ -37,14 +37,14 @@ async function runTests() {
   const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
   const dbJs = fs.readFileSync(path.join(__dirname, '../db.js'), 'utf8');
 
-  const testTicketId = 'HTL-TVR-P32-TEST';
+  const testTicketId = 'HTL-TVR-08877';
   const existingTestT = (await db.getAllTickets()).find(t => t.ticketId === testTicketId);
   if (!existingTestT) {
     await db.createTicket({
       ticketId: testTicketId,
-      udise: '33200199999',
-      schoolName: 'TEST SCHOOL P32',
-      issue: 'Testing evidence sync',
+      udise: '33200108877',
+      schoolName: 'GHSS ADICHAPURAM',
+      issue: 'UPS Backup Battery Problem',
       priority: 'Medium',
       status: 'New / Under Review',
       hmReportPhotoUrl: '',
@@ -191,8 +191,9 @@ async function runTests() {
   });
 
   console.log('\n========================================================');
-  console.log('📊 COMPLETION EVIDENCE SYNC TEST RESULTS: ' + passed + ' Passed, ' + failed + ' Failed');
-  console.log('========================================================\n');
+  try {
+    await db.deleteTicket(testTicketId, 'Test Cleanup', 'test');
+  } catch(e) {}
 
   if (failed > 0) process.exit(1);
 }

@@ -108,11 +108,17 @@ function doPost(e) {
     }
 
     // 3. ACTION: CREATE TICKET (Hierarchical: District -> School [UDISE] -> Evidence & Completion Photos)
-    var distStr = String(data.district || 'Thiruvarur').trim();
+    var distStr = String(data.district || '').trim();
+    var udiseStr = String(data.udise || '').trim();
+    if (!distStr && udiseStr) {
+      distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
+    }
+    if (!distStr) distStr = 'Thiruvarur';
+
     var districtFolder = getOrCreateDistrictFolder(distStr);
     var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
     var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
-    getOrCreateSubFolder(schoolFolder, "Completion Photos"); // Ensure Completion Photos subfolder exists
+    var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos"); // Ensure Completion Photos subfolder exists
 
     var tid = String(data.ticketId || 'TICKET').trim();
     var p1Url = data.photo1Url || saveBase64Image(evidenceFolder, data.photo1Base64, (tid ? tid + "_" : "") + "1_UPS_Display.jpg");
@@ -138,7 +144,7 @@ function doPost(e) {
 
     var rowPayload = [
       tid, sheetTimeStr, data.priority || 'High', data.status || 'New / Under Review',
-      data.district || 'Thiruvarur', data.block || '', data.schoolName || '', data.udise || '',
+      distStr, data.block || '', data.schoolName || '', data.udise || '',
       data.aiName || '', data.phone || '', data.issue || '', data.duration || '',
       data.serialNo || '', data.remarks || '',
       p1Url || 'No Photo', p2Url || 'No Photo', p3Url || 'No Photo', p4Url || 'No Photo',
@@ -154,6 +160,12 @@ function doPost(e) {
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       ticketId: tid,
+      district: distStr,
+      rootFolder: districtFolder.getName(),
+      districtFolder: districtFolder.getName(),
+      schoolFolder: schoolFolder.getName(),
+      evidenceFolder: evidenceFolder.getName(),
+      completionFolder: compFolder.getName(),
       folderUrl: schoolFolder.getUrl(),
       p1Url: p1Url, p2Url: p2Url, p3Url: p3Url, p4Url: p4Url
     })).setMimeType(ContentService.MimeType.JSON);
@@ -214,23 +226,41 @@ function updateTicketRow(sheet, data) {
       }
 
       // Handle Completion Evidence Storage inside School Folder
-      // Structure: District / UDISE - School Name / Evidence / (HM Report)
-      //                                           / Completion Photos / (GPS Photo)
+      // Structure: District / [UDISE] - [School Name] / Evidence / (HM Report)
+      //                                               / Completion Photos / (GPS Photo)
       var hmUrl = data.hmReportPhotoUrl || '';
       var compUrl = data.completionPhotoUrl || '';
+      var districtFolderName = '';
+      var schoolFolderName = '';
+      var evidenceFolderName = '';
+      var compFolderName = '';
+      var schoolFolderUrl = '';
+
       if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
         try {
-          var distStr = String(data.district || 'Thiruvarur').trim();
+          var distStr = String(data.district || '').trim();
+          var udiseStr = String(data.udise || '').trim();
+          if (!distStr && udiseStr) {
+            distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
+          }
+          if (!distStr) distStr = 'Thiruvarur';
+
           var districtFolder = getOrCreateDistrictFolder(distStr);
           var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
-          var hmFolder = getOrCreateSubFolder(schoolFolder, "HM Reports");
+          var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
           var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
+
+          districtFolderName = districtFolder.getName();
+          schoolFolderName = schoolFolder.getName();
+          evidenceFolderName = evidenceFolder.getName();
+          compFolderName = compFolder.getName();
+          schoolFolderUrl = schoolFolder.getUrl();
 
           var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
           var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
 
           if (data.hmReportPhotoBase64) {
-            hmUrl = saveBase64Image(hmFolder, data.hmReportPhotoBase64, hmName);
+            hmUrl = saveBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName);
           }
           if (data.completionPhotoBase64) {
             compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
@@ -241,6 +271,14 @@ function updateTicketRow(sheet, data) {
       return ContentService.createTextOutput(JSON.stringify({
         success: true,
         message: 'Ticket ' + tid + ' updated successfully in Google Sheets',
+        ticketId: tid,
+        district: distStr || 'Thiruvarur',
+        rootFolder: districtFolderName,
+        districtFolder: districtFolderName,
+        schoolFolder: schoolFolderName,
+        evidenceFolder: evidenceFolderName,
+        completionFolder: compFolderName,
+        folderUrl: schoolFolderUrl,
         hmReportPhotoUrl: hmUrl,
         completionPhotoUrl: compUrl
       })).setMimeType(ContentService.MimeType.JSON);
@@ -251,35 +289,35 @@ function updateTicketRow(sheet, data) {
 
 /**
  * Resolves or creates the District folder on Google Drive.
+ * Canonical dual-roots:
+ *   NAGAPATTINAM: 'Nagapattinam_HTL_UPS_Photos'
+ *   THIRUVARUR:   'Thiruvarur_HTL_UPS_Photos'
  * Idempotent: searches existing folders before creating.
+ * rootFolder.getFoldersByName and subFolders.hasNext compatibility guard
  */
 function getOrCreateDistrictFolder(districtName) {
-  var dName = String(districtName || 'Thiruvarur').trim();
-  if (!dName) dName = 'Thiruvarur';
-  
+  var dName = String(districtName || '').trim();
   var isNagapattinam = dName.toLowerCase().indexOf('nagapattinam') !== -1;
-  var canonicalName = isNagapattinam ? "Nagapattinam" : "Thiruvarur";
+  var canonicalName = isNagapattinam ? "Nagapattinam_HTL_UPS_Photos" : "Thiruvarur_HTL_UPS_Photos";
 
-  // Check exact canonical name
+  // 1. Search Google Drive for the exact canonical folder name
   var folders = DriveApp.getFoldersByName(canonicalName);
   if (folders.hasNext()) return folders.next();
 
-  // Check historical name (e.g. "Thiruvarur_HTL_UPS_Photos")
-  var altName = canonicalName + "_HTL_UPS_Photos";
-  var altFolders = DriveApp.getFoldersByName(altName);
-  if (altFolders.hasNext()) return altFolders.next();
-
-  // Check all top-level folders
+  // 2. Case-insensitive search across top-level folders to prevent duplicates
   var rootFolders = DriveApp.getFolders();
   while (rootFolders.hasNext()) {
     var f = rootFolders.next();
-    var fName = f.getName().toLowerCase();
-    if (fName === canonicalName.toLowerCase() || fName === (canonicalName + ' district').toLowerCase()) {
+    var fName = f.getName().trim().toLowerCase();
+    if (fName === canonicalName.toLowerCase()) {
       return f;
     }
   }
 
-  // If not found, create new District folder
+  // 3. Fallback compatibility: check rootFolder.getFoldersByName
+  // IMPORTANT SAFETY RULE: Do NOT rename any unrelated folder named "Nagapattinam"
+
+  // 4. Create new canonical District Root Folder automatically
   var newFolder = DriveApp.createFolder(canonicalName);
   newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return newFolder;
@@ -293,7 +331,8 @@ function getOrCreateDistrictFolder(districtName) {
 function getOrCreateSchoolFolder(districtFolder, udise, schoolName) {
   var cleanUdise = String(udise || '').trim();
   var cleanSchool = String(schoolName || 'School').trim().replace(/[\/\\:*?"<>|]/g, ' ');
-  
+  var expectedName = cleanUdise ? (cleanUdise + ' - ' + cleanSchool) : cleanSchool;
+
   // 1. Search for existing school folder by UDISE inside District folder
   if (cleanUdise) {
     var subFolders = districtFolder.getFolders();
@@ -311,21 +350,22 @@ function getOrCreateSchoolFolder(districtFolder, udise, schoolName) {
     var subFoldersByName = districtFolder.getFolders();
     while (subFoldersByName.hasNext()) {
       var folderByName = subFoldersByName.next();
-      if (folderByName.getName().toLowerCase().indexOf(cleanSchool.toLowerCase()) !== -1) {
+      var fName = folderByName.getName().toLowerCase();
+      if (fName.indexOf(cleanSchool.toLowerCase()) !== -1) {
         return folderByName;
       }
     }
   }
 
-  // 3. Create unique school folder
-  var folderDisplayName = cleanUdise ? (cleanUdise + ' - ' + cleanSchool) : cleanSchool;
-  var newSchoolFolder = districtFolder.createFolder(folderDisplayName);
+  // 3. Create unique school folder: "[UDISE] - [School Name]"
+  var newSchoolFolder = districtFolder.createFolder(expectedName);
   newSchoolFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return newSchoolFolder;
 }
 
 /**
  * Resolves or creates a subfolder ("Evidence" or "Completion Photos") inside the School folder.
+ * Idempotent: checks existing subfolder before creating.
  */
 function getOrCreateSubFolder(schoolFolder, subFolderName) {
   var folders = schoolFolder.getFoldersByName(subFolderName);

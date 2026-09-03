@@ -598,19 +598,136 @@ if (!CURRENT_GIT_COMMIT) {
 
 
 // ========================================================
+// AUTHORITATIVE DISTRICT & GOOGLE DRIVE DESTINATION RESOLVER
+// ========================================================
+function resolveSchoolDistrict(udise, schoolId, inputDistrict, schoolName) {
+  const cleanUdise = String(udise || '').trim();
+  const cleanId = String(schoolId || '').trim();
+  const cleanSchool = String(schoolName || '').trim().toLowerCase();
+  const cleanInputDist = String(inputDistrict || '').trim().toLowerCase();
+
+  // 1. Authoritative check in masterSchools directory
+  let matched = null;
+  if (cleanUdise) {
+    matched = (db.masterSchools || []).find(s => String(s.udise || '').trim() === cleanUdise);
+  }
+  if (!matched && cleanId) {
+    matched = (db.masterSchools || []).find(s => String(s.id || '').trim().toUpperCase() === cleanId.toUpperCase());
+  }
+  if (!matched && cleanSchool && cleanSchool !== 'school' && !cleanUdise) {
+    matched = (db.masterSchools || []).find(s => String(s.schoolName || '').trim().toLowerCase() === cleanSchool);
+  }
+
+  if (matched) {
+    const isNgp = (matched.district && matched.district.toLowerCase().includes('nagapattinam')) ||
+                  (matched.id && matched.id.startsWith('NGP')) ||
+                  (matched.udise && String(matched.udise).startsWith('3319'));
+    const canonicalDist = isNgp ? 'Nagapattinam' : 'Thiruvarur';
+    const rootFolder = isNgp ? 'Nagapattinam_HTL_UPS_Photos' : 'Thiruvarur_HTL_UPS_Photos';
+    return {
+      district: canonicalDist,
+      rootFolder: rootFolder,
+      matchedSchool: matched,
+      schoolName: matched.schoolName || schoolName || '',
+      udise: cleanUdise || matched.udise || ''
+    };
+  }
+
+  // 2. Authoritative check by UDISE prefix (3319 = Nagapattinam, 3320 = Thiruvarur)
+  if (cleanUdise.startsWith('3319')) {
+    return {
+      district: 'Nagapattinam',
+      rootFolder: 'Nagapattinam_HTL_UPS_Photos',
+      matchedSchool: null,
+      schoolName: schoolName || '',
+      udise: cleanUdise
+    };
+  }
+  if (cleanUdise.startsWith('3320')) {
+    return {
+      district: 'Thiruvarur',
+      rootFolder: 'Thiruvarur_HTL_UPS_Photos',
+      matchedSchool: null,
+      schoolName: schoolName || '',
+      udise: cleanUdise
+    };
+  }
+
+  // 3. Check school ID prefix (NGP = Nagapattinam, TVR = Thiruvarur)
+  if (cleanId.toUpperCase().startsWith('NGP')) {
+    return {
+      district: 'Nagapattinam',
+      rootFolder: 'Nagapattinam_HTL_UPS_Photos',
+      matchedSchool: null,
+      schoolName: schoolName || '',
+      udise: cleanUdise
+    };
+  }
+  if (cleanId.toUpperCase().startsWith('TVR')) {
+    return {
+      district: 'Thiruvarur',
+      rootFolder: 'Thiruvarur_HTL_UPS_Photos',
+      matchedSchool: null,
+      schoolName: schoolName || '',
+      udise: cleanUdise
+    };
+  }
+
+  // 4. Check explicit inputDistrict
+  if (cleanInputDist.includes('nagapattinam')) {
+    return {
+      district: 'Nagapattinam',
+      rootFolder: 'Nagapattinam_HTL_UPS_Photos',
+      matchedSchool: null,
+      schoolName: schoolName || '',
+      udise: cleanUdise
+    };
+  }
+
+  // Default fallback to Thiruvarur
+  return {
+    district: 'Thiruvarur',
+    rootFolder: 'Thiruvarur_HTL_UPS_Photos',
+    matchedSchool: null,
+    schoolName: schoolName || '',
+    udise: cleanUdise
+  };
+}
+
+function logDriveDestination(resolvedInfo, subFolderContext) {
+  const cleanUdise = resolvedInfo.udise || '';
+  const cleanSchool = (resolvedInfo.schoolName || 'School').replace(/[\/\\:*?"<>|]/g, ' ');
+  const schoolFolderDisplay = cleanUdise ? `${cleanUdise} - ${cleanSchool}` : cleanSchool;
+
+  console.log(`[DRIVE] District: ${resolvedInfo.district}`);
+  console.log(`[DRIVE] Root Folder: ${resolvedInfo.rootFolder}`);
+  console.log(`[DRIVE] School Folder: ${schoolFolderDisplay}`);
+  console.log(`[DRIVE] Evidence Folder: ${schoolFolderDisplay} / Evidence`);
+  console.log(`[DRIVE] Completion Photos Folder: ${schoolFolderDisplay} / Completion Photos`);
+  if (subFolderContext) {
+    console.log(`[DRIVE] Upload Target Subfolder: ${schoolFolderDisplay} / ${subFolderContext}`);
+  }
+}
+
+// ========================================================
 // GOOGLE DRIVE & GOOGLE SHEETS ASYNC WEBHOOK SYNC
 // ========================================================
 async function syncTicketToGoogleDrive(ticket, rawData) {
   const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
   if (!webhookUrl) return;
 
+  const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
+  logDriveDestination(resolved, 'Evidence');
+
   const payload = {
+    action: 'create',
     ticketId: ticket.ticketId,
     createdAt: ticket.createdAt,
-    schoolName: ticket.schoolName,
-    udise: ticket.udise,
+    schoolName: resolved.schoolName || ticket.schoolName,
+    udise: resolved.udise || ticket.udise,
     block: ticket.block,
-    district: ticket.district || 'Thiruvarur',
+    district: resolved.district,
+    targetDistrictRoot: resolved.rootFolder,
     aiName: ticket.aiName,
     phone: ticket.phone,
     issue: ticket.issue,
@@ -964,22 +1081,13 @@ async function handleRequest(req, res) {
         const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
         
         // Authoritative directory binding
-        const matchedSchool = (db.masterSchools || []).find(s => String(s.udise || '').trim() === schoolUdise || (data.schoolId && String(s.id).trim() === String(data.schoolId).trim()));
-        let resolvedDistrict = 'Thiruvarur';
-        let resolvedBlock = data.block || '';
-        let resolvedSchoolName = data.schoolName || '';
-        let resolvedCategory = data.category || '';
-        let resolvedEmpId = data.empId || '';
-
-        if (matchedSchool) {
-          resolvedDistrict = matchedSchool.district || (matchedSchool.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur');
-          resolvedBlock = matchedSchool.block || resolvedBlock;
-          resolvedSchoolName = matchedSchool.schoolName || resolvedSchoolName;
-          resolvedCategory = matchedSchool.category || resolvedCategory;
-          resolvedEmpId = matchedSchool.empId || resolvedEmpId;
-        } else if (String(data.district || '').toLowerCase().includes('nagapattinam') || schoolUdise.startsWith('3319')) {
-          resolvedDistrict = 'Nagapattinam';
-        }
+        const distResolved = resolveSchoolDistrict(schoolUdise, data.schoolId, data.district, data.schoolName);
+        const matchedSchool = distResolved.matchedSchool;
+        let resolvedDistrict = distResolved.district;
+        let resolvedBlock = (matchedSchool && matchedSchool.block) || data.block || '';
+        let resolvedSchoolName = distResolved.schoolName || (matchedSchool && matchedSchool.schoolName) || data.schoolName || '';
+        let resolvedCategory = (matchedSchool && matchedSchool.category) || data.category || '';
+        let resolvedEmpId = (matchedSchool && matchedSchool.empId) || data.empId || '';
 
         const isNgp = resolvedDistrict.toLowerCase().includes('nagapattinam');
         const distPrefix = isNgp ? 'HTL-NGP-' : 'HTL-TVR-';
@@ -1389,12 +1497,16 @@ async function handleRequest(req, res) {
 
         // Async cloud sync to GAS
         if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+          const resolved = resolveSchoolDistrict(targetTicket.udise, targetTicket.schoolId, targetTicket.district, targetTicket.schoolName);
+          logDriveDestination(resolved, payload.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
+
           const gasBody = {
             action: 'update',
             ticketId: ticketId,
-            district: targetTicket.district,
-            schoolName: targetTicket.schoolName,
-            udise: targetTicket.udise,
+            district: resolved.district,
+            targetDistrictRoot: resolved.rootFolder,
+            schoolName: resolved.schoolName || targetTicket.schoolName,
+            udise: resolved.udise || targetTicket.udise,
             hmReportPhotoBase64: payload.hmReportPhotoBase64 || '',
             completionPhotoBase64: payload.completionPhotoBase64 || '',
             hmReportPhotoUrl: hmReportPhotoUrl,
@@ -1542,12 +1654,28 @@ async function handleRequest(req, res) {
           
           // Forward update to Google Apps Script cloud webhook in background
           if (GOOGLE_APPS_SCRIPT_ENDPOINT && typeof globalThis.fetch === 'function') {
+            const allT = await db.getAllTickets();
+            const existingTicket = allT.find(t => String(t.ticketId || t.id).trim().toLowerCase() === String(data.ticketId).trim().toLowerCase());
+            const udise = (existingTicket && existingTicket.udise) || data.udise || '';
+            const schoolId = (existingTicket && existingTicket.schoolId) || data.schoolId || '';
+            const schoolName = (existingTicket && existingTicket.schoolName) || data.schoolName || '';
+            const district = (existingTicket && existingTicket.district) || data.district || '';
+
+            const resolved = resolveSchoolDistrict(udise, schoolId, district, schoolName);
+            if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
+              logDriveDestination(resolved, data.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
+            }
+
             globalThis.fetch(GOOGLE_APPS_SCRIPT_ENDPOINT, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 action: 'update',
                 ticketId: data.ticketId,
+                district: resolved.district,
+                targetDistrictRoot: resolved.rootFolder,
+                schoolName: resolved.schoolName || schoolName,
+                udise: resolved.udise || udise,
                 status: data.status,
                 resolutionNotes: data.resolutionNotes,
                 remarks: data.resolutionNotes,
@@ -1715,8 +1843,16 @@ async function handleRequest(req, res) {
   }
 
 if (pathname === '/api/data' && req.method === 'GET') {
+    const cookieHeader = req.headers.cookie || '';
+    const delMatch = cookieHeader.match(/(?:^|;\s*)htl_del=([^;]+)/);
+    if (delMatch && delMatch[1]) {
+      try {
+        const cIds = decodeURIComponent(delMatch[1]).split(',').map(s => s.trim()).filter(Boolean);
+        if (cIds.length > 0) db.addDeletedTombstones(cIds);
+      } catch(e) {}
+    }
     let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
     tickets.sort((a, b) => parseTicketTimestamp(b.createdDate || b.createdAt) - parseTicketTimestamp(a.createdDate || a.createdAt));
     const session = getAuthenticatedSession(req);
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
@@ -1871,8 +2007,16 @@ if (pathname === '/api/data' && req.method === 'GET') {
     }
     // Ensure CSRF token for authenticated dashboard actions (update/delete)
     ensureCsrfToken(req, res);
+    const engCookieHeader = req.headers.cookie || '';
+    const engDelMatch = engCookieHeader.match(/(?:^|;\s*)htl_del=([^;]+)/);
+    if (engDelMatch && engDelMatch[1]) {
+      try {
+        const cIds = decodeURIComponent(engDelMatch[1]).split(',').map(s => s.trim()).filter(Boolean);
+        if (cIds.length > 0) db.addDeletedTombstones(cIds);
+      } catch(e) {}
+    }
     let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
     return;
@@ -1888,8 +2032,16 @@ if (pathname === '/api/data' && req.method === 'GET') {
     }
     // Ensure CSRF token for authenticated dashboard actions
     ensureCsrfToken(req, res);
+    const headCookieHeader = req.headers.cookie || '';
+    const headDelMatch = headCookieHeader.match(/(?:^|;\s*)htl_del=([^;]+)/);
+    if (headDelMatch && headDelMatch[1]) {
+      try {
+        const cIds = decodeURIComponent(headDelMatch[1]).split(',').map(s => s.trim()).filter(Boolean);
+        if (cIds.length > 0) db.addDeletedTombstones(cIds);
+      } catch(e) {}
+    }
     let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t));
+    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml(tickets));
     return;
@@ -6638,7 +6790,7 @@ function generateTableRowsHtml(list) {
 }
 
 function getITSMWorkbenchHtml(initialTickets = []) {
-  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t));
+  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
   initialTickets.sort((a, b) => {
     function p(s) {
       if (!s) return 0;
@@ -8117,19 +8269,40 @@ function generateTableRowsHtml(list) {
     window.generateTableRowsHtml = generateTableRowsHtml;
     window.escapeHtml = escapeHtml;
 
-    // Auto-clear legacy suppression storage and cookies on page boot
-    try {
-      localStorage.removeItem('htl_user_deleted_v4');
-      localStorage.removeItem('htl_deleted_user_v3');
-      localStorage.removeItem('htl_deleted_tickets');
-      localStorage.removeItem('htl_deleted_tickets_v2');
-      sessionStorage.removeItem('htl_deleted_user_v3');
-      sessionStorage.removeItem('htl_session_deleted');
-      document.cookie = 'htl_del=; path=/; max-age=0; SameSite=Lax';
-    } catch(e) {}
+    function getDeletedList() {
+      var list = [];
+      try {
+        var ls = localStorage.getItem('htl_deleted_tickets');
+        if (ls) { var p = JSON.parse(ls); if (Array.isArray(p)) list = list.concat(p); }
+      } catch(e) {}
+      try {
+        var ss = sessionStorage.getItem('htl_session_deleted');
+        if (ss) { var p2 = JSON.parse(ss); if (Array.isArray(p2)) list = list.concat(p2); }
+      } catch(e) {}
+      try {
+        var m = document.cookie.match(/(?:^|;\s*)htl_del=([^;]+)/);
+        if (m && m[1]) {
+          var cArr = decodeURIComponent(m[1]).split(',');
+          list = list.concat(cArr);
+        }
+      } catch(e) {}
+      var unique = [];
+      list.forEach(function(id) {
+        var clean = String(id || '').trim();
+        if (clean && !unique.includes(clean)) unique.push(clean);
+      });
+      return unique;
+    }
 
-    function getDeletedList() { return []; }
-    function saveDeletedList(list) {}
+    function saveDeletedList(list) {
+      if (!Array.isArray(list)) return;
+      try { localStorage.setItem('htl_deleted_tickets', JSON.stringify(list)); } catch(e) {}
+      try { sessionStorage.setItem('htl_session_deleted', JSON.stringify(list)); } catch(e) {}
+      try {
+        var joined = encodeURIComponent(list.slice(0, 100).join(','));
+        document.cookie = 'htl_del=' + joined + '; path=/; max-age=31536000; SameSite=Lax';
+      } catch(e) {}
+    }
 
     try {
       const initEl = document.getElementById('initialTicketsData');
@@ -8141,6 +8314,7 @@ function generateTableRowsHtml(list) {
     // Run immediate render & KPI update on initial boot
     if (typeof window !== 'undefined') {
       setTimeout(function() {
+        if (typeof purgeClientDeletedRows === 'function') purgeClientDeletedRows();
         if (typeof renderTable === 'function') renderTable();
         if (typeof updateAllKpis === 'function') updateAllKpis();
       }, 0);
@@ -9419,25 +9593,29 @@ function generateTableRowsHtml(list) {
       matchingRows.forEach(function(r) { r.remove(); });
 
       // 3. Filter memory, re-render, and update all KPI cards immediately
-      allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim() !== cleanTid; });
+      allTickets = allTickets.filter(function(t) { return String(t.ticketId).trim().toLowerCase() !== cleanTid.toLowerCase(); });
       closeActionModal();
       renderTable();
       updateAllKpis();
 
-      // 4. Notify server with CSRF Token in background silently
+      // 4. Notify server with CSRF Token in background
       try {
         const csrfHeaders = { 'Content-Type': 'application/json' };
         const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
         if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
-        fetch('/api/tickets/delete', {
+        const res = await fetch('/api/tickets/delete', {
           method: 'POST',
           credentials: 'same-origin',
           headers: csrfHeaders,
           body: JSON.stringify({ ticketId: cleanTid })
-        }).catch(function() {});
-      } catch(e) {}
-
-      showDeleteToast('✅ டிக்கெட் ' + cleanTid + ' வெற்றிகரமாக நீக்கப்பட்டது!');
+        });
+        const d = await res.json();
+        if (d && d.success) {
+          showDeleteToast('✅ டிக்கெட் ' + cleanTid + ' நிரந்தரமாக நீக்கப்பட்டது! (Permanently Deleted)');
+        }
+      } catch(e) {
+        showDeleteToast('✅ டிக்கெட் ' + cleanTid + ' நீக்கப்பட்டது!');
+      }
     }
     window.deleteSingleTicket = deleteSingleTicket;
 
@@ -9522,7 +9700,7 @@ function generateTableRowsHtml(list) {
 }
 
 function getITSMExecutiveHtml(initialTickets = []) {
-  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t));
+  initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
   const masterSchools = db.masterSchools || [];
   const totalSchools = masterSchools.length || 262;
   const totalReported = initialTickets.length;
@@ -10083,3 +10261,5 @@ module.exports.getLoginHtml = getLoginHtml;
 module.exports.verifyPin = verifyPin;
 module.exports.ensureTlsCertificates = ensureTlsCertificates;
 module.exports.httpsServer = httpsServer;
+module.exports.resolveSchoolDistrict = resolveSchoolDistrict;
+module.exports.logDriveDestination = logDriveDestination;

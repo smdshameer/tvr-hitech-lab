@@ -458,10 +458,10 @@ const { Pool } = require('pg');
 const ExcelJS = require('exceljs');
 
 const os = require('os');
-const isServerless = true; // Always enable serverless safe mode
+const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.includes('/var/task') || __dirname.includes('\\var\\task'));
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
 const TMP_DATA_DIR = path.join(os.tmpdir(), 'tvr_data');
-const DATA_DIR = TMP_DATA_DIR;
+const DATA_DIR = isServerless ? TMP_DATA_DIR : BUNDLED_DATA_DIR;
 const BACKUPS_DIR = path.join(DATA_DIR, 'backups');
 const BUNDLED_DB_FILE = path.join(BUNDLED_DATA_DIR, 'htl_itsm_tickets.json');
 const DB_FILE = path.join(DATA_DIR, 'htl_itsm_tickets.json');
@@ -471,6 +471,7 @@ const SCHOOLS_FILE = path.join(BUNDLED_DATA_DIR, 'master_schools_182.json');
 
 try { if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
 try { if (!fs.existsSync(BACKUPS_DIR)) fs.mkdirSync(BACKUPS_DIR, { recursive: true }); } catch (e) {}
+try { if (!fs.existsSync(TMP_DATA_DIR)) fs.mkdirSync(TMP_DATA_DIR, { recursive: true }); } catch (e) {}
 
 const PERMANENT_TOMBSTONES = new Set([
   'HTL-TVR-P29-8180', 'HTL-TVR-P32-TEST', 'HTL-TVR-P31-TEST', 'HTL-TVR-P29-2662',
@@ -489,44 +490,90 @@ let inMemoryTickets = null;
 let deletedTicketIds = new Set();
 PERMANENT_TOMBSTONES.forEach(id => deletedTicketIds.add(id));
 
-try {
-  const delFiles = [
-    path.join(DATA_DIR, 'htl_deleted_ids.json'),
-    path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json')
-  ];
-  delFiles.forEach(f => {
-    if (fs.existsSync(f)) {
-      try {
-        const savedDeleted = JSON.parse(fs.readFileSync(f, 'utf8'));
-        if (Array.isArray(savedDeleted)) {
-          savedDeleted.forEach(id => {
-            const clean = String(id).trim();
-            deletedTicketIds.add(clean);
-            PERMANENT_TOMBSTONES.add(clean);
-          });
-        }
-      } catch(e) {}
-    }
-  });
-  console.log(`🛡️ [ANTI-RESURRECTION] Loaded ${deletedTicketIds.size} permanently deleted ticket tombstones into memory guard.`);
-} catch(e) {}
+function reloadTombstonesFromDisk() {
+  try {
+    const delFiles = [
+      path.join(DATA_DIR, 'htl_deleted_ids.json'),
+      path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json'),
+      path.join(TMP_DATA_DIR, 'htl_deleted_ids.json'),
+      path.join(os.tmpdir(), 'htl_deleted_ids.json')
+    ];
+    delFiles.forEach(f => {
+      if (fs.existsSync(f)) {
+        try {
+          const savedDeleted = JSON.parse(fs.readFileSync(f, 'utf8'));
+          if (Array.isArray(savedDeleted)) {
+            savedDeleted.forEach(id => {
+              const clean = String(id || '').trim();
+              if (clean) {
+                deletedTicketIds.add(clean);
+                PERMANENT_TOMBSTONES.add(clean);
+                deletedTicketIds.add(clean.toLowerCase());
+                PERMANENT_TOMBSTONES.add(clean.toLowerCase());
+              }
+            });
+          }
+        } catch(e) {}
+      }
+    });
+    console.log(`🛡️ [ANTI-RESURRECTION] Loaded ${deletedTicketIds.size} permanently deleted ticket tombstones into memory guard.`);
+  } catch(e) {}
+}
+
+reloadTombstonesFromDisk();
 
 function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   try {
-    // If the path is anywhere near __dirname or /var/task, redirect to tmpdir
-    let target = filePath;
-    if (filePath.includes('/var/task') || filePath.includes('\var\task') || filePath.startsWith(__dirname)) {
-      target = path.join(os.tmpdir(), path.basename(filePath));
-    }
-    const dir = path.dirname(target);
+    const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(target, data, encoding);
+    fs.writeFileSync(filePath, data, encoding);
   } catch (err) {
     try {
       const tmpPath = path.join(os.tmpdir(), path.basename(filePath));
+      const tmpDir = path.dirname(tmpPath);
+      if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
       fs.writeFileSync(tmpPath, data, encoding);
     } catch (e) {}
   }
+}
+
+function persistTombstones() {
+  try {
+    const delArr = Array.from(deletedTicketIds);
+    safeWriteFileSync(path.join(DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+    if (BUNDLED_DATA_DIR !== DATA_DIR) {
+      safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+    }
+    safeWriteFileSync(path.join(os.tmpdir(), 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+    safeWriteFileSync(path.join(TMP_DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+  } catch(e) {}
+}
+
+function addDeletedTombstones(ids) {
+  if (!ids) return;
+  if (!Array.isArray(ids)) ids = [ids];
+  let changed = false;
+  ids.forEach(id => {
+    const clean = String(id || '').trim();
+    if (clean && !deletedTicketIds.has(clean)) {
+      deletedTicketIds.add(clean);
+      PERMANENT_TOMBSTONES.add(clean);
+      deletedTicketIds.add(clean.toLowerCase());
+      PERMANENT_TOMBSTONES.add(clean.toLowerCase());
+      changed = true;
+    }
+  });
+  if (changed) {
+    persistTombstones();
+  }
+}
+
+function isDeleted(ticketId) {
+  if (!ticketId) return false;
+  const clean = String(ticketId).trim();
+  const lower = clean.toLowerCase();
+  return deletedTicketIds.has(clean) || PERMANENT_TOMBSTONES.has(clean) ||
+         deletedTicketIds.has(lower) || PERMANENT_TOMBSTONES.has(lower);
 }
 
 let masterSchools = [];
@@ -574,11 +621,15 @@ function isTestOrPurgedTicket(t) {
   const iss = String(t.issue || '').toLowerCase();
   const rem = String(t.remarks || '').toLowerCase();
 
-  // 1. Permanent Tombstones
-  if (deletedTicketIds.has(tid) || PERMANENT_TOMBSTONES.has(tid)) return true;
+  // 1. Permanent Tombstones & Deleted Status
+  if (isDeleted(tid)) return true;
   const u = String(t.udise || '').trim();
   const dt = String(t.createdDate || t.createdAt || '').trim();
-  if (u && dt && (deletedTicketIds.has(`${u}_${dt}`) || PERMANENT_TOMBSTONES.has(`${u}_${dt}`))) return true;
+  if (u && dt) {
+    if (deletedTicketIds.has(`${u}_${dt}`) || PERMANENT_TOMBSTONES.has(`${u}_${dt}`)) return true;
+    const normDt = normalizeTicketDate(dt);
+    if (normDt && (deletedTicketIds.has(`${u}_${normDt}`) || PERMANENT_TOMBSTONES.has(`${u}_${normDt}`))) return true;
+  }
 
   // 2. Test ID Patterns (never authentic calls)
   if (
@@ -597,9 +648,7 @@ function isTestOrPurgedTicket(t) {
     tidLower.includes('9999') ||
     tidLower === 'htl-ngp-00999' ||
     tidLower === 'htl-ngp-00902' ||
-    (tidLower.startsWith('htl-tvr-00101-') && tidLower !== 'htl-tvr-00101') ||
-    rem.includes('test remarks 12345') ||
-    rem.includes('test remarks')
+    (tidLower.startsWith('htl-tvr-00101-') && tidLower !== 'htl-tvr-00101')
   ) return true;
 
   // 3. Test School Name Patterns
@@ -621,9 +670,6 @@ function isTestOrPurgedTicket(t) {
     iss === 'test'
   ) return true;
 
-  // 5. Ephemeral test tickets generated for GHSS ADICHAPURAM with dummy test remarks
-  if (name.includes('adichapuram') && rem.includes('12345')) return true;
-
   return false;
 }
 
@@ -641,14 +687,17 @@ function loadTicketsFromJson() {
       if (Array.isArray(b) && b.length > 0) list = b;
     } catch(e) {}
   }
+  // Strictly filter out any deleted or tombstoned tickets
+  list = list.filter(t => t && t.ticketId && !isDeleted(t.ticketId) && !isTestOrPurgedTicket(t));
+
   // Always ensure all authentic embedded tickets are present in memory (unless deleted or test)
-  const localIds = new Set(list.map(t => String(t.ticketId).trim()));
+  const localIds = new Set(list.map(t => String(t.ticketId).trim().toLowerCase()));
   EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
     const bId = String(bt.ticketId).trim();
-    if (deletedTicketIds.has(bId) || PERMANENT_TOMBSTONES.has(bId) || isTestOrPurgedTicket(bt)) return;
-    if (!localIds.has(bId)) {
+    if (isDeleted(bId) || isTestOrPurgedTicket(bt)) return;
+    if (!localIds.has(bId.toLowerCase())) {
       list.push(bt);
-      localIds.add(bId);
+      localIds.add(bId.toLowerCase());
     }
   });
 
@@ -657,8 +706,7 @@ function loadTicketsFromJson() {
   const cleanList = [];
 
   list.forEach(t => {
-    if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
-    if (deletedTicketIds.has(String(t.ticketId).trim())) return;
+    if (!t || !t.ticketId || isTestOrPurgedTicket(t) || isDeleted(t.ticketId)) return;
 
     const issue = String(t.issue || '').toLowerCase();
     const remarks = String(t.remarks || '').toLowerCase();
@@ -856,7 +904,7 @@ async function initDatabase() {
       const tickets = EMBEDDED_AUTHENTIC_TICKETS;
       let migratedCount = 0;
       for (const t of tickets) {
-        if (deletedTicketIds.has(String(t.ticketId).trim()) || PERMANENT_TOMBSTONES.has(String(t.ticketId).trim()) || isTestOrPurgedTicket(t)) continue;
+        if (isDeleted(t.ticketId) || isTestOrPurgedTicket(t)) continue;
         const canonicalPrio = normalizePriority(t.priority, t.issue);
         await pool.query(`
           INSERT INTO tickets (
@@ -945,20 +993,26 @@ async function syncGasTickets() {
         let added = 0;
         remoteTickets.forEach((rt) => {
           if (!rt || isTestOrPurgedTicket(rt)) return;
+          const rawTid = String(rt.ticketId || '').trim();
           const udise = String(rt.udise || '').trim();
-          const assignedId = canonicalizeTicketId(rt.ticketId, udise);
-          if (deletedTicketIds.has(assignedId) || deletedTicketIds.has(rt.ticketId) || PERMANENT_TOMBSTONES.has(assignedId) || PERMANENT_TOMBSTONES.has(rt.ticketId)) return;
-          const uKey = String(rt.udise || '').trim() + '_' + String(rt.createdDate || rt.createdAt || '').trim();
-          if (deletedTicketIds.has(uKey) || PERMANENT_TOMBSTONES.has(uKey)) return;
+          const assignedId = canonicalizeTicketId(rawTid, udise);
 
-          const normDate = normalizeTicketDate(rt.createdDate || rt.createdAt || '');
+          if (isDeleted(rawTid) || isDeleted(assignedId)) return;
+
+          const rawDate = String(rt.createdDate || rt.createdAt || '').trim();
+          const normDate = normalizeTicketDate(rawDate);
+          if (udise) {
+            if (rawDate && (deletedTicketIds.has(`${udise}_${rawDate}`) || PERMANENT_TOMBSTONES.has(`${udise}_${rawDate}`))) return;
+            if (normDate && (deletedTicketIds.has(`${udise}_${normDate}`) || PERMANENT_TOMBSTONES.has(`${udise}_${normDate}`))) return;
+          }
+
           const cleanTicket = { 
             ...rt, 
             ticketId: assignedId,
             createdDate: normDate || rt.createdDate,
             createdAt: normDate || rt.createdAt
           };
-          const existingIdx = localTickets.findIndex(lt => String(lt.ticketId).trim() === assignedId);
+          const existingIdx = localTickets.findIndex(lt => String(lt.ticketId).trim().toLowerCase() === assignedId.toLowerCase());
 
           if (existingIdx !== -1) {
             const existing = localTickets[existingIdx];
@@ -1021,16 +1075,17 @@ async function syncGasTickets() {
         });
 
         // Always ensure authentic baseline tickets are preserved in localTickets (unless deleted or test)
-        const existingIds = new Set(localTickets.map(t => String(t.ticketId).trim()));
+        const existingIds = new Set(localTickets.map(t => String(t.ticketId).trim().toLowerCase()));
         EMBEDDED_AUTHENTIC_TICKETS.forEach(bt => {
           const bId = String(bt.ticketId).trim();
-          if (deletedTicketIds.has(bId) || PERMANENT_TOMBSTONES.has(bId) || isTestOrPurgedTicket(bt)) return;
-          if (!existingIds.has(bId)) {
+          if (isDeleted(bId) || isTestOrPurgedTicket(bt)) return;
+          if (!existingIds.has(bId.toLowerCase())) {
             localTickets.push(bt);
-            existingIds.add(bId);
+            existingIds.add(bId.toLowerCase());
           }
         });
 
+        localTickets = localTickets.filter(t => t && t.ticketId && !isDeleted(t.ticketId) && !isTestOrPurgedTicket(t));
         saveTicketsToJson(localTickets);
         if (added > 0) {
           console.log(`🔄 [CLOUD SYNC] Cleanly added ${added} new tickets from Google Sheets!`);
@@ -1100,6 +1155,7 @@ async function seedPostgresBaseline() {
   if (!usePostgres || !pool) return;
   try {
     for (const t of EMBEDDED_AUTHENTIC_TICKETS) {
+      if (isDeleted(t.ticketId) || isTestOrPurgedTicket(t)) continue;
       const canonicalPrio = normalizePriority(t.priority, t.issue);
       await pool.query(`
         INSERT INTO tickets (
@@ -1169,27 +1225,25 @@ async function getAllTickets() {
     dbRows = loadTicketsFromJson();
   }
 
-  const bundled = JSON.parse(JSON.stringify(EMBEDDED_AUTHENTIC_TICKETS));
+  const bundled = JSON.parse(JSON.stringify(EMBEDDED_AUTHENTIC_TICKETS)).filter(t => !isDeleted(t.ticketId) && !isTestOrPurgedTicket(t));
   const combined = [...dbRows, ...bundled];
   const seenIds = new Set();
   const cleanList = [];
 
   combined.forEach(t => {
-    if (!t || !t.ticketId || isTestOrPurgedTicket(t)) return;
+    if (!t || !t.ticketId || isTestOrPurgedTicket(t) || isDeleted(t.ticketId)) return;
     const tid = String(t.ticketId).trim();
-    if (deletedTicketIds.has(tid)) return;
+    if (seenIds.has(tid.toLowerCase())) return;
 
     const issue = String(t.issue || '').toLowerCase();
     const remarks = String(t.remarks || '').toLowerCase();
     if (issue.includes('simulation') || remarks.includes('simulation')) return;
 
-    if (!seenIds.has(tid)) {
-      seenIds.add(tid);
-      if (!Array.isArray(t.timeline)) {
-        t.timeline = Array.isArray(t.activity_log) ? t.activity_log : [];
-      }
-      cleanList.push(t);
+    seenIds.add(tid.toLowerCase());
+    if (!Array.isArray(t.timeline)) {
+      t.timeline = Array.isArray(t.activity_log) ? t.activity_log : [];
     }
+    cleanList.push(t);
   });
 
   return cleanList;
@@ -1471,34 +1525,44 @@ async function updateTicket(ticketId, updateData) {
 async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', deletedBy = 'engineer') {
   if (!ticketId) return { success: false, error: 'Ticket ID is required' };
   const cleanId = String(ticketId).trim();
+  const lowerId = cleanId.toLowerCase();
+  const upperId = cleanId.toUpperCase();
   
   let list = loadTicketsFromJson();
-  const targetTicket = list.find(t => String(t.ticketId).trim() === cleanId);
+  const targetTicket = list.find(t => String(t.ticketId).trim().toLowerCase() === lowerId);
 
   deletedTicketIds.add(cleanId);
   PERMANENT_TOMBSTONES.add(cleanId);
+  deletedTicketIds.add(lowerId);
+  PERMANENT_TOMBSTONES.add(lowerId);
+  deletedTicketIds.add(upperId);
+  PERMANENT_TOMBSTONES.add(upperId);
+
   if (targetTicket) {
     const u = String(targetTicket.udise || '').trim();
     const dt = String(targetTicket.createdDate || targetTicket.createdAt || '').trim();
+    const normDt = normalizeTicketDate(dt);
     if (u && dt) {
       deletedTicketIds.add(`${u}_${dt}`);
       PERMANENT_TOMBSTONES.add(`${u}_${dt}`);
     }
+    if (u && normDt) {
+      deletedTicketIds.add(`${u}_${normDt}`);
+      PERMANENT_TOMBSTONES.add(`${u}_${normDt}`);
+    }
   }
 
-  // 1. Persist Tombstone ID array to DATA_DIR and BUNDLED_DATA_DIR
-  try {
-    const delArr = Array.from(deletedTicketIds);
-    safeWriteFileSync(path.join(DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
-    safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_deleted_ids.json'), JSON.stringify(delArr, null, 2), 'utf8');
+  // 1. Persist Tombstones to DATA_DIR, BUNDLED_DATA_DIR, and tmpdir
+  persistTombstones();
 
-    // 2. Persist Rich Audit Tombstone Record
+  // 2. Persist Rich Audit Tombstone Record
+  try {
     const tombstoneFilePath = path.join(DATA_DIR, 'htl_tombstones.json');
     let tombstones = [];
     if (fs.existsSync(tombstoneFilePath)) {
       try { tombstones = JSON.parse(fs.readFileSync(tombstoneFilePath, 'utf8')); } catch(e) {}
     }
-    if (!tombstones.some(tb => tb.ticketId === cleanId)) {
+    if (!tombstones.some(tb => String(tb.ticketId).toLowerCase() === lowerId)) {
       tombstones.push({
         ticketId: cleanId,
         deletedAt: new Date().toISOString(),
@@ -1510,14 +1574,16 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
         originalCreatedAt: targetTicket ? (targetTicket.createdDate || targetTicket.createdAt) : ''
       });
       safeWriteFileSync(tombstoneFilePath, JSON.stringify(tombstones, null, 2), 'utf8');
-      safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_tombstones.json'), JSON.stringify(tombstones, null, 2), 'utf8');
+      if (BUNDLED_DATA_DIR !== DATA_DIR) {
+        safeWriteFileSync(path.join(BUNDLED_DATA_DIR, 'htl_tombstones.json'), JSON.stringify(tombstones, null, 2), 'utf8');
+      }
     }
   } catch(e) {}
 
   // 3. Delete from PostgreSQL if connected & record permanent tombstone table
   if (usePostgres && pool) {
     try {
-      await pool.query('DELETE FROM tickets WHERE ticket_id = $1', [cleanId]);
+      await pool.query('DELETE FROM tickets WHERE LOWER(TRIM(ticket_id)) = LOWER($1)', [cleanId]);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS deleted_ticket_tombstones (
           ticket_id TEXT PRIMARY KEY,
@@ -1537,7 +1603,7 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
   }
 
   // 4. Delete from local JSON memory and file
-  list = list.filter(t => String(t.ticketId).trim() !== cleanId);
+  list = list.filter(t => String(t.ticketId).trim().toLowerCase() !== lowerId);
   saveTicketsToJson(list);
 
   // 5. Asynchronously call Google Sheets delete action via GET only (avoids legacy doPost appendRow behavior)
@@ -1545,7 +1611,7 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
     fetchGasApi(`${GOOGLE_APPS_SCRIPT_ENDPOINT}?action=delete&ticketId=${encodeURIComponent(cleanId)}`).catch(() => {});
   }
 
-  return { success: true };
+  return { success: true, deletedTicketId: cleanId };
 }
 
 async function resetAllTickets(userIdentifier, clientIp) {
@@ -2043,5 +2109,8 @@ module.exports = {
   isTestOrPurgedTicket,
   PERMANENT_TOMBSTONES,
   deletedTicketIds,
-  getDeletedIds: () => Array.from(deletedTicketIds)
+  getDeletedIds: () => Array.from(deletedTicketIds),
+  addDeletedTombstones,
+  isDeleted,
+  loadTicketsFromJson
 };

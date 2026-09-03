@@ -1,0 +1,110 @@
+[
+  {
+    "ticketId": "HTL-TVR-16700",
+    "deletedAt": "2026-09-03T04:59:51.526Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "PUMS AUDIT SCHOOL",
+    "udise": "3320016700",
+    "originalCreatedAt": "3/9/2026, 10:29:46 am"
+  },
+  {
+    "ticketId": "HTL-TVR-12166",
+    "deletedAt": "2026-09-03T05:03:35.945Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "PUMS AUDIT SCHOOL",
+    "udise": "3320012166",
+    "originalCreatedAt": "3/9/2026, 10:33:32 am"
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-6907",
+    "deletedAt": "2026-09-03T05:03:56.931Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 10:33:56 am"
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-3218",
+    "deletedAt": "2026-09-03T05:04:43.242Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 10:34:43 am"
+  },
+  {
+    "ticketId": "HTL-TVR-99999",
+    "deletedAt": "2026-09-03T05:04:51.215Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Test Clean",
+    "district": "",
+    "schoolName": "",
+    "udise": "",
+    "originalCreatedAt": ""
+  },
+  {
+    "ticketId": "HTL-NGP-PERM-DEL-TEST-SPEC-99",
+    "deletedAt": "2026-09-03T05:11:45.870Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Automated Phase 21 Spec Anti-Resurrection Test",
+    "district": "",
+    "schoolName": "",
+    "udise": "",
+    "originalCreatedAt": ""
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-1601",
+    "deletedAt": "2026-09-03T05:20:11.625Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 10:50:11 am"
+  },
+  {
+    "ticketId": "HTL-TVR-99881",
+    "deletedAt": "2026-09-03T05:47:42.151Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "",
+    "schoolName": "",
+    "udise": "",
+    "originalCreatedAt": ""
+  },
+  {
+    "ticketId": "HTL-TVR-30829",
+    "deletedAt": "2026-09-03T05:48:45.327Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200130829",
+    "originalCreatedAt": "3/9/2026, 11:18:36 am"
+  },
+  {
+    "ticketId": "HTL-TVR-08877",
+    "deletedAt": "2026-09-03T05:50:03.775Z",
+    "deletedBy": "test",
+    "deletionReason": "Test Cleanup",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200108877"
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-2801",
+    "deletedAt": "2026-09-03T05:50:42.831Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 11:20:42 am"
+  }
+]
