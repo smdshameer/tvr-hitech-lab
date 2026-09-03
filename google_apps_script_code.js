@@ -121,10 +121,23 @@ function doPost(e) {
     var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos"); // Ensure Completion Photos subfolder exists
 
     var tid = String(data.ticketId || 'TICKET').trim();
-    var p1Url = data.photo1Url || saveBase64Image(evidenceFolder, data.photo1Base64, (tid ? tid + "_" : "") + "1_UPS_Display.jpg");
-    var p2Url = data.photo2Url || saveBase64Image(evidenceFolder, data.photo2Base64, (tid ? tid + "_" : "") + "2_Overall_Setup.jpg");
-    var p3Url = data.photo3Url || saveBase64Image(evidenceFolder, data.photo3Base64, (tid ? tid + "_" : "") + "3_Battery_MCB.jpg");
-    var p4Url = data.photo4Url || saveBase64Image(evidenceFolder, data.photo4Base64, (tid ? tid + "_" : "") + "4_Isolation_Transformer.jpg");
+    var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
+
+    var p1Res = data.photo1Base64 ? saveAndVerifyBase64Image(evidenceFolder, data.photo1Base64, (tid ? tid + "_" : "") + "Evidence_1.jpg", meta) : null;
+    var p2Res = data.photo2Base64 ? saveAndVerifyBase64Image(evidenceFolder, data.photo2Base64, (tid ? tid + "_" : "") + "Evidence_2.jpg", meta) : null;
+    var p3Res = data.photo3Base64 ? saveAndVerifyBase64Image(evidenceFolder, data.photo3Base64, (tid ? tid + "_" : "") + "Evidence_3.jpg", meta) : null;
+    var p4Res = data.photo4Base64 ? saveAndVerifyBase64Image(evidenceFolder, data.photo4Base64, (tid ? tid + "_" : "") + "Evidence_4.jpg", meta) : null;
+
+    var p1Url = p1Res ? p1Res.fileUrl : (data.photo1Url || '');
+    var p2Url = p2Res ? p2Res.fileUrl : (data.photo2Url || '');
+    var p3Url = p3Res ? p3Res.fileUrl : (data.photo3Url || '');
+    var p4Url = p4Res ? p4Res.fileUrl : (data.photo4Url || '');
+
+    var evidencePhotos = [];
+    if (p1Res) evidencePhotos.push(p1Res);
+    if (p2Res) evidencePhotos.push(p2Res);
+    if (p3Res) evidencePhotos.push(p3Res);
+    if (p4Res) evidencePhotos.push(p4Res);
 
     var timeStr = data.createdDate || Utilities.formatDate(new Date(), "Asia/Kolkata", "dd/MM/yyyy, hh:mm:ss a");
     var sheetTimeStr = "'" + timeStr;
@@ -157,6 +170,16 @@ function doPost(e) {
       sheet.appendRow(rowPayload);
     }
 
+    var uploadedCount = evidencePhotos.length;
+    var filesArray = evidencePhotos.map(function(p) {
+      return {
+        fileId: p.fileId,
+        fileName: p.fileName,
+        url: p.fileUrl,
+        folder: p.folderName
+      };
+    });
+
     return ContentService.createTextOutput(JSON.stringify({
       success: true,
       ticketId: tid,
@@ -164,10 +187,18 @@ function doPost(e) {
       rootFolder: districtFolder.getName(),
       districtFolder: districtFolder.getName(),
       schoolFolder: schoolFolder.getName(),
+      udise: data.udise || '',
       evidenceFolder: evidenceFolder.getName(),
       completionFolder: compFolder.getName(),
+      uploadedCount: uploadedCount,
+      files: filesArray,
       folderUrl: schoolFolder.getUrl(),
-      p1Url: p1Url, p2Url: p2Url, p3Url: p3Url, p4Url: p4Url
+      p1Url: p1Url, p2Url: p2Url, p3Url: p3Url, p4Url: p4Url,
+      p1DriveFileId: p1Res ? p1Res.fileId : '',
+      p2DriveFileId: p2Res ? p2Res.fileId : '',
+      p3DriveFileId: p3Res ? p3Res.fileId : '',
+      p4DriveFileId: p4Res ? p4Res.fileId : '',
+      evidencePhotos: evidencePhotos
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (err) {
@@ -230,42 +261,58 @@ function updateTicketRow(sheet, data) {
       //                                               / Completion Photos / (GPS Photo)
       var hmUrl = data.hmReportPhotoUrl || '';
       var compUrl = data.completionPhotoUrl || '';
+      var hmFileId = data.hmDriveFileId || '';
+      var compFileId = data.compDriveFileId || '';
       var districtFolderName = '';
       var schoolFolderName = '';
       var evidenceFolderName = '';
       var compFolderName = '';
       var schoolFolderUrl = '';
+      var evidencePhotos = [];
 
       if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
-        try {
-          var distStr = String(data.district || '').trim();
-          var udiseStr = String(data.udise || '').trim();
-          if (!distStr && udiseStr) {
-            distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
-          }
-          if (!distStr) distStr = 'Thiruvarur';
+        var distStr = String(data.district || '').trim();
+        var udiseStr = String(data.udise || '').trim();
+        if (!distStr && udiseStr) {
+          distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
+        }
+        if (!distStr) distStr = 'Thiruvarur';
 
-          var districtFolder = getOrCreateDistrictFolder(distStr);
-          var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
-          var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
-          var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
+        var districtFolder = getOrCreateDistrictFolder(distStr);
+        var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
+        var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
+        var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
 
-          districtFolderName = districtFolder.getName();
-          schoolFolderName = schoolFolder.getName();
-          evidenceFolderName = evidenceFolder.getName();
-          compFolderName = compFolder.getName();
-          schoolFolderUrl = schoolFolder.getUrl();
+        districtFolderName = districtFolder.getName();
+        schoolFolderName = schoolFolder.getName();
+        evidenceFolderName = evidenceFolder.getName();
+        compFolderName = compFolder.getName();
+        schoolFolderUrl = schoolFolder.getUrl();
 
-          var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
-          var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
+        var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
+        var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
+        var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
 
-          if (data.hmReportPhotoBase64) {
+        if (data.hmReportPhotoBase64) {
+          var hmRes = saveAndVerifyBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName, meta);
+          if (hmRes && hmRes.fileUrl) {
+            hmUrl = hmRes.fileUrl;
+            hmFileId = hmRes.fileId;
+            evidencePhotos.push(hmRes);
+          } else {
             hmUrl = saveBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName);
           }
-          if (data.completionPhotoBase64) {
+        }
+        if (data.completionPhotoBase64) {
+          var compRes = saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64, compName, meta);
+          if (compRes && compRes.fileUrl) {
+            compUrl = compRes.fileUrl;
+            compFileId = compRes.fileId;
+            evidencePhotos.push(compRes);
+          } else {
             compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
           }
-        } catch(e){}
+        }
       }
 
       return ContentService.createTextOutput(JSON.stringify({
@@ -280,7 +327,10 @@ function updateTicketRow(sheet, data) {
         completionFolder: compFolderName,
         folderUrl: schoolFolderUrl,
         hmReportPhotoUrl: hmUrl,
-        completionPhotoUrl: compUrl
+        completionPhotoUrl: compUrl,
+        hmDriveFileId: hmFileId,
+        compDriveFileId: compFileId,
+        evidencePhotos: evidencePhotos
       })).setMimeType(ContentService.MimeType.JSON);
     }
   }
@@ -377,34 +427,86 @@ function getOrCreateSubFolder(schoolFolder, subFolderName) {
   return newSub;
 }
 
-function saveBase64Image(folder, base64Data, filename) {
-  if (!base64Data || typeof base64Data !== 'string') return '';
+function saveAndVerifyBase64Image(folder, base64Data, filename, meta) {
+  if (!base64Data || typeof base64Data !== 'string') return null;
   var raw = base64Data;
   if (raw.indexOf('base64,') !== -1) raw = raw.split('base64,')[1];
-  if (!raw || raw.length < 50) return '';
+  if (!raw || raw.length < 50) return null;
+
   try {
     var decoded = Utilities.base64Decode(raw);
     var blob = Utilities.newBlob(decoded, 'image/jpeg', filename);
+    var file = null;
+
+    // Idempotency: Check if file with exact name already exists in this folder
     var existingFiles = folder.getFilesByName(filename);
     if (existingFiles.hasNext()) {
-      var existingFile = existingFiles.next();
-      existingFile.setContent(decoded);
-      return 'https://drive.google.com/thumbnail?id=' + existingFile.getId() + '&sz=w800';
-    }
-    // Also check for existing file matching the completion category
-    var allFiles = folder.getFiles();
-    while (allFiles.hasNext()) {
-      var f = allFiles.next();
-      var fName = f.getName();
-      if (fName === filename || 
-         (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1) || 
-         (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1)) {
-        f.setContent(decoded);
-        return 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w800';
+      file = existingFiles.next();
+      file.setContent(decoded);
+    } else {
+      // Check for completion evidence files or evidence photos matching pattern
+      var allFiles = folder.getFiles();
+      while (allFiles.hasNext()) {
+        var f = allFiles.next();
+        var fName = f.getName();
+        if (fName === filename || 
+           (filename.indexOf('Evidence_1') !== -1 && (fName.indexOf('Evidence_1') !== -1 || fName.indexOf('1_UPS_Display') !== -1)) ||
+           (filename.indexOf('Evidence_2') !== -1 && (fName.indexOf('Evidence_2') !== -1 || fName.indexOf('2_Overall_Setup') !== -1)) ||
+           (filename.indexOf('Evidence_3') !== -1 && (fName.indexOf('Evidence_3') !== -1 || fName.indexOf('3_Battery_MCB') !== -1)) ||
+           (filename.indexOf('Evidence_4') !== -1 && (fName.indexOf('Evidence_4') !== -1 || fName.indexOf('4_Isolation_Transformer') !== -1)) ||
+           (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1) || 
+           (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1)) {
+          f.setContent(decoded);
+          file = f;
+          break;
+        }
+      }
+      if (!file) {
+        file = folder.createFile(blob);
       }
     }
-    var file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
-  } catch(e) { return ''; }
+
+    if (!file) return null;
+
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch(shareErr) {}
+
+    var fileId = file.getId();
+    var fileSize = file.getSize();
+    var actualName = file.getName();
+
+    if (!fileId || fileSize <= 0) {
+      return null;
+    }
+
+    var fileUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
+    var m = meta || {};
+
+    return {
+      success: true,
+      fileId: fileId,
+      fileName: actualName,
+      fileSize: fileSize,
+      folderId: folder.getId(),
+      folderName: folder.getName(),
+      folderUrl: folder.getUrl(),
+      fileUrl: fileUrl,
+      district: m.district || '',
+      udise: m.udise || '',
+      schoolName: m.schoolName || '',
+      storageType: 'google_drive',
+      storageFolder: folder.getName(),
+      uploadedAt: Utilities.formatDate(new Date(), "Asia/Kolkata", "dd/MM/yyyy, hh:mm:ss a")
+    };
+  } catch(e) {
+    Logger.log('Error saving image: ' + e.toString());
+    return null;
+  }
 }
+
+function saveBase64Image(folder, base64Data, filename) {
+  var res = saveAndVerifyBase64Image(folder, base64Data, filename, {});
+  return res ? res.fileUrl : '';
+}
+

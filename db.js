@@ -1298,6 +1298,21 @@ async function syncGasTickets() {
               gpsAccuracy: (existing.gpsAccuracy !== undefined && existing.gpsAccuracy !== null) ? existing.gpsAccuracy : cleanTicket.gpsAccuracy,
               gpsTimestamp: existing.gpsTimestamp || cleanTicket.gpsTimestamp,
               gpsSource: existing.gpsSource || cleanTicket.gpsSource,
+              evidencePhotos: (existing.evidencePhotos && existing.evidencePhotos.length > 0) ? existing.evidencePhotos : (cleanTicket.evidencePhotos || []),
+              photo1Url: (existing.photo1Url && existing.photo1Url !== 'No Photo') ? existing.photo1Url : (cleanTicket.photo1Url || ''),
+              photo2Url: (existing.photo2Url && existing.photo2Url !== 'No Photo') ? existing.photo2Url : (cleanTicket.photo2Url || ''),
+              photo3Url: (existing.photo3Url && existing.photo3Url !== 'No Photo') ? existing.photo3Url : (cleanTicket.photo3Url || ''),
+              photo4Url: (existing.photo4Url && existing.photo4Url !== 'No Photo') ? existing.photo4Url : (cleanTicket.photo4Url || ''),
+              p1DriveUrl: existing.p1DriveUrl || cleanTicket.p1DriveUrl || '',
+              p2DriveUrl: existing.p2DriveUrl || cleanTicket.p2DriveUrl || '',
+              p3DriveUrl: existing.p3DriveUrl || cleanTicket.p3DriveUrl || '',
+              p4DriveUrl: existing.p4DriveUrl || cleanTicket.p4DriveUrl || '',
+              p1DriveFileId: existing.p1DriveFileId || cleanTicket.p1DriveFileId || '',
+              p2DriveFileId: existing.p2DriveFileId || cleanTicket.p2DriveFileId || '',
+              p3DriveFileId: existing.p3DriveFileId || cleanTicket.p3DriveFileId || '',
+              p4DriveFileId: existing.p4DriveFileId || cleanTicket.p4DriveFileId || '',
+              hmDriveFileId: existing.hmDriveFileId || cleanTicket.hmDriveFileId || '',
+              compDriveFileId: existing.compDriveFileId || cleanTicket.compDriveFileId || '',
               timeline: (existing.timeline && existing.timeline.length > 0) ? existing.timeline : (cleanTicket.timeline || [])
             };
           } else {
@@ -1614,6 +1629,7 @@ async function createTicket(ticketData) {
     list.unshift(ticketData);
   }
   saveTicketsToJson(list);
+  return { success: true, ticket: ticketData };
 }
 
 async function updateTicket(ticketId, updateData) {
@@ -1719,10 +1735,16 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.photo3Url !== undefined) ticket.photo3Url = updateData.photo3Url;
     if (updateData.photo4Url !== undefined) ticket.photo4Url = updateData.photo4Url;
     if (updateData.hmReportPhotoUrl !== undefined) {
-      if (updateData.hmReportPhotoUrl || updateData.clearEvidence) ticket.hmReportPhotoUrl = updateData.hmReportPhotoUrl;
+      if (updateData.hmReportPhotoUrl || updateData.clearEvidence || updateData.completionEvidence?.hmSignedReport?.uploaded === false) {
+        ticket.hmReportPhotoUrl = updateData.hmReportPhotoUrl;
+        if (!updateData.hmReportPhotoUrl) ticket.hmReportPhotoBase64 = '';
+      }
     }
     if (updateData.completionPhotoUrl !== undefined) {
-      if (updateData.completionPhotoUrl || updateData.clearEvidence) ticket.completionPhotoUrl = updateData.completionPhotoUrl;
+      if (updateData.completionPhotoUrl || updateData.clearEvidence || updateData.completionEvidence?.completionPhoto?.uploaded === false) {
+        ticket.completionPhotoUrl = updateData.completionPhotoUrl;
+        if (!updateData.completionPhotoUrl) ticket.completionPhotoBase64 = '';
+      }
     }
     if (updateData.hmReportPhotoBase64 !== undefined && updateData.hmReportPhotoBase64) {
       ticket.hmReportPhotoBase64 = updateData.hmReportPhotoBase64;
@@ -1735,8 +1757,20 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.gpsAccuracy !== undefined) ticket.gpsAccuracy = updateData.gpsAccuracy;
     if (updateData.gpsTimestamp !== undefined) ticket.gpsTimestamp = updateData.gpsTimestamp;
     if (updateData.completionDate !== undefined) ticket.completionDate = updateData.completionDate;
-    if (updateData.completedBy !== undefined) ticket.completedBy = updateData.completedBy;
     if (updateData.googleDriveFolderUrl !== undefined) ticket.googleDriveFolderUrl = updateData.googleDriveFolderUrl;
+    if (updateData.p1DriveUrl !== undefined) ticket.p1DriveUrl = updateData.p1DriveUrl;
+    if (updateData.p2DriveUrl !== undefined) ticket.p2DriveUrl = updateData.p2DriveUrl;
+    if (updateData.p3DriveUrl !== undefined) ticket.p3DriveUrl = updateData.p3DriveUrl;
+    if (updateData.p4DriveUrl !== undefined) ticket.p4DriveUrl = updateData.p4DriveUrl;
+    if (updateData.p1DriveFileId !== undefined) ticket.p1DriveFileId = updateData.p1DriveFileId;
+    if (updateData.p2DriveFileId !== undefined) ticket.p2DriveFileId = updateData.p2DriveFileId;
+    if (updateData.p3DriveFileId !== undefined) ticket.p3DriveFileId = updateData.p3DriveFileId;
+    if (updateData.p4DriveFileId !== undefined) ticket.p4DriveFileId = updateData.p4DriveFileId;
+    if (updateData.hmDriveFileId !== undefined) ticket.hmDriveFileId = updateData.hmDriveFileId;
+    if (updateData.compDriveFileId !== undefined) ticket.compDriveFileId = updateData.compDriveFileId;
+    if (updateData.evidencePhotos !== undefined && Array.isArray(updateData.evidencePhotos)) {
+      ticket.evidencePhotos = updateData.evidencePhotos;
+    }
     if (updateData.completionEvidenceRequested !== undefined) ticket.completionEvidenceRequested = updateData.completionEvidenceRequested;
     if (updateData.completionEvidenceRequestedAt !== undefined) ticket.completionEvidenceRequestedAt = updateData.completionEvidenceRequestedAt;
     if (updateData.completionEvidenceRequestedBy !== undefined) ticket.completionEvidenceRequestedBy = updateData.completionEvidenceRequestedBy;

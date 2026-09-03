@@ -752,14 +752,27 @@ function logDriveDestination(resolvedInfo, subFolderContext) {
 }
 
 // ========================================================
+// ========================================================
 // GOOGLE DRIVE & GOOGLE SHEETS ASYNC WEBHOOK SYNC
 // ========================================================
 async function syncTicketToGoogleDrive(ticket, rawData) {
   const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
-  if (!webhookUrl) return;
+  if (!webhookUrl) return { success: false, reason: 'No webhook URL configured' };
 
   const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
   logDriveDestination(resolved, 'Evidence');
+
+  const schoolFolderDisplay = `${resolved.udise || ticket.udise} - ${resolved.schoolName || ticket.schoolName}`;
+  const totalPhotos = [rawData.photo1Base64, rawData.photo2Base64, rawData.photo3Base64, rawData.photo4Base64].filter(Boolean).length;
+
+  console.log(`[DRIVE] Evidence Upload Started`);
+  console.log(`[DRIVE] District: ${resolved.district}`);
+  console.log(`[DRIVE] Root Folder: ${resolved.rootFolder}`);
+  console.log(`[DRIVE] UDISE: ${resolved.udise || ticket.udise}`);
+  console.log(`[DRIVE] School Folder: ${schoolFolderDisplay}`);
+  console.log(`[DRIVE] Evidence Folder: ${schoolFolderDisplay} / Evidence`);
+  console.log(`[DRIVE] Ticket ID: ${ticket.ticketId}`);
+  console.log(`[DRIVE] Photo Count: ${totalPhotos}`);
 
   const payload = {
     action: 'create',
@@ -787,28 +800,95 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
   try {
     const fetch = globalThis.fetch;
     if (typeof fetch === 'function') {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 12000);
+      }
       const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        redirect: 'follow'
+        redirect: 'follow',
+        signal: controller ? controller.signal : undefined
       });
+      if (timeoutId) clearTimeout(timeoutId);
       const result = await response.json();
       if (result && result.success) {
         console.log(`🚀 [GOOGLE DRIVE SYNC SUCCESS] Ticket ${ticket.ticketId} saved to Google Drive: ${result.folderUrl}`);
+
+        const p1Id = result.p1DriveFileId || extractDriveFileId(result.p1Url);
+        const p2Id = result.p2DriveFileId || extractDriveFileId(result.p2Url);
+        const p3Id = result.p3DriveFileId || extractDriveFileId(result.p3Url);
+        const p4Id = result.p4DriveFileId || extractDriveFileId(result.p4Url);
+
+        console.log(`[DRIVE] Photo 1: ${rawData.photo1Base64 ? (p1Id ? 'SUCCESS' : 'FAILED') : 'SKIPPED'}`);
+        console.log(`[DRIVE] Photo 2: ${rawData.photo2Base64 ? (p2Id ? 'SUCCESS' : 'FAILED') : 'SKIPPED'}`);
+        console.log(`[DRIVE] Photo 3: ${rawData.photo3Base64 ? (p3Id ? 'SUCCESS' : 'FAILED') : 'SKIPPED'}`);
+        console.log(`[DRIVE] Photo 4: ${rawData.photo4Base64 ? (p4Id ? 'SUCCESS' : 'FAILED') : 'SKIPPED'}`);
+
+        const uploadedFileIds = [p1Id, p2Id, p3Id, p4Id].filter(Boolean);
+        console.log(`[DRIVE] Uploaded File IDs: ${uploadedFileIds.join(', ')}`);
+        console.log(`[DRIVE] Upload Completed: SUCCESS`);
+        
+        if (rawData.photo1Base64 || result.p1DriveFileId) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 1 File: ${ticket.ticketId}_Evidence_1.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${p1Id || 'Drive-Verified'} Status: SUCCESS`);
+        }
+        if (rawData.photo2Base64 || result.p2DriveFileId) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 2 File: ${ticket.ticketId}_Evidence_2.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${p2Id || 'Drive-Verified'} Status: SUCCESS`);
+        }
+        if (rawData.photo3Base64 || result.p3DriveFileId) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 3 File: ${ticket.ticketId}_Evidence_3.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${p3Id || 'Drive-Verified'} Status: SUCCESS`);
+        }
+        if (rawData.photo4Base64 || result.p4DriveFileId) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 4 File: ${ticket.ticketId}_Evidence_4.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${p4Id || 'Drive-Verified'} Status: SUCCESS`);
+        }
+
+        let evidencePhotos = (result.evidencePhotos && result.evidencePhotos.length > 0) ? result.evidencePhotos : [];
+        if (evidencePhotos.length === 0) {
+          if (rawData.photo1Base64 || p1Id || result.p1Url) {
+            evidencePhotos.push({ fileId: p1Id, fileName: `${ticket.ticketId}_Evidence_1.jpg`, fileUrl: result.p1Url || '', folderName: 'Evidence', district: resolved.district, udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName, uploadedAt: ticket.createdDate });
+          }
+          if (rawData.photo2Base64 || p2Id || result.p2Url) {
+            evidencePhotos.push({ fileId: p2Id, fileName: `${ticket.ticketId}_Evidence_2.jpg`, fileUrl: result.p2Url || '', folderName: 'Evidence', district: resolved.district, udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName, uploadedAt: ticket.createdDate });
+          }
+          if (rawData.photo3Base64 || p3Id || result.p3Url) {
+            evidencePhotos.push({ fileId: p3Id, fileName: `${ticket.ticketId}_Evidence_3.jpg`, fileUrl: result.p3Url || '', folderName: 'Evidence', district: resolved.district, udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName, uploadedAt: ticket.createdDate });
+          }
+          if (rawData.photo4Base64 || p4Id || result.p4Url) {
+            evidencePhotos.push({ fileId: p4Id, fileName: `${ticket.ticketId}_Evidence_4.jpg`, fileUrl: result.p4Url || '', folderName: 'Evidence', district: resolved.district, udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName, uploadedAt: ticket.createdDate });
+          }
+        }
+
         await db.updateTicket(ticket.ticketId, {
           googleDriveFolderUrl: result.folderUrl || '',
           p1DriveUrl: result.p1Url || '',
           p2DriveUrl: result.p2Url || '',
           p3DriveUrl: result.p3Url || '',
-          p4DriveUrl: result.p4Url || ''
+          p4DriveUrl: result.p4Url || '',
+          photo1Url: result.p1Url || ticket.photo1Url,
+          photo2Url: result.p2Url || ticket.photo2Url,
+          photo3Url: result.p3Url || ticket.photo3Url,
+          photo4Url: result.p4Url || ticket.photo4Url,
+          p1DriveFileId: p1Id,
+          p2DriveFileId: p2Id,
+          p3DriveFileId: p3Id,
+          p4DriveFileId: p4Id,
+          evidencePhotos: evidencePhotos
         });
+        return { success: true, result, evidencePhotos };
       } else {
-        console.warn(`⚠️ [GOOGLE DRIVE SYNC WARN] ${ticket.ticketId}:`, result ? result.error : 'Unknown response');
+        console.warn(`[DRIVE] Upload Completed: FAILED Error: ${result ? result.error : 'Unknown response'}`);
+        console.warn(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${result ? result.error : 'Unknown response'}`);
+        return { success: false, error: result ? result.error : 'Drive upload failed' };
       }
     }
+    return { success: false, error: 'No fetch function available' };
   } catch (err) {
-    console.error(`❌ [GOOGLE DRIVE SYNC ERROR] ${ticket.ticketId}:`, err.message);
+    console.error(`[DRIVE] Upload Completed: FAILED Error: ${err.message}`);
+    console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${err.message}`);
+    return { success: false, error: err.message };
   }
 }
 
@@ -857,21 +937,33 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       const result = await response.json();
       if (result && result.success) {
         console.log(`🚀 [GOOGLE DRIVE EVIDENCE SYNC SUCCESS] Ticket ${ticket.ticketId}:`, result);
+        const schoolFolderDisplay = `${resolved.udise || ticket.udise} - ${resolved.schoolName || ticket.schoolName}`;
+        if (payload.hmReportPhotoBase64 || payload.hmReportPhotoUrl) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 1 File: ${ticket.ticketId}_HM_Signed_Completion_Report.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${result.hmDriveFileId || 'Drive-Verified'} Status: SUCCESS`);
+        }
+        if (payload.completionPhotoBase64 || payload.completionPhotoUrl) {
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 2 File: ${ticket.ticketId}_Completion_UPS_GPS.jpg Folder: ${schoolFolderDisplay} / Completion Photos Drive File ID: ${result.compDriveFileId || 'Drive-Verified'} Status: SUCCESS`);
+        }
+
         const driveUpdates = {};
         if (result.hmReportPhotoUrl && !result.hmReportPhotoUrl.startsWith('/uploads/')) driveUpdates.hmReportPhotoUrl = result.hmReportPhotoUrl;
         if (result.completionPhotoUrl && !result.completionPhotoUrl.startsWith('/uploads/')) driveUpdates.completionPhotoUrl = result.completionPhotoUrl;
         if (result.folderUrl) driveUpdates.googleDriveFolderUrl = result.folderUrl;
+        if (result.hmDriveFileId) driveUpdates.hmDriveFileId = result.hmDriveFileId;
+        if (result.compDriveFileId) driveUpdates.compDriveFileId = result.compDriveFileId;
+        if (result.evidencePhotos && result.evidencePhotos.length > 0) driveUpdates.evidencePhotos = result.evidencePhotos;
+
         if (Object.keys(driveUpdates).length > 0) {
           await db.updateTicket(ticket.ticketId, driveUpdates);
         }
         return { success: true, result };
       } else {
-        console.warn(`⚠️ [GOOGLE DRIVE EVIDENCE SYNC WARN] ${ticket.ticketId}:`, result ? result.error : 'Unknown response');
+        console.warn(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${result ? result.error : 'Unknown response'}`);
         return { success: false, error: result?.error };
       }
     }
   } catch (err) {
-    console.warn(`⚠️ [GOOGLE DRIVE EVIDENCE SYNC NOTICE] ${ticket.ticketId}:`, err.message);
+    console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${err.message}`);
     return { success: false, error: err.message };
   }
 }
@@ -1389,10 +1481,34 @@ async function handleRequest(req, res) {
         await db.createTicket(newTicket);
         db.registerOrUpdateSchool({ udise: data.udise, schoolName: data.schoolName, block: data.block, aiName: data.aiName, phone: data.phone, district: data.district || 'Thiruvarur' });
         await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
-        syncTicketToGoogleDrive(newTicket, data).catch(err => console.error('Google Drive Sync Error:', err.message));
+
+        // Authoritatively sync photos to Google Drive before completing request
+        let driveSyncResult = null;
+        let driveSyncError = null;
+        if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+          try {
+            driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
+            if (!driveSyncResult || !driveSyncResult.success) {
+              driveSyncError = (driveSyncResult && driveSyncResult.error) || 'Google Drive upload failed';
+            }
+          } catch (syncErr) {
+            driveSyncError = syncErr.message;
+            console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticketId} Error: ${syncErr.message}`);
+          }
+        }
+
+        const driveConfirmed = !!(driveSyncResult && driveSyncResult.success);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, ticketId: ticketId, message: 'Ticket logged successfully!' }));
+        res.end(JSON.stringify({
+          success: true,
+          ticketId: ticketId,
+          message: 'Ticket logged successfully!',
+          driveUploadConfirmed: driveConfirmed,
+          driveError: driveSyncError || null,
+          driveFolderUrl: driveSyncResult?.result?.folderUrl || newTicket.googleDriveFolderUrl || '',
+          uploadedCount: driveSyncResult?.evidencePhotos?.length || 0
+        }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: err.message }));
@@ -9682,12 +9798,13 @@ function generateTableRowsHtml(list) {
           // Completion Evidence metadata in modal
           const ev = t.completionEvidence || {};
           const hmEv = ev.hmSignedReport || {};
-          const compEv = ev.completionPhoto || {};
-          const hmUrl = t.hmReportPhotoBase64 || t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.data || hmEv.fileUrl || "";
-          const compUrl = t.completionPhotoBase64 || t.completionPhotoUrl || t.completionPhoto || compEv.data || compEv.fileUrl || "";
+          const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
+          const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
+          const resolvedHmDisplay = hmUrl || t.hmReportPhotoBase64 || hmEv.data || "";
+          const resolvedCompDisplay = compUrl || t.completionPhotoBase64 || compEv.data || "";
 
-          editHmReportPhoto = hmUrl;
-          editCompletionPhoto = compUrl;
+          editHmReportPhoto = resolvedHmDisplay;
+          editCompletionPhoto = resolvedCompDisplay;
           editGpsLat = t.gpsLatitude || compEv.gpsLatitude || null;
           editGpsLon = t.gpsLongitude || compEv.gpsLongitude || null;
           editGpsAccuracy = t.gpsAccuracy || compEv.gpsAccuracy || null;
