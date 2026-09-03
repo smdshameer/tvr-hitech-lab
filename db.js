@@ -481,7 +481,8 @@ const PERMANENT_TOMBSTONES = new Set([
   'HTL-TVR-44425', 'HTL-TVR-19714', 'HTL-TVR-88239', 'HTL-TVR-38414',
   'HTL-TVR-30090', 'HTL-TVR-50210', 'HTL-TVR-12543', 'HTL-TVR-13043', 'HTL-TVR-29010',
   'HTL-TVR-00101-4', 'HTL-TVR-00101-3', 'HTL-TVR-00101-2',
-  'HTL-TVR-AUDIT-8923', 'HTL-TVR-AUDIT-1283', 'HTL-TVR-05301-TMP-9639'
+  'HTL-TVR-AUDIT-8923', 'HTL-TVR-AUDIT-1283', 'HTL-TVR-05301-TMP-9639',
+  'HTL-TVR-05301-MOCK-8577'
 ]);
 
 let inMemoryTickets = null;
@@ -587,6 +588,7 @@ function isTestOrPurgedTicket(t) {
     tidLower.includes('dummy') ||
     tidLower.includes('ping') ||
     tidLower.includes('tmp') ||
+    tidLower.includes('mock') ||
     tidLower.includes('-p29-') ||
     tidLower.includes('-p30-') ||
     tidLower.includes('-p31-') ||
@@ -1538,10 +1540,9 @@ async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', dele
   list = list.filter(t => String(t.ticketId).trim() !== cleanId);
   saveTicketsToJson(list);
 
-  // 5. Asynchronously call Google Sheets delete action (both GET and POST)
+  // 5. Asynchronously call Google Sheets delete action via GET only (avoids legacy doPost appendRow behavior)
   if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
     fetchGasApi(`${GOOGLE_APPS_SCRIPT_ENDPOINT}?action=delete&ticketId=${encodeURIComponent(cleanId)}`).catch(() => {});
-    fetchGasApi(GOOGLE_APPS_SCRIPT_ENDPOINT, 'POST', { action: 'delete', ticketId: cleanId }).catch(() => {});
   }
 
   return { success: true };

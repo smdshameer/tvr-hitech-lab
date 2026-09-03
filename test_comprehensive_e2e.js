@@ -114,7 +114,7 @@ async function runAudit() {
   // DIMENSION 5: Backend Data Creation & Ingestion
   // ----------------------------------------------------
   console.log('\n--- DIMENSION 5: Backend Data Creation & Ingestion ---');
-  const testId = 'HTL-TVR-05301-MOCK-' + Date.now().toString().slice(-4);
+  const testId = 'HTL-TVR-05301-UNIT-' + Date.now().toString().slice(-4);
   try {
     const testPayload = {
       ticketId: testId,
@@ -143,7 +143,7 @@ async function runAudit() {
       photo2Url: 'https://example.com/p2.jpg',
       photo3Url: 'https://example.com/p3.jpg',
       photo4Url: 'https://example.com/p4.jpg',
-      remarks: 'Automated Audit Run',
+      remarks: 'Periodic Health Verification',
       timeline: []
     };
 
