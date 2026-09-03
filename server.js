@@ -501,34 +501,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-
-function parseTicketTimestamp(dateStr) {
-  if (!dateStr) return 0;
-  try {
-    const norm = normalizeTicketDate(String(dateStr));
-    const parts = norm.split(',');
-    if (parts.length >= 2) {
-      const dParts = parts[0].trim().split('/');
-      const tParts = parts[1].trim().split(' ');
-      if (dParts.length === 3 && tParts.length >= 2) {
-        const day = parseInt(dParts[0], 10);
-        const month = parseInt(dParts[1], 10) - 1;
-        const year = parseInt(dParts[2], 10);
-        const timeSub = tParts[0].split(':');
-        let hours = parseInt(timeSub[0], 10);
-        const minutes = parseInt(timeSub[1] || 0, 10);
-        const seconds = parseInt(timeSub[2] || 0, 10);
-        const meridiem = tParts[1].toLowerCase();
-        if (meridiem.includes('pm') && hours < 12) hours += 12;
-        if (meridiem.includes('am') && hours === 12) hours = 0;
-        return new Date(year, month, day, hours, minutes, seconds).getTime();
-      }
-    }
-    const d = new Date(dateStr).getTime();
-    return isNaN(d) ? 0 : d;
-  } catch(e) { return 0; }
-}
-
 // ========================================================
 // SECURITY HEADERS — Applied to all responses
 // ========================================================
