@@ -988,7 +988,6 @@ async function handleRequest(req, res) {
         // 0. Server-Side Mandatory Field Validations
         const schoolUdise = String(data.udise || '').trim();
         const schoolName = String(data.schoolName || '').trim();
-        const cleanPhone = String(data.phone || '').replace(/\D/g, '');
 
         if (!schoolName && !data.schoolId) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
@@ -1002,7 +1001,33 @@ async function handleRequest(req, res) {
           return;
         }
 
-        if (cleanPhone.length < 10) {
+        // Authoritative directory binding
+        const distResolved = resolveSchoolDistrict(schoolUdise, data.schoolId, data.district, data.schoolName);
+        const matchedSchool = distResolved.matchedSchool;
+        let resolvedDistrict = distResolved.district;
+        let resolvedBlock = (matchedSchool && matchedSchool.block) || data.block || '';
+        let resolvedSchoolName = distResolved.schoolName || (matchedSchool && matchedSchool.schoolName) || data.schoolName || '';
+        let resolvedCategory = (matchedSchool && matchedSchool.category) || data.category || '';
+        let resolvedEmpId = (matchedSchool && matchedSchool.empId) || data.empId || '';
+
+        // Multi-source phone resolution: 1. data.phone, 2. data.aiPhone, 3. matchedSchool.aiPhone, 4. matchedSchool.phone
+        const rawPhone = String(data.phone || data.aiPhone || (matchedSchool ? (matchedSchool.aiPhone || matchedSchool.phone) : '') || '').trim();
+        const normalizedPhone = db.normalizeIndianPhone(rawPhone);
+
+        // Safe masked diagnostic logging
+        console.log(`[TICKET_SUBMIT] School: "${resolvedSchoolName}" | UDISE: ${schoolUdise} | Dist: ${resolvedDistrict} | AI: "${data.aiName || (matchedSchool ? matchedSchool.aiName : 'N/A')}" | Phone(raw): ${db.maskPhone(rawPhone)} | Phone(norm): ${db.maskPhone(normalizedPhone)}`);
+
+        if (!rawPhone) {
+          res.writeHead(422, { 'Content-Type': 'application/json' });
+          if (matchedSchool) {
+            res.end(JSON.stringify({ success: false, error: '⚠️ இந்த பள்ளிக்கான AI தொடர்பு எண் விடுபட்டுள்ளது. தயவுசெய்து தொடர்பு எண்ணை உள்ளிடவும் (School contact number is missing for this school. Please update the school contact details before submitting).' }));
+          } else {
+            res.end(JSON.stringify({ success: false, error: '⚠️ சரியான 10-இலக்க தொடர்பு எண் தேவை (Valid 10-digit phone number is required).' }));
+          }
+          return;
+        }
+
+        if (!db.isValidIndianPhone(normalizedPhone)) {
           res.writeHead(422, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: '⚠️ சரியான 10-இலக்க தொடர்பு எண் தேவை (Valid 10-digit phone number is required).' }));
           return;
@@ -1080,15 +1105,6 @@ async function handleRequest(req, res) {
         const allTickets = await db.getAllTickets();
         const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
         
-        // Authoritative directory binding
-        const distResolved = resolveSchoolDistrict(schoolUdise, data.schoolId, data.district, data.schoolName);
-        const matchedSchool = distResolved.matchedSchool;
-        let resolvedDistrict = distResolved.district;
-        let resolvedBlock = (matchedSchool && matchedSchool.block) || data.block || '';
-        let resolvedSchoolName = distResolved.schoolName || (matchedSchool && matchedSchool.schoolName) || data.schoolName || '';
-        let resolvedCategory = (matchedSchool && matchedSchool.category) || data.category || '';
-        let resolvedEmpId = (matchedSchool && matchedSchool.empId) || data.empId || '';
-
         const isNgp = resolvedDistrict.toLowerCase().includes('nagapattinam');
         const distPrefix = isNgp ? 'HTL-NGP-' : 'HTL-TVR-';
         const baseTicketId = distPrefix + cleanSuffix;
@@ -1120,7 +1136,8 @@ async function handleRequest(req, res) {
           category: resolvedCategory,
           empId: resolvedEmpId,
           aiName: data.aiName || (matchedSchool ? matchedSchool.aiName : ''),
-          phone: data.phone || (matchedSchool ? matchedSchool.aiPhone : ''),
+          phone: normalizedPhone,
+          aiPhone: normalizedPhone,
           issue: data.issue || 'UPS Technical Glitch',
           duration: data.duration || 'Today',
           serialNo: data.serialNo || '',
@@ -1851,9 +1868,7 @@ if (pathname === '/api/data' && req.method === 'GET') {
         if (cIds.length > 0) db.addDeletedTombstones(cIds);
       } catch(e) {}
     }
-    let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
-    tickets.sort((a, b) => parseTicketTimestamp(b.createdDate || b.createdAt) - parseTicketTimestamp(a.createdDate || a.createdAt));
+    let tickets = await db.getCanonicalActiveTickets();
     const session = getAuthenticatedSession(req);
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
@@ -2015,8 +2030,7 @@ if (pathname === '/api/data' && req.method === 'GET') {
         if (cIds.length > 0) db.addDeletedTombstones(cIds);
       } catch(e) {}
     }
-    let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
+    let tickets = await db.getCanonicalActiveTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMWorkbenchHtml(tickets));
     return;
@@ -2040,8 +2054,7 @@ if (pathname === '/api/data' && req.method === 'GET') {
         if (cIds.length > 0) db.addDeletedTombstones(cIds);
       } catch(e) {}
     }
-    let tickets = await db.getAllTickets();
-    tickets = tickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
+    let tickets = await db.getCanonicalActiveTickets();
     res.writeHead(200, { ...NO_CACHE_HEADERS, 'Content-Type': 'text/html; charset=utf-8' });
     res.end(getITSMExecutiveHtml(tickets));
     return;
@@ -3434,6 +3447,28 @@ function getTeacherPortalHtml() {
     let base64Photo3 = '';
     let base64Photo4 = '';
 
+    function normalizeIndianPhone(raw) {
+      if (!raw && raw !== 0) return '';
+      let str = String(raw).trim();
+      if (str === 'null' || str === 'undefined' || str === '-' || str === 'Not Found') return '';
+      if (str.startsWith('+91')) {
+        str = str.slice(3);
+      }
+      let digits = str.replace(/\D/g, '');
+      if (digits.length === 11 && digits.startsWith('0')) {
+        digits = digits.slice(1);
+      }
+      if (digits.length === 12 && digits.startsWith('91')) {
+        digits = digits.slice(2);
+      }
+      return digits;
+    }
+
+    function isValidIndianPhone(raw) {
+      const norm = normalizeIndianPhone(raw);
+      return /^[6-9]\d{9}$/.test(norm);
+    }
+
     function switchTab(tab) {
       if (tab === 'log') {
         document.getElementById('tabLog').classList.add('active');
@@ -3577,7 +3612,8 @@ function getTeacherPortalHtml() {
           setVal("aiName", item.aiName);
         }
         if (item.aiPhone && item.aiPhone !== "Not Found" && item.aiPhone !== "-") {
-          setVal("aiPhone", item.aiPhone);
+          const normP = normalizeIndianPhone(item.aiPhone) || item.aiPhone;
+          setVal("aiPhone", normP);
         }
       }
       
@@ -3943,6 +3979,23 @@ function getTeacherPortalHtml() {
         block = schoolObj.block || '';
       }
 
+      const rawPhoneVal = (document.getElementById('aiPhone')?.value || '').trim();
+      const normPhoneVal = normalizeIndianPhone(rawPhoneVal) || rawPhoneVal;
+
+      if (select.value === 'OTHER' && !isValidIndianPhone(normPhoneVal)) {
+        alert('⚠️ சரியான 10-இலக்க தொடர்பு எண் தேவை (Valid 10-digit phone number is required).');
+        const pInp = document.getElementById('aiPhone');
+        if (pInp) {
+          pInp.focus();
+          pInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Log Service Ticket';
+        }
+        return;
+      }
+
       const payload = {
         schoolName: schoolName,
         udise: udise,
@@ -3951,7 +4004,8 @@ function getTeacherPortalHtml() {
         schoolCategory: document.getElementById('selectedCategory').value || 'General',
         empId: document.getElementById('selectedEmpId').value || '',
         aiName: document.getElementById('aiName').value,
-        aiPhone: document.getElementById('aiPhone').value,
+        aiPhone: normPhoneVal,
+        phone: normPhoneVal,
         issue: document.querySelector('input[name="upsStatus"]:checked')?.value || '',
         duration: document.getElementById('duration').value,
         serialNo: document.getElementById('serialNo').value,
@@ -8390,13 +8444,18 @@ function generateTableRowsHtml(list) {
         }
         if (res.ok) {
           const data = await res.json();
-          if (data && Array.isArray(data.tickets) && data.tickets.length > 0) {
-            // Guard: Never shrink or drop authentic tickets from active state
-            if (data.tickets.length >= allTickets.length || allTickets.length === 0) {
-              allTickets = data.tickets;
-              const kpiTot = document.getElementById('kpiTotal');
-              if (kpiTot) kpiTot.textContent = data.totalSchools || 262;
-            }
+          if (data && Array.isArray(data.tickets)) {
+            // Client-side deletion safety filter
+            const delList = (typeof getDeletedList === 'function') ? getDeletedList() : [];
+            const safeTickets = data.tickets.filter(function(t) {
+              if (!t || !t.ticketId) return false;
+              const tid = String(t.ticketId).trim();
+              if (delList.includes(tid) || delList.includes(tid.toLowerCase())) return false;
+              return true;
+            });
+            allTickets = safeTickets;
+            const kpiTot = document.getElementById('kpiTotal');
+            if (kpiTot) kpiTot.textContent = data.totalSchools || 262;
           }
         }
       } catch (e) {
@@ -8679,6 +8738,8 @@ function generateTableRowsHtml(list) {
 
         const kpiRepEl = document.getElementById('kpiReported');
         if (kpiRepEl) kpiRepEl.textContent = filtered.length;
+        const kTableCount = document.getElementById('tableCountBadge');
+        if (kTableCount) kTableCount.textContent = filtered.length + ' Calls';
 
         const tbody = document.getElementById('tableBody');
         if (!tbody) return;

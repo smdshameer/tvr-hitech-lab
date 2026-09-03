@@ -41,364 +41,454 @@ function normalizeTicketDate(s) {
 
 const EMBEDDED_AUTHENTIC_TICKETS = [
   {
-    "ticketId": "HTL-TVR-05301",
-    "schoolName": "GGHSS KORADACHERY",
-    "udise": "33200305301",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Kothaibharathi Tamilmani",
-    "phone": "9042489993",
-    "issue": "UPS Not Powering ON / Direct Visit Required",
-    "priority": "Critical",
-    "status": "New / Under Review",
-    "duration": "Today",
-    "photo1Url": "https://drive.google.com/file/d/134yrQuQvetZDOoAzv_EdYhVGhU4TImQK/view?usp=drivesdk",
-    "photo2Url": "https://drive.google.com/file/d/1axMY7mMCmLCtcufau2ummlJxl0lkpY4-/view?usp=drivesdk",
-    "photo3Url": "https://drive.google.com/file/d/1dhkfl02It_M-x9FE5b6wB9olkh6CifyX/view?usp=drivesdk",
-    "photo4Url": "https://drive.google.com/file/d/1Ul4s41mGg2mkwNiAaym-7TQH9NhB1lfT/view?usp=drivesdk",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1hluvdUQhFuycOMoSOPdUP4WawrTcbWRw",
-    "createdDate": "21/8/2026, 9:40:44 am",
-    "createdAt": "21/8/2026, 9:40:44 am"
-  },
-  {
-    "ticketId": "HTL-TVR-00204",
-    "schoolName": "GHSS AMMAYAPPAN",
-    "udise": "33200300204",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Ramesh Field Engineer",
-    "phone": "9876543210",
-    "issue": "UPS Not Powering ON / Backup Glitch",
-    "priority": "Critical",
-    "status": "New / Under Review",
-    "duration": "Today",
-    "photo1Url": "https://drive.google.com/file/d/1zSxVZw1NtGeBRgCs5vhhzIv3WV91jyof/view?usp=drivesdk",
-    "photo2Url": "https://drive.google.com/file/d/1q5FPfOzb9aGMMZIo8M41vBne3iwpp-lW/view?usp=drivesdk",
-    "photo3Url": "https://drive.google.com/file/d/1WZCGgEVs4be2l8EVLl3ARFJSFoHGWcqb/view?usp=drivesdk",
-    "photo4Url": "https://drive.google.com/file/d/121QsLGmTOfOdhW417DeARABo6wG8djdV/view?usp=drivesdk",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1aiCLEyewkCNaXHPpAwukqQg6iZhZrChL",
-    "createdDate": "21/8/2026, 9:44:58 am",
-    "createdAt": "21/8/2026, 9:44:58 am"
-  },
-  {
-    "ticketId": "HTL-TVR-05201",
-    "schoolName": "GMS DEVARKANDANALLUR",
-    "udise": "33200305201",
-    "district": "Thiruvarur",
-    "block": "Koradachery",
-    "aiName": "Umamaheswari Ravikumar",
-    "phone": "8760845900",
-    "issue": "Continuous Beep Sound / Error Warning Light",
+    "ticketId": "HTL-NGP-01401",
+    "createdDate": "02/09/2026, 04:20:18 pm",
     "priority": "Medium",
     "status": "New / Under Review",
+    "district": "Nagapattinam",
+    "block": "Vedaranyam",
+    "schoolName": "PUMS NEIVILAKKU",
+    "udise": "33190601401",
+    "aiName": "Porselvi",
+    "phone": "9585925661",
+    "issue": "Other Technical Glitch",
+    "duration": "3 Months (3 மாதங்கள்)",
+    "serialNo": "243006075207",
+    "remarks": "Completion evidence updated (complete) by AI Teacher (AI Teacher)",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1jwO1R0Sx0WvFgpDJ3DJqkDnpm1SXBv8m&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1Dy79kQ0pukdkYoL7Lp5yuY4eD3wsfgnS&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1tAk5yC0dEP3n6Vc6prQKXFYQyyGLwrYg&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1fCcpozeMoc_D35805JT8et9wwdzblwvl&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/16RSVeomIBqOxvUCyD35WUxYlw_-oOYkj",
+    "createdAt": "02/09/2026, 04:20:18 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
+  },
+  {
+    "ticketId": "HTL-TVR-01501",
+    "createdDate": "02/09/2026, 12:14:41 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
+    "district": "Thiruvarur",
+    "block": "Mannargudi",
+    "schoolName": "PUMS MELATHIRUPPALKUDI",
+    "udise": "33200601501",
+    "aiName": "Lakshmi Priya S",
+    "phone": "8015336768",
+    "issue": "Total Dead / No Power / Lab Off",
     "duration": "Today (இன்று முதல்)",
-    "photo1Url": "https://drive.google.com/file/d/118BT28DDi7ALXtoV3bt6GIpJDLyCuCJ7/view?usp=drivesdk",
-    "photo2Url": "https://drive.google.com/file/d/1nMPPyLfAG5dYAz1S2L05N2QqZKtzaBy5/view?usp=drivesdk",
-    "photo3Url": "https://drive.google.com/file/d/1Bk2dHSNeH4o9MbRy8f5RFAva9zsIQZFX/view?usp=drivesdk",
-    "photo4Url": "https://drive.google.com/file/d/1nAIG9JFvbv46CY1YgJu7A-RopWBhnwuf/view?usp=drivesdk",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1eGD7VOLvFT8BSe6M-xZ3TfAbinN6hFop",
-    "createdDate": "21/8/2026, 9:53:20 am",
-    "createdAt": "21/8/2026, 9:53:20 am"
+    "serialNo": "  AV05KVATNHL20254901",
+    "remarks": "Nil",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1vOGCbxcs1wBkgTjRMt3_tWMcE_vCk5C0&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1PR6hCAvl2yoKHO4QC7k0McWTZQWc8aRN&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1-y4XQrcrVb7RiEFoKL4cwIvbSUSPMeUJ&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1z7V7fUBHTaiHtKjEJwoKthrsSijPdl08&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1RGcSyj4teeEDqcQMGqHdDJ_NvLuKUlBv",
+    "createdAt": "02/09/2026, 12:14:41 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
+  },
+  {
+    "ticketId": "HTL-TVR-02201",
+    "createdDate": "01/09/2026, 12:02:11 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
+    "district": "Thiruvarur",
+    "block": "Nannilam",
+    "schoolName": "PUPS KOILKANDANKUDI",
+    "udise": "33200402201",
+    "aiName": "SINEKA S",
+    "phone": "9384425624",
+    "issue": "Total Dead / No Power / Lab Off",
+    "duration": "1-3 Days (1-3 நாட்கள்)",
+    "serialNo": "AVO1KVAITSCH202411628",
+    "remarks": "SMARTBOARD NOT WORKING",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1T4ZlnNbcUXtBgUMJHdrFFHQ2sw4Rjco6&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1CA7bSWlwt-wxM55aFvhm00eGxYg7nRj7&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1U-QFgtsZ6Tqjl_xsCXRXaYqZlMXGGJzd&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1VUpczyFWpm9GlXz-ORy048sF9wU5ZZmn&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1Cd5YfnMPvDxnpRwq1AfyJqUqhva9Qb5a",
+    "createdAt": "01/09/2026, 12:02:11 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-04101",
-    "schoolName": "PUMS VEPPATHANGUDI",
-    "udise": "33200504101",
+    "createdDate": "21/8/2026, 10:34:32 am",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Thiruvarur",
+    "schoolName": "PUMS VEPPATHANGUDI",
+    "udise": "33200504101",
     "aiName": "Kanimozhi N",
     "phone": "9751885293",
     "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "1 Month (1 மாதம்)",
+    "serialNo": "",
+    "remarks": "",
     "photo1Url": "https://drive.google.com/file/d/1IqTSVfXQPvsHnybYiojVPt11Tgsks9DN/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1mFoLc04xdmxpt7r0uNHv6Gcbpga2tdsw/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1FRJwayTYDX6y7yAyElES2zZmg6gALOUf/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1EjJv1QnCHPnkeKG5AenBt0MVIx6k3D9e/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1WE6hzYya3LbKjQNn-8g1dmRWN-CgSHdK",
-    "createdDate": "21/8/2026, 10:34:32 am",
-    "createdAt": "21/8/2026, 10:34:32 am"
+    "createdAt": "21/08/2026, 10:34:32 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01901",
-    "schoolName": "PUMS KOTTUR",
-    "udise": "33200401901",
+    "createdDate": "21/8/2026, 10:45:12 am",
+    "priority": "Critical",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Nannilam",
+    "schoolName": "PUMS KOTTUR",
+    "udise": "33200401901",
     "aiName": "Sineka",
     "phone": "9384425624",
     "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
     "duration": "Today (இன்று முதல்)",
+    "serialNo": "AVO5KVATNHL20244448",
+    "remarks": "தானாகவே நின்றுவிட்டது. மறுபடியும் இயக்க முயற்சி செய்தும் இயங்கவில்லை",
     "photo1Url": "https://drive.google.com/file/d/1q3cF0RKnlCT1EuRjspB0LzLw5kKI7pcM/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1sr4yzX4BU8iEcJys7LxwiLwlBmLzZaw9/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1INEnQWxTAWK68DGwHc4b33YiuLri3_Mm/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1AOjC4vH_vBFQYIwWG2_KqLxD-ieF78c2/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1LjJOz1jPHdrMUAybrqYbebJnwzq-AY8E",
-    "createdDate": "21/8/2026, 10:45:12 am",
-    "createdAt": "21/8/2026, 10:45:12 am"
+    "createdAt": "21/08/2026, 10:45:12 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-04101-2",
-    "schoolName": "PUMS VEPPATHANGUDI",
-    "udise": "33200504101",
+    "createdDate": "21/8/2026, 10:56:17 am",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Thiruvarur",
+    "schoolName": "PUMS VEPPATHANGUDI",
+    "udise": "33200504101",
     "aiName": "Kanimozhi N",
     "phone": "9751885293",
     "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "1 Month (1 மாதம்)",
+    "serialNo": "",
+    "remarks": "If the input value low then Ups make beep sound otherwise Ups working properly.",
     "photo1Url": "https://drive.google.com/file/d/1XGVVcM5gk3rUMMTeAcIlrAyEUUt0LjaQ/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1pMyVPaGoXmHpWvFyv-XEuh10cKNB9Lb1/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1-Wtq8rY8v5edezf50un1dx1x5TcNIddw/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1hZruZUKhZR35U028aavYN4usAZ3ghPJ7/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1o2BvdSQBQFJ5-XanMUYDFOujEOtx3ioJ",
-    "createdDate": "21/8/2026, 10:56:17 am",
-    "createdAt": "21/8/2026, 10:56:17 am"
+    "createdAt": "21/08/2026, 10:56:17 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-02102",
-    "schoolName": "PUMS PALAYANKUDI",
-    "udise": "33200902102",
+    "createdDate": "21/8/2026, 11:00:25 am",
+    "priority": "High",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Thiruthuraipoondi",
+    "schoolName": "PUMS PALAYANKUDI",
+    "udise": "33200902102",
     "aiName": "Balapriya Baskaran",
     "phone": "8610894071",
     "issue": "No Battery Backup / Trips Immediately",
-    "priority": "High",
-    "status": "New / Under Review",
     "duration": "1 Month (1 மாதம்)",
+    "serialNo": "AVO5KVATNHL20244474",
+    "remarks": "Nil",
     "photo1Url": "https://drive.google.com/file/d/1cN5EJckjALo5PXA55NXuIAToQE0xQbH6/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/15z-rmQHO7lP8CuAyX6oB7nz_MbD2faoh/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1h98u11q_WRazTmi-H4IGcmNRRbT53I2R/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1suIhC8ApplycieLR4uzx5bE9lfYBbLGQ/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1D0R17k1WfpbeFkn-i_naVH_Z9eCxoqLH",
-    "createdDate": "21/8/2026, 11:00:25 am",
-    "createdAt": "21/8/2026, 11:00:25 am"
+    "createdAt": "21/08/2026, 11:00:25 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01701-3",
-    "schoolName": "PUMS THIRURAMESWARAM",
-    "udise": "33200601701",
+    "createdDate": "21/8/2026, 11:20:11 am",
+    "priority": "High",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Mannargudi",
+    "schoolName": "PUMS THIRURAMESWARAM",
+    "udise": "33200601701",
     "aiName": "Rajeshwari Pandian",
     "phone": "9025742224",
     "issue": "No Battery Backup / Trips Immediately",
-    "priority": "High",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AV05KVATNHL20254884",
+    "remarks": "",
     "photo1Url": "https://drive.google.com/file/d/1pbpRTwn3_KfiK-SkAbPyN3MW8TPDPYSk/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1IuZQEQ-5YlBAr8Up2MNgy8e7no8HvMDu/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1q150v8yRKDCNb_8o-XvfCQHWpNhXG9B8/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1wqpyIetlvzPpvlfcKr7PfSMWxi_ZuCRU/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1XBkeLqqXrUbs0zEoXvqKRqfdfjf4h5E5",
-    "createdDate": "21/8/2026, 11:20:11 am",
-    "createdAt": "21/8/2026, 11:20:11 am"
+    "createdAt": "21/08/2026, 11:20:11 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-04901",
-    "schoolName": "PUMS VADAPATHI",
-    "udise": "33200604901",
+    "createdDate": "21/8/2026, 11:20:50 am",
+    "priority": "High",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Mannargudi",
+    "schoolName": "PUMS VADAPATHI",
+    "udise": "33200604901",
     "aiName": "Ragavi Gandhi",
     "phone": "9791426369",
     "issue": "No Battery Backup / Trips Immediately",
-    "priority": "High",
-    "status": "New / Under Review",
     "duration": "6 Months (6 மாதங்கள்)",
+    "serialNo": "AV05KVATHL254889",
+    "remarks": "",
     "photo1Url": "https://drive.google.com/file/d/1r_TkYnUNOhjyU6SyflZo_g93Oo4o3NV-/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1RFP-UDQ2pWk0VxlmbKgdcJeV98IMjNqJ/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1iF3yRDN9pUtNE8sY7FNA9HqcJwX2znf8/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1Ios_qqP52vTMLEejN0MM0NwtSB25wT3y/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1-v6xssgpI1PapHmWiuGG_bCvHZIt_GSw",
-    "createdDate": "21/8/2026, 11:20:50 am",
-    "createdAt": "21/8/2026, 11:20:50 am"
+    "createdAt": "21/08/2026, 11:20:50 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01701-2",
-    "schoolName": "PUMS THIRUMEEACHUR",
-    "udise": "33200401701",
+    "createdDate": "21/8/2026, 11:35:22 am",
+    "priority": "Critical",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Nannilam",
+    "schoolName": "PUMS THIRUMEEACHUR",
+    "udise": "33200401701",
     "aiName": "Renganayaki Govindharajan",
     "phone": "6369055196",
     "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AV05KVATNHL20254869",
+    "remarks": "UPS Motherboard issue, so we have connected it directly to the power supply",
     "photo1Url": "https://drive.google.com/file/d/1SM4eX2Yvsa8Rn3Pc6Pan1d9JlWAedVvv/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/16vocMI-fBAK8M0qCRv8_BqODHNjTEryg/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1-FyZ5px6n7PPJZURzVBu0xW_nlIg6vFR/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/18S31ofo2zhsK0ohMebeDrVSDj-UkHfGw/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1aom2yRCES6YPCWgfccS_012BP-VGWps-",
-    "createdDate": "21/8/2026, 11:35:22 am",
-    "createdAt": "21/8/2026, 11:35:22 am"
+    "createdAt": "21/08/2026, 11:35:22 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-00804",
-    "schoolName": "PUMS NARUVALIKALAPPAL",
-    "udise": "33200800804",
+    "createdDate": "21/8/2026, 11:38:29 am",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Kottur",
+    "schoolName": "PUMS NARUVALIKALAPPAL",
+    "udise": "33200800804",
     "aiName": "Mahalakshmi",
     "phone": "6369743537",
     "issue": "Other Technical Glitch",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "Today (இன்று முதல்)",
+    "serialNo": "",
+    "remarks": "Ups Not Installed please slove soon as possible",
     "photo1Url": "https://drive.google.com/file/d/18Btjd6G_H6viXeVLPjKmyD2ZZ7fOHRRF/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1i5ynYoXSCvszQuua_v4uSST9fBOTpR6B/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1YqcXmAIEtW6_DLLhJbHFZyxXzlkxAumc/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1DW75fXe22ndNMzNeHJ_J5GavF9DFjE5k/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1-Wo7-9S4SYHceANPfVVFZ9hhU1Be1e9C",
-    "createdDate": "21/8/2026, 11:38:29 am",
-    "createdAt": "21/8/2026, 11:38:29 am"
+    "createdAt": "21/08/2026, 11:38:29 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-03002",
-    "schoolName": "PUMS KOMAL",
-    "udise": "33200503002",
+    "createdDate": "21/8/2026, 11:55:25 am",
+    "priority": "High",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Thiruvarur",
+    "schoolName": "PUMS KOMAL",
+    "udise": "33200503002",
     "aiName": "Thamilmani Elango",
     "phone": "7708233032",
     "issue": "Isolation Transformer / MCB Tripping",
-    "priority": "High",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "",
+    "remarks": "Isolation Transformer fault இது தனியாக உள்ளது. Direction connection ups with  mcb box ",
     "photo1Url": "https://drive.google.com/file/d/1_RzwnxxuaXcxJWSFoJlFTXvosWQl8Xq_/view?usp=drivesdk",
     "photo2Url": "https://drive.google.com/file/d/1C8maedHXDQLBnJBfh02x2S10uVyhJRBI/view?usp=drivesdk",
     "photo3Url": "https://drive.google.com/file/d/1sh1_cLWpUbUSeslv5ei8ylpNHoiFD1YM/view?usp=drivesdk",
     "photo4Url": "https://drive.google.com/file/d/1YYJVNp66-1P1f5BnzKg7XKHhCx26j_B-/view?usp=drivesdk",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1ZM5ZscE1ZbtptTLFy4P8iVEbLyHPXoZ7",
-    "createdDate": "21/8/2026, 11:55:25 am",
-    "createdAt": "21/8/2026, 11:55:25 am"
+    "createdAt": "21/08/2026, 11:55:25 am",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01401",
-    "schoolName": "PUMS KOTTAIYUR",
-    "udise": "33200101401",
+    "createdDate": "21/8/2026, 12:18:32 pm",
+    "priority": "High",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Valangaiman",
+    "schoolName": "PUMS KOTTAIYUR",
+    "udise": "33200101401",
     "aiName": "Priya Jayabal",
     "phone": "6382311947",
     "issue": "No Battery Backup / Trips Immediately",
-    "priority": "High",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AVO5KVATNHL20244305",
+    "remarks": "Continuous beep sound also",
     "photo1Url": "https://drive.google.com/thumbnail?id=161hZluU9ucJdeBU-8GKpECtfAiUUrude&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1Fr6zlamLP0M8yJSsUzVuRof6XFeqQnyl&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=15hDIq_wDVUsIQypzN2pKBU95Y_1PPEbA&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1sMd7YKpua0JGlcMT2vlgCDSbGW2WDjhL&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1pdDY9-EijjWcz3dCT-RDQHicGtejnmzL",
-    "createdDate": "21/8/2026, 12:18:32 pm",
-    "createdAt": "21/8/2026, 12:18:32 pm"
+    "createdAt": "21/08/2026, 12:18:32 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01402",
-    "schoolName": "Ghss Nedumbalam",
-    "udise": "33200901402",
+    "createdDate": "21/8/2026, 12:42:22 pm",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Thiruthuraipoondi",
+    "schoolName": "Ghss Nedumbalam",
+    "udise": "33200901402",
     "aiName": "Buvaneswari kannadasan",
     "phone": "9688450231",
     "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AVO5KVATNHL20244449",
+    "remarks": "",
     "photo1Url": "https://drive.google.com/thumbnail?id=1QdFiQuzSLeIXPAAEn-Tc1PudbNYpqc4Z&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=161u5ntACazNuyV6YU28OgHqw6zVvyQjx&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=1DdLphw_6Cpbr3yteFZ1bCfdTEuLyd7Y8&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1Gq0GqRl_sRtou_LOwLkV2EbMeZRB7QP7&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1rOhE9SGA0sivwgC59NaenoN8yBj9T7WV",
-    "createdDate": "21/8/2026, 12:42:22 pm",
-    "createdAt": "21/8/2026, 12:42:22 pm"
+    "createdAt": "21/08/2026, 12:42:22 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-04601",
-    "schoolName": "PUMS VALLUR",
-    "udise": "33200804601",
+    "createdDate": "21/8/2026, 12:47:14 pm",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Kottur",
+    "schoolName": "PUMS VALLUR",
+    "udise": "33200804601",
     "aiName": "Vijitha Bharathi",
     "phone": "9786615968",
     "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "Today (இன்று முதல்)",
+    "serialNo": "",
+    "remarks": "Power on செய்து இருக்கும் பொழுதும் UPS சில நேரங்களில் Beep sound வருகிறது",
     "photo1Url": "https://drive.google.com/thumbnail?id=1PEfztivvVKbo-xb_E_GcCTZVEGcqh-8C&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1A0gVEoFalFvGSeNgkJxaJDLipqlYIAAu&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=12-YTZ9Sb7CVhW86zVO060VfgUjlV3XQp&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1d8KjpLGm0Vvorsd5zVjZ4yaNRIqvqDgF&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/13S3U0NPV2sjuXoLjuqN8neBv8vQi3PSA",
-    "createdDate": "21/8/2026, 12:47:14 pm",
-    "createdAt": "21/8/2026, 12:47:14 pm"
+    "createdAt": "21/08/2026, 12:47:14 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01601",
-    "schoolName": "PUMS POZHAKUDI",
-    "udise": "33200401601",
+    "createdDate": "21/8/2026, 1:15:44 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Nannilam",
+    "schoolName": "PUMS POZHAKUDI",
+    "udise": "33200401601",
     "aiName": "Sathiya",
     "phone": "6382805484",
     "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
     "duration": "Today (இன்று முதல்)",
+    "serialNo": "AV05KVATNHL20254867",
+    "remarks": "UPS MOTHERBOARD ISSUE ",
     "photo1Url": "https://drive.google.com/thumbnail?id=1ZgR72ZaZMdEhhv28qIuX1ke6SKcPg5Dz&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1chQzOvfWWwAQvO9GbSTkCLQ0nH6ar603&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=1VW7XEg4UvIrbCGzPUugwy6qJogsosEYj&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1ZQt6mZ0LNBlAWbOqyUQu1sppDh3hY1T2&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1MuXJP3aPlKmEU4pK2pMNhpzKQ8Zbt6ya",
-    "createdDate": "21/8/2026, 1:15:44 pm",
-    "createdAt": "21/8/2026, 1:15:44 pm"
+    "createdAt": "21/08/2026, 01:15:44 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-02701",
-    "schoolName": "PUMS PADAGACHERI",
-    "udise": "33200102701",
+    "createdDate": "21/8/2026, 2:15:18 pm",
+    "priority": "Medium",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Valangaiman",
+    "schoolName": "PUMS PADAGACHERI",
+    "udise": "33200102701",
     "aiName": "Vinoragavi Dhakshinamoorthy",
     "phone": "9944836934",
     "issue": "Continuous Beep Sound / Error Warning Light",
-    "priority": "Medium",
-    "status": "New / Under Review",
     "duration": "2 Weeks (2 வாரங்கள்)",
+    "serialNo": "AVO5KVATNHL20244485",
+    "remarks": "",
     "photo1Url": "https://drive.google.com/thumbnail?id=1P2wO9Ce5VCdiaIJnySOsH4ggifztZeI-&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1UK4YJUZxbon-aic2c9IUxXcXGvB2ka7U&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=1PrVA86sm0mZpMJG2GmeSR8mUsYUE0jf4&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1eQbI213QnOGLQOVIT1iocQ2nOsrmJY6O&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1-w5PqPtxSfJQ0q2hQiuFea_14ASxQfxb",
-    "createdDate": "21/8/2026, 2:15:18 pm",
-    "createdAt": "21/8/2026, 2:15:18 pm"
+    "createdAt": "21/08/2026, 02:15:18 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   },
   {
     "ticketId": "HTL-TVR-01901-2",
-    "schoolName": "PUMS MAVATTAKUDI",
-    "udise": "33200801901",
+    "createdDate": "21/8/2026, 2:37:19 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
     "district": "Thiruvarur",
     "block": "Kottur",
+    "schoolName": "PUMS MAVATTAKUDI",
+    "udise": "33200801901",
     "aiName": "Vinitha Veeraselvam",
     "phone": "9597619341",
     "issue": "Total Dead / No Power / Lab Off",
-    "priority": "Critical",
-    "status": "New / Under Review",
     "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AVO5KVATNHL20256778",
+    "remarks": "இணைய இணைப்பு இல்லாத காரணத்தால் இதுவரை Hi Tech Lab செயல்படவில்லை.கடந்த ஒரு மாதமாக இணைய இணைப்பு உள்ளது. ஆனால் யுபிஎஸ் மற்றும் பிரேக்கர் வேலை செய்யவில்லை. ",
     "photo1Url": "https://drive.google.com/thumbnail?id=17pcGwdskorU9i__KaZqZoi0W2X1I0SKE&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1M7YFQJvq9jfJRbzw4fRDIbmlaN1UpSCJ&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=1cfS7Sx-PQv0S3JNtKcxdiL-3yvRf14b7&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1l5_tXbcSSuEccy1xKNYCsWU_VIyUCqD0&sz=w800",
     "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1ecJm17ZvF3NBWD-P0fG60Wm57LOJEK35",
-    "createdDate": "21/8/2026, 2:37:19 pm",
-    "createdAt": "21/8/2026, 2:37:19 pm"
+    "createdAt": "21/08/2026, 02:37:19 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": []
   }
 ];
 
@@ -483,12 +573,24 @@ const PERMANENT_TOMBSTONES = new Set([
   'HTL-TVR-30090', 'HTL-TVR-50210', 'HTL-TVR-12543', 'HTL-TVR-13043', 'HTL-TVR-29010',
   'HTL-TVR-00101-4', 'HTL-TVR-00101-3', 'HTL-TVR-00101-2',
   'HTL-TVR-AUDIT-8923', 'HTL-TVR-AUDIT-1283', 'HTL-TVR-05301-TMP-9639',
-  'HTL-TVR-05301-MOCK-8577'
+  'HTL-TVR-05301-MOCK-8577',
+  'HTL-TVR-28539', 'HTL-TVR-71082', 'HTL-TVR-68753', 'HTL-TVR-84699', 'HTL-TVR-35771', 'HTL-TVR-30829'
 ]);
+
+const KNOWN_TEST_PURGED_IDS = new Set([
+  'HTL-TVR-28539', 'HTL-TVR-71082', 'HTL-TVR-68753', 'HTL-TVR-84699', 'HTL-TVR-35771', 'HTL-TVR-30829'
+].map(s => s.toLowerCase()));
 
 let inMemoryTickets = null;
 let deletedTicketIds = new Set();
-PERMANENT_TOMBSTONES.forEach(id => deletedTicketIds.add(id));
+PERMANENT_TOMBSTONES.forEach(id => {
+  deletedTicketIds.add(id);
+  deletedTicketIds.add(id.toLowerCase());
+});
+KNOWN_TEST_PURGED_IDS.forEach(id => {
+  deletedTicketIds.add(id);
+  PERMANENT_TOMBSTONES.add(id);
+});
 
 function reloadTombstonesFromDisk() {
   try {
@@ -573,7 +675,8 @@ function isDeleted(ticketId) {
   const clean = String(ticketId).trim();
   const lower = clean.toLowerCase();
   return deletedTicketIds.has(clean) || PERMANENT_TOMBSTONES.has(clean) ||
-         deletedTicketIds.has(lower) || PERMANENT_TOMBSTONES.has(lower);
+         deletedTicketIds.has(lower) || PERMANENT_TOMBSTONES.has(lower) ||
+         KNOWN_TEST_PURGED_IDS.has(lower);
 }
 
 let masterSchools = [];
@@ -1247,6 +1350,63 @@ async function getAllTickets() {
   });
 
   return cleanList;
+}
+
+async function getCanonicalActiveTickets() {
+  const all = await getAllTickets();
+  const seenIds = new Set();
+  const canonical = [];
+
+  for (const t of all) {
+    if (!t || !t.ticketId) continue;
+    const tid = String(t.ticketId).trim();
+    const tidLower = tid.toLowerCase();
+
+    // 1. Exclude permanently deleted / tombstoned tickets
+    if (isDeleted(tid) || isDeleted(tidLower) || KNOWN_TEST_PURGED_IDS.has(tidLower)) continue;
+
+    // 2. Exclude test/purged tickets
+    if (isTestOrPurgedTicket(t)) continue;
+
+    // 3. Remove duplicate ticket IDs
+    if (seenIds.has(tidLower)) continue;
+    seenIds.add(tidLower);
+
+    canonical.push(t);
+  }
+
+  // Authoritative chronological sort (newest first)
+  canonical.sort((a, b) => {
+    function parseTs(s) {
+      if (!s) return 0;
+      try {
+        const norm = normalizeTicketDate(String(s));
+        const parts = norm.split(',');
+        if (parts.length >= 2) {
+          const dParts = parts[0].trim().split('/');
+          const tParts = parts[1].trim().split(' ');
+          if (dParts.length === 3 && tParts.length >= 2) {
+            const day = parseInt(dParts[0], 10);
+            const month = parseInt(dParts[1], 10) - 1;
+            const year = parseInt(dParts[2], 10);
+            const timeSub = tParts[0].split(':');
+            let hours = parseInt(timeSub[0], 10);
+            const minutes = parseInt(timeSub[1] || 0, 10);
+            const seconds = parseInt(timeSub[2] || 0, 10);
+            const meridiem = tParts[1].toLowerCase();
+            if (meridiem.includes('pm') && hours < 12) hours += 12;
+            if (meridiem.includes('am') && hours === 12) hours = 0;
+            return new Date(year, month, day, hours, minutes, seconds).getTime();
+          }
+        }
+        const d = new Date(s).getTime();
+        return isNaN(d) ? 0 : d;
+      } catch(e) { return 0; }
+    }
+    return parseTs(b.createdDate || b.createdAt) - parseTs(a.createdDate || a.createdAt);
+  });
+
+  return canonical;
 }
 
 async function checkOpenTicketByUdise(cleanUdise) {
@@ -2065,6 +2225,34 @@ function registerOrUpdateSchool(info) {
   }
 }
 
+function normalizeIndianPhone(raw) {
+  if (!raw && raw !== 0) return '';
+  let str = String(raw).trim();
+  if (str === 'null' || str === 'undefined' || str === '-' || str === 'Not Found') return '';
+  if (str.startsWith('+91')) {
+    str = str.slice(3);
+  }
+  let digits = str.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  }
+  return digits;
+}
+
+function isValidIndianPhone(raw) {
+  const norm = normalizeIndianPhone(raw);
+  return /^[6-9]\d{9}$/.test(norm);
+}
+
+function maskPhone(phone) {
+  if (!phone) return '[NONE]';
+  const str = String(phone).trim();
+  if (str.length <= 5) return '*****';
+  return str.substring(0, 5) + '*****';
+}
 
 async function getAuditLogs() {
   if (usePostgres && pool) {
@@ -2112,5 +2300,10 @@ module.exports = {
   getDeletedIds: () => Array.from(deletedTicketIds),
   addDeletedTombstones,
   isDeleted,
-  loadTicketsFromJson
+  loadTicketsFromJson,
+  getCanonicalActiveTickets,
+  KNOWN_TEST_PURGED_IDS,
+  normalizeIndianPhone,
+  isValidIndianPhone,
+  maskPhone
 };
