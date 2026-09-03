@@ -9215,8 +9215,7 @@ function generateTableRowsHtml(list) {
           return parseTicketTimestamp(b.createdDate || b.createdAt) - parseTicketTimestamp(a.createdDate || a.createdAt);
         });
 
-        const kpiRepEl = document.getElementById('kpiReported');
-        if (kpiRepEl) kpiRepEl.textContent = filtered.length;
+        // Update table count badge (e.g. "24 Calls")
         const kTableCount = document.getElementById('tableCountBadge');
         if (kTableCount) kTableCount.textContent = filtered.length + ' Calls';
 

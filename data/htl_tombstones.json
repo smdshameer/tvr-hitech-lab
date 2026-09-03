@@ -527,5 +527,101 @@
     "schoolName": "GHSS ADICHAPURAM",
     "udise": "33200987654",
     "originalCreatedAt": "09/03/2026, 01:19:23 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-8880108",
+    "deletedAt": "2026-09-03T16:03:00.128Z",
+    "deletedBy": "test-runner",
+    "deletionReason": "Automated Test Verification",
+    "schoolName": "PUMS KOTTAIYUR",
+    "udise": "3320018880108",
+    "originalCreatedAt": "03/09/2026, 12:00:00 pm"
+  },
+  "HTL-TVR-45144",
+  {
+    "ticketId": "HTL-TVR-12015",
+    "deletedAt": "2026-09-03T16:46:55.746Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200112015",
+    "originalCreatedAt": "03/09/2026, 10:16:28 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-83302",
+    "deletedAt": "2026-09-03T16:47:38.289Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200183302",
+    "originalCreatedAt": "03/09/2026, 10:16:04 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-14406",
+    "deletedAt": "2026-09-03T16:49:16.683Z",
+    "deletedBy": "test",
+    "deletionReason": "Test Cleanup",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200114406"
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-8982",
+    "deletedAt": "2026-09-03T16:49:59.008Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 10:19:58 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-99999-5",
+    "deletedAt": "2026-09-03T16:50:26.187Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Test Clean",
+    "district": "",
+    "schoolName": "",
+    "udise": "",
+    "originalCreatedAt": ""
+  },
+  {
+    "ticketId": "HTL-TVR-37129",
+    "deletedAt": "2026-09-03T17:03:50.830Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Deleted by Field Engineer",
+    "district": "Thiruvarur",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200137129",
+    "originalCreatedAt": "03/09/2026, 10:33:24 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-97478",
+    "deletedAt": "2026-09-03T17:04:58.093Z",
+    "deletedBy": "test",
+    "deletionReason": "Test Cleanup",
+    "schoolName": "GHSS ADICHAPURAM",
+    "udise": "33200197478"
+  },
+  {
+    "ticketId": "HTL-TVR-05301-UNIT-1371",
+    "deletedAt": "2026-09-03T17:05:51.397Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Cleanup",
+    "district": "Thiruvarur",
+    "schoolName": "GGHSS KORADACHERY",
+    "udise": "33200305301",
+    "originalCreatedAt": "3/9/2026, 10:35:51 pm"
+  },
+  {
+    "ticketId": "HTL-TVR-99999-6",
+    "deletedAt": "2026-09-03T17:06:10.896Z",
+    "deletedBy": "engineer",
+    "deletionReason": "Audit Test Clean",
+    "district": "",
+    "schoolName": "",
+    "udise": "",
+    "originalCreatedAt": ""
   }
 ]
