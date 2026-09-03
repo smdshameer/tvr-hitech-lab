@@ -389,7 +389,7 @@ function saveBase64Image(folder, base64Data, filename) {
     if (existingFiles.hasNext()) {
       var existingFile = existingFiles.next();
       existingFile.setContent(decoded);
-      return existingFile.getUrl();
+      return 'https://drive.google.com/thumbnail?id=' + existingFile.getId() + '&sz=w800';
     }
     // Also check for existing file matching the completion category
     var allFiles = folder.getFiles();
@@ -400,11 +400,11 @@ function saveBase64Image(folder, base64Data, filename) {
          (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1) || 
          (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1)) {
         f.setContent(decoded);
-        return f.getUrl();
+        return 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w800';
       }
     }
     var file = folder.createFile(blob);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return file.getUrl();
+    return 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
   } catch(e) { return ''; }
 }

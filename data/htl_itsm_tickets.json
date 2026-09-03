@@ -1,5 +1,140 @@
 [
   {
+    "ticketId": "HTL-NGP-03130",
+    "createdDate": "09/03/2026, 04:24:34 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
+    "district": "Nagapattinam",
+    "block": "Nagapattinam",
+    "schoolName": "MGHSS NAGAPPATTIANAM",
+    "udise": "33190103130",
+    "aiName": "Sivaranjani R",
+    "phone": "9788504859",
+    "issue": "Total Dead / No Power / Lab Off",
+    "duration": "3 Months (3 மாதங்கள்)",
+    "serialNo": "AVOSKVATNHL20244753",
+    "remarks": "UPS not working.",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1-zHsRSDmsBmfEFUDWfWk6pPay_21mWRm&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=12J3cfpoi0bVF-8Zpj1FPndIdaOiAJyO5&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1xp-MYHQb5SCT1YLe3oauSoytR_I9XMDS&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1JTRzYenJENOVTLJI7C5vpdHPX1eFEebi&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1SIbjP5Ldz2x21srL_WvctMpOhtQzVt_e",
+    "createdAt": "09/03/2026, 04:24:34 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
+  },
+  {
+    "ticketId": "HTL-NGP-00602",
+    "createdDate": "09/03/2026, 03:03:41 pm",
+    "priority": "High",
+    "status": "New / Under Review",
+    "district": "Nagapattinam",
+    "block": "Thalainayar",
+    "schoolName": "PUMS NEERMULAI",
+    "udise": "33190500602",
+    "aiName": "Mangayarkarasi M",
+    "phone": "8508905979",
+    "issue": "No Battery Backup / Trips Immediately",
+    "duration": "Today (இன்று முதல்)",
+    "serialNo": "",
+    "remarks": "Ups backup one minute only after powercut",
+    "photo1Url": "https://drive.google.com/thumbnail?id=19otgLsC3PhUEZ0XWW3WudafF_EdpggYM&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1P_bUe70jpnqh3ADzl3mXUwhD4u7SlL7-&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1ZITj2C5pnSxV1oPFtRIGzn0NJJNA_3fA&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=18jcwHqh6JX8TG0xAu_km4Layun9V6_cp&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/16p0S93V95TyoUYaMA8Szg8Sz6Fhbc_4M",
+    "createdAt": "09/03/2026, 03:03:41 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
+  },
+  {
+    "ticketId": "HTL-NGP-03302",
+    "createdDate": "09/03/2026, 02:29:17 pm",
+    "priority": "High",
+    "status": "New / Under Review",
+    "district": "Nagapattinam",
+    "block": "Thirumarugal",
+    "schoolName": "PUMS PORAKUDI",
+    "udise": "33190203302",
+    "aiName": "Semmalar P",
+    "phone": "9597649440",
+    "issue": "No Battery Backup / Trips Immediately",
+    "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AVO5KVATNHL20244543",
+    "remarks": "UPS battery 2 not received",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1SZDi77iMU3alA6ZCuHqeHOSoH8IPLLNM&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1Gx_a9J8tMtR4SAAlCVaVM6XjwKGB3DM4&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1gOXxVixvSOCzjkvrjCLUhOiJJeEt2VRR&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1ozFv_zHiw_Th-BYiCwQFJGkSUH8s9klL&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1FAlQ_ZV0LBSXMd_xsIkjT2fD9jxcWCYr",
+    "createdAt": "09/03/2026, 02:29:17 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
+  },
+  {
+    "ticketId": "HTL-NGP-02201",
+    "createdDate": "09/03/2026, 02:04:20 pm",
+    "priority": "High",
+    "status": "Resolved Remotely",
+    "district": "Nagapattinam",
+    "block": "Thirumarugal",
+    "schoolName": "PUMS PUTHAGARAM",
+    "udise": "33190202201",
+    "aiName": "Lavanya Marimuthu",
+    "phone": "9486647903",
+    "issue": "No Battery Backup / Trips Immediately",
+    "duration": "1 Month (1 மாதம்)",
+    "serialNo": "AVO5KVATNHL20244545",
+    "remarks": "Completion evidence updated (complete) by AI Teacher (Lavanya Marimuthu)",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1GX7ycNoQB8vD0o3rbmdyZ_zdTDW-4OK8&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1tVUwNUSvCgrqouRQowqqHBar75WAbelO&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=1K12byn4P-7zP3m_GZRFROubxRMiTW_HG&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1LROEiPVC5CJ0JvMCo5jITHKmOg2jtxI3&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1UTDEKanBKzHDLOc799BPtG-_QvueDxav",
+    "createdAt": "09/03/2026, 02:04:20 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
+  },
+  {
+    "ticketId": "HTL-NGP-01802",
+    "createdDate": "09/03/2026, 02:03:44 pm",
+    "priority": "Critical",
+    "status": "New / Under Review",
+    "district": "Nagapattinam",
+    "block": "Thalainayar",
+    "schoolName": "PUMS, KOLAPPADU",
+    "udise": "33190501802",
+    "aiName": "Divya Arasan",
+    "phone": "9585472354",
+    "issue": "Total Dead / No Power / Lab Off",
+    "duration": "More than 6 Months (6 மாதங்களுக்கு மேல்)",
+    "serialNo": "AVO5KVATNHL20244552",
+    "remarks": "UPS problem (cooling fan fault)",
+    "photo1Url": "https://drive.google.com/thumbnail?id=1g8kugJ6aXMTIf8Vuw-6aCEv6F9EEJZoQ&sz=w800",
+    "photo2Url": "https://drive.google.com/thumbnail?id=1P6tpf2BIhtfcHOsgy03jQF2COG2xXLa9&sz=w800",
+    "photo3Url": "https://drive.google.com/thumbnail?id=15JmwW8lTQuwB9tu0F-idHP2M8CkzBuNz&sz=w800",
+    "photo4Url": "https://drive.google.com/thumbnail?id=1zdG8HGHKrsD5EIdw6iOcByXmLSH2iOoC&sz=w800",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1H9lL0Y5bV9STNYgNaRzgqyaPoZixJvRN",
+    "createdAt": "09/03/2026, 02:03:44 pm",
+    "hmReportPhotoUrl": "",
+    "completionPhotoUrl": "",
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
+  },
+  {
     "ticketId": "HTL-TVR-45144",
     "createdDate": "09/03/2026, 01:23:56 pm",
     "priority": "Medium",
@@ -22,13 +157,15 @@
     "createdAt": "09/03/2026, 01:23:56 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-00702",
     "createdDate": "03/09/2026, 12:50:06 pm",
     "priority": "Medium",
-    "status": "New / Under Review",
+    "status": "Resolved Remotely",
     "district": "Thiruvarur",
     "block": "Needamangalam",
     "schoolName": "PUMS SONAPETTAI",
@@ -38,16 +175,28 @@
     "issue": "Continuous Beep Sound / Error Warning Light",
     "duration": "3 Months (3 மாதங்கள்)",
     "serialNo": "",
-    "remarks": "Nil",
+    "remarks": "Completion evidence updated (complete) by AI Teacher (Sivaranjini Sathiyavendan)",
     "photo1Url": "https://drive.google.com/thumbnail?id=1eZmKpvdjKFbnal-8D_PfTH5-flmIJm-I&sz=w800",
     "photo2Url": "https://drive.google.com/thumbnail?id=1EznZTRsSdWhJTkOeZFu-GYYvvA6rOta-&sz=w800",
     "photo3Url": "https://drive.google.com/thumbnail?id=1eRWy-SCT47gNdgqPcN4_sOOGv5q29RTJ&sz=w800",
     "photo4Url": "https://drive.google.com/thumbnail?id=1NQ1jB5lfsZ9Yd5SsuGpi-5ujB17_30Vs&sz=w800",
-    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1GVON3IHfWtnEJlztmLNDXaPBaHE2ulBW",
+    "googleDriveFolderUrl": "https://drive.google.com/drive/folders/1Rdh7qcBQXTLRa8Ju_cooeFAIzgD225qP",
     "createdAt": "2026-09-03T07:20:06.000Z",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [
+      {
+        "action": "📸 Completion Photos Requested by Field Engineer",
+        "time": "3/9/2026, 3:22:12 pm",
+        "note": "களப் பொறியாளர் பணி நிறைவு புகைப்படங்களை (HM Signed Report & GPS Completion Photo) பதிவேற்றுமாறு கோரியுள்ளார்."
+      }
+    ],
+    "completionEvidenceRequested": true,
+    "completionEvidenceRequestedAt": "3/9/2026, 3:22:12 pm",
+    "completionEvidenceRequestedBy": "Mohamed Shameer",
+    "completionEvidenceStatus": "REQUESTED",
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-NGP-01401",
@@ -95,7 +244,8 @@
         "originalFileName": "HTL-NGP-01401_HM_Signed_Completion_Report.jpg",
         "uploadedAt": "3/9/2026, 12:08:42 pm",
         "submittedBy": "AI Teacher",
-        "source": "AI Teacher"
+        "source": "AI Teacher",
+        "data": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAACAAIBAREA/9oACAEBAAA/ANLPIP/Z"
       },
       "completionPhoto": {
         "uploaded": true,
@@ -109,12 +259,15 @@
         "gpsLongitude": 79.631234,
         "gpsAccuracy": 8,
         "gpsWatermarkRequired": true,
-        "gpsVerification": "GPS Verified"
+        "gpsVerification": "GPS Verified",
+        "data": "data:image/jpeg;base64,/9j/4QDuRXhpZgAATU0AKgAAAAgAAgESAAMAAAABAAEAAIglAAQAAAABAAAAJgAAAAAABwABAAIAAAACTgAAAAACAAUAAAADAAAAgAADAAIAAAACRQAAAAAEAAUAAAADAAAAmAAHAAUAAAADAAAAsAAbAAcAAAASAAAAyAAdAAIAAAALAAAA2gAAAAAAAAAKAAAAAQAAAC4AAAABAABAOgAAA+gAAABPAAAAAQAAACUAAAABAADM2gAAA+gAAAAGAAAAAQAAACYAAAABAAAAJQAAAAFBU0NJSQAAAHdlYi1jYW1lcmEyMDI2OjA5OjAzAAD/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAACAAIBAREA/9oACAEBAAA/ANLPIP/Z"
       },
       "status": "complete",
       "completedAt": "3/9/2026, 12:08:42 pm",
       "completedBy": "AI Teacher"
-    }
+    },
+    "hmReportPhotoBase64": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAACAAIBAREA/9oACAEBAAA/ANLPIP/Z",
+    "completionPhotoBase64": "data:image/jpeg;base64,/9j/4QDuRXhpZgAATU0AKgAAAAgAAgESAAMAAAABAAEAAIglAAQAAAABAAAAJgAAAAAABwABAAIAAAACTgAAAAACAAUAAAADAAAAgAADAAIAAAACRQAAAAAEAAUAAAADAAAAmAAHAAUAAAADAAAAsAAbAAcAAAASAAAAyAAdAAIAAAALAAAA2gAAAAAAAAAKAAAAAQAAAC4AAAABAABAOgAAA+gAAABPAAAAAQAAACUAAAABAADM2gAAA+gAAAAGAAAAAQAAACYAAAABAAAAJQAAAAFBU0NJSQAAAHdlYi1jYW1lcmEyMDI2OjA5OjAzAAD/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAACAAIBAREA/9oACAEBAAA/ANLPIP/Z"
   },
   {
     "ticketId": "HTL-TVR-01501",
@@ -139,7 +292,9 @@
     "createdAt": "02/09/2026, 12:14:41 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-02201",
@@ -164,7 +319,9 @@
     "createdAt": "01/09/2026, 12:02:11 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01901-2",
@@ -189,7 +346,9 @@
     "createdAt": "21/08/2026, 02:37:19 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-02701",
@@ -214,7 +373,9 @@
     "createdAt": "21/08/2026, 02:15:18 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01601",
@@ -239,7 +400,9 @@
     "createdAt": "21/08/2026, 01:15:44 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-04601",
@@ -264,7 +427,9 @@
     "createdAt": "21/08/2026, 12:47:14 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01402",
@@ -289,7 +454,9 @@
     "createdAt": "21/08/2026, 12:42:22 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01401",
@@ -314,7 +481,9 @@
     "createdAt": "21/08/2026, 12:18:32 pm",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-03002",
@@ -339,7 +508,9 @@
     "createdAt": "21/08/2026, 11:55:25 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-00804",
@@ -364,7 +535,9 @@
     "createdAt": "21/08/2026, 11:38:29 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01701-2",
@@ -389,7 +562,9 @@
     "createdAt": "21/08/2026, 11:35:22 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-04901",
@@ -414,7 +589,9 @@
     "createdAt": "21/08/2026, 11:20:50 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01701-3",
@@ -439,7 +616,9 @@
     "createdAt": "21/08/2026, 11:20:11 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-02102",
@@ -464,7 +643,9 @@
     "createdAt": "21/08/2026, 11:00:25 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-04101-2",
@@ -489,7 +670,9 @@
     "createdAt": "21/08/2026, 10:56:17 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-01901",
@@ -514,7 +697,9 @@
     "createdAt": "21/08/2026, 10:45:12 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   },
   {
     "ticketId": "HTL-TVR-04101",
@@ -539,6 +724,8 @@
     "createdAt": "21/08/2026, 10:34:32 am",
     "hmReportPhotoUrl": "",
     "completionPhotoUrl": "",
-    "timeline": []
+    "timeline": [],
+    "hmReportPhotoBase64": "",
+    "completionPhotoBase64": ""
   }
 ]

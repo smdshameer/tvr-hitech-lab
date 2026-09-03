@@ -7,49 +7,63 @@ function parseAppDate(input) {
   if (!str) return 0;
 
   // 1. Standard ISO 8601 (e.g. 2026-09-03T12:50:06+05:30, 2026-09-03T07:20:06.000Z, 2026-09-03)
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+  if (str.length >= 10 && str.charAt(4) === '-' && str.charAt(7) === '-') {
     const parsed = Date.parse(str);
     if (!isNaN(parsed)) return parsed;
   }
 
-  // 2. Slash or Dash separated dates (DD/MM/YYYY or D/M/YYYY with optional time)
-  const m = str.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:,?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?/i);
-  if (m) {
-    let part1 = parseInt(m[1], 10);
-    let part2 = parseInt(m[2], 10);
-    const year = parseInt(m[3], 10);
-    let hours = m[4] !== undefined ? parseInt(m[4], 10) : 0;
-    const minutes = m[5] !== undefined ? parseInt(m[5], 10) : 0;
-    const seconds = m[6] !== undefined ? parseInt(m[6], 10) : 0;
-    const mer = (m[7] || '').toLowerCase();
+  // 2. Tokenize DD/MM/YYYY or MM/DD/YYYY with time
+  const clean = str.split(',').join(' ').trim();
+  const tokens = clean.split(' ').filter(Boolean);
+  const dateToken = tokens[0] || '';
+  let dateParts = [];
+  if (dateToken.indexOf('/') !== -1) dateParts = dateToken.split('/');
+  else if (dateToken.indexOf('-') !== -1) dateParts = dateToken.split('-');
 
-    if (mer === 'pm' && hours < 12) hours += 12;
-    if (mer === 'am' && hours === 12) hours = 0;
+  if (dateParts.length === 3) {
+    let part1 = parseInt(dateParts[0], 10);
+    let part2 = parseInt(dateParts[1], 10);
+    let year = parseInt(dateParts[2], 10);
 
-    let day, month;
-    if (part1 > 12) {
-      day = part1;
-      month = part2;
-    } else if (part2 > 12) {
-      day = part2;
-      month = part1;
-    } else {
-      // Both <= 12
-      // Check for inverted US-locale September dates in 2026 (09/03/2026 where 9 is September and part2 is day)
-      // Since no tickets exist in March 2026 (system started in August 2026):
-      if (year === 2026 && part1 === 9 && part2 <= 12) {
-        day = part2;
-        month = 9;
-      } else {
-        // Standard canonical Indian format: DD/MM/YYYY
+    if (!isNaN(part1) && !isNaN(part2) && !isNaN(year)) {
+      let hours = 0;
+      let minutes = 0;
+      let seconds = 0;
+
+      const timeToken = tokens[1] || '';
+      if (timeToken.indexOf(':') !== -1) {
+        const timeParts = timeToken.split(':');
+        hours = parseInt(timeParts[0] || '0', 10);
+        minutes = parseInt(timeParts[1] || '0', 10);
+        seconds = parseInt(timeParts[2] || '0', 10);
+      }
+
+      const merToken = (tokens[2] || '').toLowerCase();
+      if (merToken.indexOf('pm') !== -1 && hours < 12) hours += 12;
+      if (merToken.indexOf('am') !== -1 && hours === 12) hours = 0;
+
+      let day, month;
+      if (part1 > 12) {
         day = part1;
         month = part2;
+      } else if (part2 > 12) {
+        day = part2;
+        month = part1;
+      } else {
+        // Both <= 12: In 2026 September tickets, part1=9 is September, part2 is day
+        if (year === 2026 && part1 === 9 && part2 <= 12) {
+          day = part2;
+          month = 9;
+        } else {
+          day = part1;
+          month = part2;
+        }
       }
-    }
 
-    // Convert IST parts (UTC+05:30) to epoch milliseconds
-    const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-    return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+      // Convert IST parts (UTC+05:30) to epoch milliseconds
+      const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+      return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+    }
   }
 
   // 3. Fallback
@@ -79,6 +93,7 @@ function formatRelativeTime(input, fromTime = Date.now()) {
   const ts = parseAppDate(input);
   if (!ts) return '';
   const diffSec = Math.floor((fromTime - ts) / 1000);
+  if (diffSec < 0) return 'Just now';
   if (diffSec < 60) return 'Just now';
   if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
   if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
@@ -992,6 +1007,21 @@ function mapRowToTicket(r) {
     photo2Url: r.photo2_data || '',
     photo3Url: r.photo3_data || '',
     photo4Url: r.photo4_data || '',
+    hmReportPhotoUrl: r.hm_report_photo_url || '',
+    completionPhotoUrl: r.completion_photo_url || '',
+    hmReportPhotoBase64: r.hm_report_photo_base64 || '',
+    completionPhotoBase64: r.completion_photo_base64 || '',
+    completionEvidence: r.completion_evidence || null,
+    completionEvidenceStatus: r.completion_evidence_status || '',
+    completionEvidenceRequested: !!r.completion_evidence_requested,
+    completionEvidenceRequestedAt: r.completion_evidence_requested_at || '',
+    completionEvidenceRequestedBy: r.completion_evidence_requested_by || '',
+    completionDate: r.completion_date || '',
+    completedBy: r.completed_by || '',
+    gpsLatitude: r.gps_latitude || null,
+    gpsLongitude: r.gps_longitude || null,
+    gpsAccuracy: r.gps_accuracy || null,
+    gpsTimestamp: r.gps_timestamp || '',
     googleDriveFolderUrl: r.drive_folder_url || '',
     remarks: r.remarks || '',
     timeline: r.activity_log || []
@@ -1040,6 +1070,21 @@ async function initDatabase() {
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS diagnosis_type TEXT;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS action_taken TEXT;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS battery_condition TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS hm_report_photo_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_photo_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS hm_report_photo_base64 TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_photo_base64 TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_evidence JSONB;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_evidence_status TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_evidence_requested BOOLEAN;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_evidence_requested_at TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_evidence_requested_by TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completion_date TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS completed_by TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_latitude DOUBLE PRECISION;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_longitude DOUBLE PRECISION;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_accuracy DOUBLE PRECISION;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_timestamp TEXT;
       DELETE FROM tickets WHERE reported_issue ILIKE '%simulation%' OR remarks ILIKE '%simulation%';
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
@@ -1215,17 +1260,21 @@ async function syncGasTickets() {
               // NEVER allow Google Sheets sync to erase local completion evidence
               hmReportPhotoUrl: existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || (existing.completionEvidence?.hmSignedReport?.fileUrl) || '',
               completionPhotoUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || (existing.completionEvidence?.completionPhoto?.fileUrl) || '',
-              completionEvidence: existing.completionEvidence || cleanTicket.completionEvidence || (existing.hmReportPhotoUrl || existing.completionPhotoUrl ? {
+              hmReportPhotoBase64: existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64 || (existing.completionEvidence?.hmSignedReport?.data) || '',
+              completionPhotoBase64: existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64 || (existing.completionEvidence?.completionPhoto?.data) || '',
+              completionEvidence: existing.completionEvidence || cleanTicket.completionEvidence || (existing.hmReportPhotoUrl || existing.completionPhotoUrl || existing.hmReportPhotoBase64 || existing.completionPhotoBase64 ? {
                 hmSignedReport: {
-                  uploaded: !!(existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl),
+                  uploaded: !!(existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64),
                   fileUrl: existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || '',
+                  data: existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64 || (existing.completionEvidence?.hmSignedReport?.data) || '',
                   uploadedAt: existing.completionEvidence?.hmSignedReport?.uploadedAt || existing.completionDate || normDate,
                   submittedBy: existing.completionEvidence?.hmSignedReport?.submittedBy || existing.completedBy || 'AI Teacher',
                   source: existing.completionEvidence?.hmSignedReport?.source || 'AI Teacher'
                 },
                 completionPhoto: {
-                  uploaded: !!(existing.completionPhotoUrl || cleanTicket.completionPhotoUrl),
+                  uploaded: !!(existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64),
                   fileUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || '',
+                  data: existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64 || (existing.completionEvidence?.completionPhoto?.data) || '',
                   uploadedAt: existing.completionEvidence?.completionPhoto?.uploadedAt || existing.completionDate || normDate,
                   submittedBy: existing.completionEvidence?.completionPhoto?.submittedBy || existing.completedBy || 'AI Teacher',
                   source: existing.completionEvidence?.completionPhoto?.source || 'AI Teacher',
@@ -1234,7 +1283,7 @@ async function syncGasTickets() {
                   gpsAccuracy: existing.gpsAccuracy,
                   gpsWatermarkRequired: true
                 },
-                status: (existing.hmReportPhotoUrl && existing.completionPhotoUrl) ? 'complete' : 'partial',
+                status: ((existing.hmReportPhotoUrl || existing.hmReportPhotoBase64) && (existing.completionPhotoUrl || existing.completionPhotoBase64)) ? 'complete' : 'partial',
                 completedAt: existing.completionDate || normDate,
                 completedBy: existing.completedBy || 'AI Teacher'
               } : undefined),
@@ -1669,8 +1718,18 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.photo2Url !== undefined) ticket.photo2Url = updateData.photo2Url;
     if (updateData.photo3Url !== undefined) ticket.photo3Url = updateData.photo3Url;
     if (updateData.photo4Url !== undefined) ticket.photo4Url = updateData.photo4Url;
-    if (updateData.hmReportPhotoUrl !== undefined) ticket.hmReportPhotoUrl = updateData.hmReportPhotoUrl;
-    if (updateData.completionPhotoUrl !== undefined) ticket.completionPhotoUrl = updateData.completionPhotoUrl;
+    if (updateData.hmReportPhotoUrl !== undefined) {
+      if (updateData.hmReportPhotoUrl || updateData.clearEvidence) ticket.hmReportPhotoUrl = updateData.hmReportPhotoUrl;
+    }
+    if (updateData.completionPhotoUrl !== undefined) {
+      if (updateData.completionPhotoUrl || updateData.clearEvidence) ticket.completionPhotoUrl = updateData.completionPhotoUrl;
+    }
+    if (updateData.hmReportPhotoBase64 !== undefined && updateData.hmReportPhotoBase64) {
+      ticket.hmReportPhotoBase64 = updateData.hmReportPhotoBase64;
+    }
+    if (updateData.completionPhotoBase64 !== undefined && updateData.completionPhotoBase64) {
+      ticket.completionPhotoBase64 = updateData.completionPhotoBase64;
+    }
     if (updateData.gpsLatitude !== undefined) ticket.gpsLatitude = updateData.gpsLatitude;
     if (updateData.gpsLongitude !== undefined) ticket.gpsLongitude = updateData.gpsLongitude;
     if (updateData.gpsAccuracy !== undefined) ticket.gpsAccuracy = updateData.gpsAccuracy;
@@ -1685,25 +1744,52 @@ async function updateTicket(ticketId, updateData) {
 
     // Structured completionEvidence sync
     if (updateData.completionEvidence) {
+      const prevEv = ticket.completionEvidence || {};
+      const prevHm = prevEv.hmSignedReport || {};
+      const prevComp = prevEv.completionPhoto || {};
+      const newHm = updateData.completionEvidence.hmSignedReport || {};
+      const newComp = updateData.completionEvidence.completionPhoto || {};
+
       ticket.completionEvidence = {
-        ...(ticket.completionEvidence || {}),
-        ...updateData.completionEvidence
+        ...prevEv,
+        ...updateData.completionEvidence,
+        hmSignedReport: {
+          ...prevHm,
+          ...newHm,
+          uploaded: newHm.uploaded !== undefined ? newHm.uploaded : (prevHm.uploaded || !!ticket.hmReportPhotoUrl || !!ticket.hmReportPhotoBase64),
+          fileUrl: newHm.fileUrl || prevHm.fileUrl || ticket.hmReportPhotoUrl || '',
+          data: newHm.data || prevHm.data || ticket.hmReportPhotoBase64 || ''
+        },
+        completionPhoto: {
+          ...prevComp,
+          ...newComp,
+          uploaded: newComp.uploaded !== undefined ? newComp.uploaded : (prevComp.uploaded || !!ticket.completionPhotoUrl || !!ticket.completionPhotoBase64),
+          fileUrl: newComp.fileUrl || prevComp.fileUrl || ticket.completionPhotoUrl || '',
+          data: newComp.data || prevComp.data || ticket.completionPhotoBase64 || '',
+          gpsLatitude: newComp.gpsLatitude !== undefined ? newComp.gpsLatitude : (prevComp.gpsLatitude || ticket.gpsLatitude || null),
+          gpsLongitude: newComp.gpsLongitude !== undefined ? newComp.gpsLongitude : (prevComp.gpsLongitude || ticket.gpsLongitude || null),
+          gpsAccuracy: newComp.gpsAccuracy !== undefined ? newComp.gpsAccuracy : (prevComp.gpsAccuracy || ticket.gpsAccuracy || null),
+          gpsWatermarkRequired: true
+        },
+        status: ((ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64 || newHm.fileUrl || newHm.data) && (ticket.completionPhotoUrl || ticket.completionPhotoBase64 || newComp.fileUrl || newComp.data)) ? 'complete' : 'partial'
       };
-    } else if (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl) {
+    } else if (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl || ticket.hmReportPhotoBase64 || ticket.completionPhotoBase64) {
       const prevEv = ticket.completionEvidence || {};
       const prevHm = prevEv.hmSignedReport || {};
       const prevComp = prevEv.completionPhoto || {};
       ticket.completionEvidence = {
         hmSignedReport: {
-          uploaded: !!ticket.hmReportPhotoUrl,
+          uploaded: !!(ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64),
           fileUrl: ticket.hmReportPhotoUrl || '',
+          data: ticket.hmReportPhotoBase64 || prevHm.data || '',
           uploadedAt: prevHm.uploadedAt || ticket.completionDate || dateStr,
           submittedBy: updateData.hmSubmittedBy || prevHm.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
           source: updateData.hmSource || prevHm.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer')
         },
         completionPhoto: {
-          uploaded: !!ticket.completionPhotoUrl,
+          uploaded: !!(ticket.completionPhotoUrl || ticket.completionPhotoBase64),
           fileUrl: ticket.completionPhotoUrl || '',
+          data: ticket.completionPhotoBase64 || prevComp.data || '',
           uploadedAt: prevComp.uploadedAt || ticket.completionDate || dateStr,
           submittedBy: updateData.compSubmittedBy || prevComp.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
           source: updateData.compSource || prevComp.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer'),
@@ -1712,7 +1798,7 @@ async function updateTicket(ticketId, updateData) {
           gpsAccuracy: ticket.gpsAccuracy || null,
           gpsWatermarkRequired: true
         },
-        status: (ticket.hmReportPhotoUrl && ticket.completionPhotoUrl) ? 'complete' : (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl ? 'partial' : 'pending'),
+        status: ((ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64) && (ticket.completionPhotoUrl || ticket.completionPhotoBase64)) ? 'complete' : 'partial',
         completedAt: ticket.completionDate || dateStr,
         completedBy: ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer')
       };
@@ -2346,5 +2432,6 @@ module.exports = {
   KNOWN_TEST_PURGED_IDS,
   normalizeIndianPhone,
   isValidIndianPhone,
-  maskPhone
+  maskPhone,
+  syncGasTickets
 };

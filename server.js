@@ -7,49 +7,63 @@ function parseAppDate(input) {
   if (!str) return 0;
 
   // 1. Standard ISO 8601 (e.g. 2026-09-03T12:50:06+05:30, 2026-09-03T07:20:06.000Z, 2026-09-03)
-  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+  if (str.length >= 10 && str.charAt(4) === '-' && str.charAt(7) === '-') {
     const parsed = Date.parse(str);
     if (!isNaN(parsed)) return parsed;
   }
 
-  // 2. Slash or Dash separated dates (DD/MM/YYYY or D/M/YYYY with optional time)
-  const m = str.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:,?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?/i);
-  if (m) {
-    let part1 = parseInt(m[1], 10);
-    let part2 = parseInt(m[2], 10);
-    const year = parseInt(m[3], 10);
-    let hours = m[4] !== undefined ? parseInt(m[4], 10) : 0;
-    const minutes = m[5] !== undefined ? parseInt(m[5], 10) : 0;
-    const seconds = m[6] !== undefined ? parseInt(m[6], 10) : 0;
-    const mer = (m[7] || '').toLowerCase();
+  // 2. Tokenize DD/MM/YYYY or MM/DD/YYYY with time
+  const clean = str.split(',').join(' ').trim();
+  const tokens = clean.split(' ').filter(Boolean);
+  const dateToken = tokens[0] || '';
+  let dateParts = [];
+  if (dateToken.indexOf('/') !== -1) dateParts = dateToken.split('/');
+  else if (dateToken.indexOf('-') !== -1) dateParts = dateToken.split('-');
 
-    if (mer === 'pm' && hours < 12) hours += 12;
-    if (mer === 'am' && hours === 12) hours = 0;
+  if (dateParts.length === 3) {
+    let part1 = parseInt(dateParts[0], 10);
+    let part2 = parseInt(dateParts[1], 10);
+    let year = parseInt(dateParts[2], 10);
 
-    let day, month;
-    if (part1 > 12) {
-      day = part1;
-      month = part2;
-    } else if (part2 > 12) {
-      day = part2;
-      month = part1;
-    } else {
-      // Both <= 12
-      // Check for inverted US-locale September dates in 2026 (09/03/2026 where 9 is September and part2 is day)
-      // Since no tickets exist in March 2026 (system started in August 2026):
-      if (year === 2026 && part1 === 9 && part2 <= 12) {
-        day = part2;
-        month = 9;
-      } else {
-        // Standard canonical Indian format: DD/MM/YYYY
+    if (!isNaN(part1) && !isNaN(part2) && !isNaN(year)) {
+      let hours = 0;
+      let minutes = 0;
+      let seconds = 0;
+
+      const timeToken = tokens[1] || '';
+      if (timeToken.indexOf(':') !== -1) {
+        const timeParts = timeToken.split(':');
+        hours = parseInt(timeParts[0] || '0', 10);
+        minutes = parseInt(timeParts[1] || '0', 10);
+        seconds = parseInt(timeParts[2] || '0', 10);
+      }
+
+      const merToken = (tokens[2] || '').toLowerCase();
+      if (merToken.indexOf('pm') !== -1 && hours < 12) hours += 12;
+      if (merToken.indexOf('am') !== -1 && hours === 12) hours = 0;
+
+      let day, month;
+      if (part1 > 12) {
         day = part1;
         month = part2;
+      } else if (part2 > 12) {
+        day = part2;
+        month = part1;
+      } else {
+        // Both <= 12: In 2026 September tickets, part1=9 is September, part2 is day
+        if (year === 2026 && part1 === 9 && part2 <= 12) {
+          day = part2;
+          month = 9;
+        } else {
+          day = part1;
+          month = part2;
+        }
       }
-    }
 
-    // Convert IST parts (UTC+05:30) to epoch milliseconds
-    const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-    return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+      // Convert IST parts (UTC+05:30) to epoch milliseconds
+      const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+      return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+    }
   }
 
   // 3. Fallback
@@ -79,6 +93,7 @@ function formatRelativeTime(input, fromTime = Date.now()) {
   const ts = parseAppDate(input);
   if (!ts) return '';
   const diffSec = Math.floor((fromTime - ts) / 1000);
+  if (diffSec < 0) return 'Just now';
   if (diffSec < 60) return 'Just now';
   if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
   if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
@@ -797,6 +812,70 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
   }
 }
 
+async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  if (!webhookUrl) return { success: false, reason: 'No webhook URL configured' };
+
+  try {
+    const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
+    logDriveDestination(resolved, payload.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
+
+    const gasBody = {
+      action: 'update',
+      ticketId: ticket.ticketId,
+      district: resolved.district,
+      targetDistrictRoot: resolved.rootFolder,
+      schoolName: resolved.schoolName || ticket.schoolName,
+      udise: resolved.udise || ticket.udise,
+      status: ticket.status,
+      remarks: payload.remarks || ticket.remarks,
+      resolutionNotes: payload.resolutionNotes || ticket.resolutionNotes,
+      hmReportPhotoBase64: payload.hmReportPhotoBase64 || '',
+      completionPhotoBase64: payload.completionPhotoBase64 || '',
+      hmReportPhotoUrl: payload.hmReportPhotoUrl || '',
+      completionPhotoUrl: payload.completionPhotoUrl || '',
+      gpsLatitude: payload.gpsLatitude || null,
+      gpsLongitude: payload.gpsLongitude || null
+    };
+
+    const fetch = globalThis.fetch;
+    if (typeof fetch === 'function') {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 8000);
+      }
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasBody),
+        redirect: 'follow',
+        signal: controller ? controller.signal : undefined
+      });
+      if (timeoutId) clearTimeout(timeoutId);
+      const result = await response.json();
+      if (result && result.success) {
+        console.log(`🚀 [GOOGLE DRIVE EVIDENCE SYNC SUCCESS] Ticket ${ticket.ticketId}:`, result);
+        const driveUpdates = {};
+        if (result.hmReportPhotoUrl && !result.hmReportPhotoUrl.startsWith('/uploads/')) driveUpdates.hmReportPhotoUrl = result.hmReportPhotoUrl;
+        if (result.completionPhotoUrl && !result.completionPhotoUrl.startsWith('/uploads/')) driveUpdates.completionPhotoUrl = result.completionPhotoUrl;
+        if (result.folderUrl) driveUpdates.googleDriveFolderUrl = result.folderUrl;
+        if (Object.keys(driveUpdates).length > 0) {
+          await db.updateTicket(ticket.ticketId, driveUpdates);
+        }
+        return { success: true, result };
+      } else {
+        console.warn(`⚠️ [GOOGLE DRIVE EVIDENCE SYNC WARN] ${ticket.ticketId}:`, result ? result.error : 'Unknown response');
+        return { success: false, error: result?.error };
+      }
+    }
+  } catch (err) {
+    console.warn(`⚠️ [GOOGLE DRIVE EVIDENCE SYNC NOTICE] ${ticket.ticketId}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
@@ -897,7 +976,7 @@ async function handleRequest(req, res) {
     return;
   }
 
-  // Serve Uploaded Photos
+  // Serve Uploaded Photos (Self-Healing Persistent Database Recovery)
   if (pathname.startsWith('/uploads/')) {
     const filename = path.basename(pathname);
     // SECURITY: Prevent path traversal - ensure resolved path stays within UPLOADS_DIR
@@ -909,14 +988,125 @@ async function handleRequest(req, res) {
       res.end('Forbidden: Path traversal attempt blocked');
       return;
     }
+    // Fast path: File exists in local / container cache
     if (fs.existsSync(resolvedPath)) {
       const ext = path.extname(filename).toLowerCase();
-      res.writeHead(200, { 'Content-Type': ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg') });
+      res.writeHead(200, {
+        'Content-Type': ext === '.png' ? 'image/png' : (ext === '.webp' ? 'image/webp' : 'image/jpeg'),
+        'Cache-Control': 'public, max-age=86400'
+      });
       fs.createReadStream(resolvedPath).pipe(res);
       return;
     }
+
+    // SELF-HEALING FALLBACK: If container cold-started or ephemeral cache cleared,
+    // reconstruct directly from the persistent database!
+    try {
+      const allTickets = await db.getAllTickets();
+      let foundBase64 = null;
+
+      for (const t of allTickets) {
+        if (!t) continue;
+        // 1. Check HM Report photo
+        if ((t.hmReportPhotoUrl && t.hmReportPhotoUrl.includes(filename)) ||
+            (t.completionEvidence?.hmSignedReport?.fileUrl && t.completionEvidence.hmSignedReport.fileUrl.includes(filename)) ||
+            (filename.includes('hm_report') && filename.includes(String(t.ticketId || '')))) {
+          foundBase64 = t.hmReportPhotoBase64 || t.completionEvidence?.hmSignedReport?.data || (t.hmReportPhotoUrl?.startsWith('data:') ? t.hmReportPhotoUrl : null);
+          if (foundBase64) break;
+        }
+        // 2. Check Completion Photo
+        if ((t.completionPhotoUrl && t.completionPhotoUrl.includes(filename)) ||
+            (t.completionEvidence?.completionPhoto?.fileUrl && t.completionEvidence.completionPhoto.fileUrl.includes(filename)) ||
+            (filename.includes('comp_photo') && filename.includes(String(t.ticketId || '')))) {
+          foundBase64 = t.completionPhotoBase64 || t.completionEvidence?.completionPhoto?.data || (t.completionPhotoUrl?.startsWith('data:') ? t.completionPhotoUrl : null);
+          if (foundBase64) break;
+        }
+        // 3. Check Initial Complaint Photos 1-4
+        if ((t.photo1 && t.photo1.includes(filename)) || (t.photo1Url && t.photo1Url.includes(filename))) {
+          foundBase64 = t.photo1Base64 || (t.photo1Url?.startsWith('data:') ? t.photo1Url : null);
+          if (foundBase64) break;
+        }
+        if ((t.photo2 && t.photo2.includes(filename)) || (t.photo2Url && t.photo2Url.includes(filename))) {
+          foundBase64 = t.photo2Base64 || (t.photo2Url?.startsWith('data:') ? t.photo2Url : null);
+          if (foundBase64) break;
+        }
+        if ((t.photo3 && t.photo3.includes(filename)) || (t.photo3Url && t.photo3Url.includes(filename))) {
+          foundBase64 = t.photo3Base64 || (t.photo3Url?.startsWith('data:') ? t.photo3Url : null);
+          if (foundBase64) break;
+        }
+        if ((t.photo4 && t.photo4.includes(filename)) || (t.photo4Url && t.photo4Url.includes(filename))) {
+          foundBase64 = t.photo4Base64 || (t.photo4Url?.startsWith('data:') ? t.photo4Url : null);
+          if (foundBase64) break;
+        }
+      }
+
+      if (foundBase64 && typeof foundBase64 === 'string') {
+        const rawData = foundBase64.replace(/^data:[^;]+;base64,/, '');
+        if (rawData.length > 50) {
+          const buf = Buffer.from(rawData, 'base64');
+          try {
+            if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+            fs.writeFileSync(resolvedPath, buf);
+          } catch(e) {}
+          res.writeHead(200, {
+            'Content-Type': 'image/jpeg',
+            'Cache-Control': 'public, max-age=86400'
+          });
+          res.end(buf);
+          return;
+        }
+      }
+    } catch (healErr) {
+      console.error('Self-healing error for /uploads/' + filename, healErr.message);
+    }
+
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Image not found');
+    return;
+  }
+
+  // Direct Dedicated Evidence Photo Endpoint
+  if (pathname === '/api/tickets/evidence-photo') {
+    const targetTicketId = parsedUrl.searchParams.get('ticketId') || '';
+    const slot = parsedUrl.searchParams.get('slot') || 'completionPhoto';
+    if (!targetTicketId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Missing ticketId' }));
+      return;
+    }
+    const allTickets = await db.getAllTickets();
+    const t = allTickets.find(x => String(x.ticketId || x.id).trim().toLowerCase() === targetTicketId.trim().toLowerCase());
+    if (!t) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Ticket not found' }));
+      return;
+    }
+    let photoData = '';
+    let photoUrl = '';
+    if (slot === 'hmReport' || slot === 'hmSignedReport') {
+      photoData = t.hmReportPhotoBase64 || t.completionEvidence?.hmSignedReport?.data || '';
+      photoUrl = t.hmReportPhotoUrl || t.completionEvidence?.hmSignedReport?.fileUrl || '';
+    } else {
+      photoData = t.completionPhotoBase64 || t.completionEvidence?.completionPhoto?.data || '';
+      photoUrl = t.completionPhotoUrl || t.completionEvidence?.completionPhoto?.fileUrl || '';
+    }
+
+    if (photoData && typeof photoData === 'string') {
+      const raw = photoData.replace(/^data:[^;]+;base64,/, '');
+      if (raw.length > 50) {
+        const buf = Buffer.from(raw, 'base64');
+        res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' });
+        res.end(buf);
+        return;
+      }
+    }
+    if (photoUrl && photoUrl.startsWith('http')) {
+      res.writeHead(302, { 'Location': photoUrl });
+      res.end();
+      return;
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Evidence photo not found');
     return;
   }
 
@@ -1188,6 +1378,9 @@ async function handleRequest(req, res) {
           photo4: p4Name,
           photo4Url: data.photo4Base64 || `/uploads/${p4Name}`,
           remarks: data.remarks || '',
+          gpsLatitude: (data.gpsLatitude !== undefined && data.gpsLatitude !== null && !isNaN(Number(data.gpsLatitude))) ? Number(data.gpsLatitude) : null,
+          gpsLongitude: (data.gpsLongitude !== undefined && data.gpsLongitude !== null && !isNaN(Number(data.gpsLongitude))) ? Number(data.gpsLongitude) : null,
+          gpsAccuracy: (data.gpsAccuracy !== undefined && data.gpsAccuracy !== null && !isNaN(Number(data.gpsAccuracy))) ? Number(data.gpsAccuracy) : null,
           timeline: [
             { time: dateStr, action: 'Ticket Logged by School AI', note: `புகார் பதிவு செய்யப்பட்டு களப் பொறியாளர் பார்வைக்கு அனுப்பப்பட்டது. (Priority: ${canonicalPriority})` }
           ]
@@ -1322,12 +1515,15 @@ async function handleRequest(req, res) {
         const hmBase64Payload = payload.hmReportPhotoBase64 || payload.hmSignedReportBase64 || payload.hmReportBase64 || payload.hmCompletionPhotoBase64;
         const hmUrlPayload = payload.hmReportPhotoUrl || payload.hmSignedReportUrl || payload.hmReportUrl || payload.hmCompletionPhotoUrl;
         let hmPersistSuccess = false;
+        let persistentHmBase64 = targetTicket.hmReportPhotoBase64 || targetTicket.completionEvidence?.hmSignedReport?.data || '';
+
         if (hmBase64Payload && typeof hmBase64Payload === 'string' && hmBase64Payload.startsWith('data:')) {
           const hmFileName = `hm_report_${ticketId}_${Date.now()}.jpg`;
           const hmFilePath = path.join(UPLOADS_DIR, hmFileName);
           const hmBase64Data = hmBase64Payload.replace(/^data:[^;]+;base64,/, '');
           fs.writeFileSync(hmFilePath, Buffer.from(hmBase64Data, 'base64'));
           hmReportPhotoUrl = `/uploads/${hmFileName}`;
+          persistentHmBase64 = hmBase64Payload;
           hmPersistSuccess = true;
         } else if (hmUrlPayload) {
           hmReportPhotoUrl = hmUrlPayload;
@@ -1396,6 +1592,8 @@ async function handleRequest(req, res) {
 
         // Save Completion Photo if provided with genuine EXIF GPS injection
         let compPersistSuccess = false;
+        let persistentCompBase64 = targetTicket.completionPhotoBase64 || targetTicket.completionEvidence?.completionPhoto?.data || '';
+
         if (payload.completionPhotoBase64 && typeof payload.completionPhotoBase64 === 'string' && payload.completionPhotoBase64.startsWith('data:image')) {
           const compFileName = `comp_photo_${ticketId}_${Date.now()}.jpg`;
           const compFilePath = path.join(UPLOADS_DIR, compFileName);
@@ -1416,6 +1614,7 @@ async function handleRequest(req, res) {
           }
           fs.writeFileSync(compFilePath, rawCompBuffer);
           completionPhotoUrl = `/uploads/${compFileName}`;
+          persistentCompBase64 = 'data:image/jpeg;base64,' + rawCompBuffer.toString('base64');
           compPersistSuccess = true;
           console.log('[COMPLETION_PHOTO]', {
             watermarked: true,
@@ -1461,6 +1660,7 @@ async function handleRequest(req, res) {
           hmSignedReport: {
             uploaded: isHmUploaded,
             fileUrl: hmReportPhotoUrl,
+            data: persistentHmBase64 || prevHm.data || '',
             driveFileId: prevHm.driveFileId || '',
             originalFileName: `${ticketId}_HM_Signed_Completion_Report.jpg`,
             uploadedAt: payload.hmReportPhotoBase64 ? nowStr : (prevHm.uploadedAt || nowStr),
@@ -1470,6 +1670,7 @@ async function handleRequest(req, res) {
           completionPhoto: {
             uploaded: isCompUploaded,
             fileUrl: completionPhotoUrl,
+            data: persistentCompBase64 || prevComp.data || '',
             driveFileId: prevComp.driveFileId || '',
             originalFileName: `${ticketId}_Completion_UPS_GPS.jpg`,
             uploadedAt: payload.completionPhotoBase64 ? nowStr : (prevComp.uploadedAt || nowStr),
@@ -1490,6 +1691,8 @@ async function handleRequest(req, res) {
           ticketId: ticketId,
           hmReportPhotoUrl: hmReportPhotoUrl,
           completionPhotoUrl: completionPhotoUrl,
+          hmReportPhotoBase64: persistentHmBase64,
+          completionPhotoBase64: persistentCompBase64,
           gpsLatitude: gpsLat,
           gpsLongitude: gpsLon,
           gpsAccuracy: gpsAcc,
@@ -1541,32 +1744,17 @@ async function handleRequest(req, res) {
           return;
         }
 
-        // Async cloud sync to GAS
+        // Synchronous & resilient cloud sync to Google Drive via GAS
         if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
-          const resolved = resolveSchoolDistrict(targetTicket.udise, targetTicket.schoolId, targetTicket.district, targetTicket.schoolName);
-          logDriveDestination(resolved, payload.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
-
-          const gasBody = {
-            action: 'update',
-            ticketId: ticketId,
-            district: resolved.district,
-            targetDistrictRoot: resolved.rootFolder,
-            schoolName: resolved.schoolName || targetTicket.schoolName,
-            udise: resolved.udise || targetTicket.udise,
-            hmReportPhotoBase64: payload.hmReportPhotoBase64 || '',
-            completionPhotoBase64: payload.completionPhotoBase64 || '',
+          await syncCompletionEvidenceToGoogleDrive(targetTicket, {
+            remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`,
+            hmReportPhotoBase64: persistentHmBase64,
+            completionPhotoBase64: persistentCompBase64,
             hmReportPhotoUrl: hmReportPhotoUrl,
             completionPhotoUrl: completionPhotoUrl,
             gpsLatitude: gpsLat,
-            gpsLongitude: gpsLon,
-            status: targetTicket.status,
-            remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`
-          };
-          globalThis.fetch(GOOGLE_APPS_SCRIPT_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(gasBody)
-          }).catch(err => console.error('Cloud GAS completion evidence sync error:', err.message));
+            gpsLongitude: gpsLon
+          });
         }
 
         await db.logAudit({
@@ -1633,9 +1821,11 @@ async function handleRequest(req, res) {
           }
         }
 
+        // Preserve existing photos if new ones are not uploaded
+        const allCurr = await db.getAllTickets();
+        const existingCurTicket = allCurr.find(t => String(t.ticketId || t.id).trim().toLowerCase() === String(data.ticketId).trim().toLowerCase());
+
         // Save Completion Photos to local uploads if base64 (Engineer manual fallback or update)
-        let engUploadedNewHm = false;
-        let engUploadedNewComp = false;
         if (data.hmReportPhotoBase64 && typeof data.hmReportPhotoBase64 === 'string' && data.hmReportPhotoBase64.startsWith('data:image')) {
           try {
             const hmFileName = `hm_report_${data.ticketId}_${Date.now()}.jpg`;
@@ -1646,7 +1836,12 @@ async function handleRequest(req, res) {
           } catch(e) {
             console.error('Error saving HM report photo:', e.message);
           }
+        } else if (existingCurTicket) {
+          // Preserve existing HM report photo
+          if (!data.hmReportPhotoUrl && existingCurTicket.hmReportPhotoUrl) data.hmReportPhotoUrl = existingCurTicket.hmReportPhotoUrl;
+          if (!data.hmReportPhotoBase64 && existingCurTicket.hmReportPhotoBase64) data.hmReportPhotoBase64 = existingCurTicket.hmReportPhotoBase64;
         }
+
         if (data.completionPhotoBase64 && typeof data.completionPhotoBase64 === 'string' && data.completionPhotoBase64.startsWith('data:image')) {
           try {
             const compFileName = `comp_photo_${data.ticketId}_${Date.now()}.jpg`;
@@ -1657,12 +1852,10 @@ async function handleRequest(req, res) {
           } catch(e) {
             console.error('Error saving Completion photo:', e.message);
           }
-        }
-        if (!data.hmReportPhotoUrl && data.hmReportPhotoBase64) {
-          data.hmReportPhotoUrl = data.hmReportPhotoBase64;
-        }
-        if (!data.completionPhotoUrl && data.completionPhotoBase64) {
-          data.completionPhotoUrl = data.completionPhotoBase64;
+        } else if (existingCurTicket) {
+          // Preserve existing Completion photo
+          if (!data.completionPhotoUrl && existingCurTicket.completionPhotoUrl) data.completionPhotoUrl = existingCurTicket.completionPhotoUrl;
+          if (!data.completionPhotoBase64 && existingCurTicket.completionPhotoBase64) data.completionPhotoBase64 = existingCurTicket.completionPhotoBase64;
         }
 
         // Server-Side Validation: Closure requires meaningful resolution notes
@@ -3644,6 +3837,9 @@ function getTeacherPortalHtml() {
           const normP = normalizeIndianPhone(item.aiPhone) || item.aiPhone;
           setVal("aiPhone", normP);
         }
+        if (typeof regenerateAllPhotoWatermarks === 'function') {
+          regenerateAllPhotoWatermarks();
+        }
       }
       
       const sb = document.getElementById("schoolSuggestionsBox");
@@ -3781,6 +3977,7 @@ function getTeacherPortalHtml() {
       document.getElementById('custSchool').required = true;
       document.getElementById('custUdise').required = true;
       document.getElementById('custBlock').required = true;
+      if (typeof regenerateAllPhotoWatermarks === 'function') regenerateAllPhotoWatermarks();
     }
 
     function resetSchoolSelection() {
@@ -3793,10 +3990,22 @@ function getTeacherPortalHtml() {
       searchWrap.style.display = 'block';
       searchInput.value = '';
       suggestBox.style.display = 'none';
+      activeGpsCoords = null;
+      if (typeof acquireDeviceGps === 'function') acquireDeviceGps();
+      if (typeof regenerateAllPhotoWatermarks === 'function') regenerateAllPhotoWatermarks();
       setTimeout(function() { searchInput.focus(); }, 50);
     }
     window.openOtherSchool = openOtherSchool;
     window.resetSchoolSelection = resetSchoolSelection;
+
+    ['custSchool', 'custUdise', 'custBlock', 'selectedDistrict'].forEach(function(id) {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', function() {
+        if (select.value === 'OTHER' && typeof regenerateAllPhotoWatermarks === 'function') {
+          regenerateAllPhotoWatermarks();
+        }
+      });
+    });
 
     document.addEventListener('click', function(e) {
       if (!searchInput.contains(e.target) && !suggestBox.contains(e.target)) {
@@ -3812,12 +4021,182 @@ function getTeacherPortalHtml() {
       }
     });
 
-    function setupPhotoInputs(index, callback) {
-      const cam = document.getElementById('photoCam' + index);
-      const file = document.getElementById('photoFile' + index);
+    let activeGpsCoords = null;
+    function acquireDeviceGps(cb) {
+      if (activeGpsCoords && (Date.now() - activeGpsCoords.timestamp < 30000)) {
+        if (typeof cb === 'function') cb(activeGpsCoords);
+        return;
+      }
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          function(pos) {
+            activeGpsCoords = {
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+              timestamp: Date.now()
+            };
+            if (typeof cb === 'function') cb(activeGpsCoords);
+          },
+          function(err) {
+            console.warn('[GPS] Geolocation capture notice:', err.message);
+            if (typeof cb === 'function') cb(null);
+          },
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        );
+      } else {
+        if (typeof cb === 'function') cb(null);
+      }
+    }
+    if (navigator.geolocation) {
+      acquireDeviceGps();
+    }
+
+    function getCurrentSchoolMetadata() {
+      const sel = document.getElementById('schoolSelect');
+      if (!sel || !sel.value) return null;
+      if (sel.value === 'OTHER') {
+        const cSchool = (document.getElementById('custSchool')?.value || '').trim();
+        const cUdise = (document.getElementById('custUdise')?.value || '').trim();
+        const cDistrict = (document.getElementById('selectedDistrict')?.value || '').trim() || 'Thiruvarur';
+        const cBlock = (document.getElementById('custBlock')?.value || '').trim();
+        return {
+          schoolName: cSchool || 'Hi-Tech Lab',
+          udise: cUdise || '',
+          district: cDistrict,
+          block: cBlock,
+          id: 'OTHER'
+        };
+      }
+      const selObj = schoolsData.find(s => s.id === sel.value);
+      if (!selObj) return null;
+      const sDist = selObj.district || (selObj.id && selObj.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur');
+      return {
+        schoolName: selObj.schoolName,
+        udise: selObj.udise,
+        district: sDist,
+        block: selObj.block,
+        id: selObj.id
+      };
+    }
+
+    const rawPhotos = { 1: null, 2: null, 3: null, 4: null };
+
+    function renderWatermarkForSlot(index, callback) {
+      const item = rawPhotos[index];
+      if (!item || !item.img) return;
+
+      const img = item.img;
       const preview = document.getElementById('preview' + index);
       const wrap = document.getElementById('previewWrap' + index);
       const btnGroup = document.getElementById('btnGroup' + index);
+
+      const canvas = document.createElement('canvas');
+      const maxDim = 1000;
+      let width = img.width;
+      let height = img.height;
+      if (width > height && width > maxDim) {
+        height = Math.round((height * maxDim) / width);
+        width = maxDim;
+      } else if (height > maxDim) {
+        width = Math.round((width * maxDim) / height);
+        height = maxDim;
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Live Maps / GPS Watermark on Complaint Photos
+      const now = item.timestamp || new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const dateStr = day + '/' + month + '/' + year;
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+      const selMeta = getCurrentSchoolMetadata();
+      let sName = 'Hi-Tech Lab UPS';
+      let dName = 'Thiruvarur';
+      let sUdise = '';
+      if (selMeta) {
+        sName = (selMeta.schoolName || 'Hi-Tech Lab').substring(0, 28);
+        dName = selMeta.district || 'Thiruvarur';
+        sUdise = selMeta.udise || '';
+      }
+
+      const fontSize = Math.max(11, Math.round(width * 0.022));
+      ctx.font = 'bold ' + fontSize + 'px "Segoe UI", Arial, sans-serif';
+
+      let line1;
+      if (activeGpsCoords && activeGpsCoords.latitude !== null && activeGpsCoords.latitude !== undefined && !isNaN(Number(activeGpsCoords.latitude))) {
+        line1 = '📍 GPS: ' + Number(activeGpsCoords.latitude).toFixed(5) + '° N, ' + Number(activeGpsCoords.longitude).toFixed(5) + '° E';
+      } else {
+        line1 = '📍 GPS: Location Unavailable';
+      }
+      const line2 = '📅 ' + dateStr + '  🕐 ' + timeStr;
+      const line3 = '🏫 ' + sName;
+      const line4 = '🆔 UDISE: ' + (sUdise || 'Pending') + ' (' + dName + ')';
+
+      const pad = Math.round(fontSize * 0.7);
+      const lineH = Math.round(fontSize * 1.3);
+      const cardW = Math.max(
+        ctx.measureText(line1).width,
+        ctx.measureText(line2).width,
+        ctx.measureText(line3).width,
+        ctx.measureText(line4).width
+      ) + (pad * 2);
+      const cardH = (lineH * 4) + (pad * 1.5);
+      const cardX = width - cardW - Math.round(width * 0.02);
+      const cardY = height - cardH - Math.round(height * 0.02);
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+      else ctx.rect(cardX, cardY, cardW, cardH);
+      ctx.fill();
+
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
+      else ctx.rect(cardX, cardY, cardW, cardH);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText(line1, cardX + pad, cardY + pad + (fontSize * 0.85));
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillText(line2, cardX + pad, cardY + pad + (fontSize * 0.85) + lineH);
+      ctx.fillStyle = '#fde047';
+      ctx.fillText(line3, cardX + pad, cardY + pad + (fontSize * 0.85) + (lineH * 2));
+      ctx.fillStyle = '#a7f3d0';
+      ctx.fillText(line4, cardX + pad, cardY + pad + (fontSize * 0.85) + (lineH * 3));
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      if (preview) preview.src = dataUrl;
+      if (wrap) wrap.style.display = 'block';
+      if (btnGroup) btnGroup.style.display = 'none';
+
+      if (index === 1) base64Photo1 = dataUrl;
+      else if (index === 2) base64Photo2 = dataUrl;
+      else if (index === 3) base64Photo3 = dataUrl;
+      else if (index === 4) base64Photo4 = dataUrl;
+
+      if (typeof callback === 'function') callback(dataUrl);
+    }
+
+    function regenerateAllPhotoWatermarks() {
+      for (let i = 1; i <= 4; i++) {
+        if (rawPhotos[i] && rawPhotos[i].img) {
+          renderWatermarkForSlot(i);
+        }
+      }
+    }
+    window.regenerateAllPhotoWatermarks = regenerateAllPhotoWatermarks;
+
+    function setupPhotoInputs(index, callback) {
+      const cam = document.getElementById('photoCam' + index);
+      const file = document.getElementById('photoFile' + index);
 
       function processFile(f) {
         if (!f) return;
@@ -3826,74 +4205,10 @@ function getTeacherPortalHtml() {
         reader.onload = function(ev) {
           img.src = ev.target.result;
           img.onload = function() {
-            const canvas = document.createElement('canvas');
-            const maxDim = 1000;
-            let width = img.width;
-            let height = img.height;
-            if (width > height && width > maxDim) {
-              height = Math.round((height * maxDim) / width);
-              width = maxDim;
-            } else if (height > maxDim) {
-              width = Math.round((width * maxDim) / height);
-              height = maxDim;
-            }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-
-            // Live Maps / GPS Watermark on Complaint Photos
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('en-GB');
-            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            let sName = 'Hi-Tech Lab UPS';
-            let dName = 'Thiruvarur';
-            if (select && select.value) {
-              const selObj = schoolsData.find(s => s.id === select.value) || {};
-              sName = (selObj.schoolName || 'Hi-Tech Lab').substring(0, 28);
-              dName = selObj.district || 'Thiruvarur';
-            }
-
-            const fontSize = Math.max(11, Math.round(width * 0.022));
-            ctx.font = 'bold ' + fontSize + 'px "Segoe UI", Arial, sans-serif';
-            const lat = 10.7725;
-            const lon = 79.6368;
-            const line1 = '📍 GPS: ' + lat + '° N, ' + lon + '° E (Live)';
-            const line2 = '📅 ' + dateStr + '  🕐 ' + timeStr;
-            const line3 = '🏫 ' + sName + ' (' + dName + ')';
-
-            const pad = Math.round(fontSize * 0.7);
-            const lineH = Math.round(fontSize * 1.3);
-            const cardW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width, ctx.measureText(line3).width) + (pad * 2);
-            const cardH = (lineH * 3) + (pad * 1.5);
-            const cardX = width - cardW - Math.round(width * 0.02);
-            const cardY = height - cardH - Math.round(height * 0.02);
-
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
-            else ctx.rect(cardX, cardY, cardW, cardH);
-            ctx.fill();
-
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
-            else ctx.rect(cardX, cardY, cardW, cardH);
-            ctx.stroke();
-
-            ctx.fillStyle = '#38bdf8';
-            ctx.fillText(line1, cardX + pad, cardY + pad + (fontSize * 0.85));
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillText(line2, cardX + pad, cardY + pad + (fontSize * 0.85) + lineH);
-            ctx.fillStyle = '#fde047';
-            ctx.fillText(line3, cardX + pad, cardY + pad + (fontSize * 0.85) + (lineH * 2));
-
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-            preview.src = dataUrl;
-            wrap.style.display = 'block';
-            btnGroup.style.display = 'none';
-            callback(dataUrl);
+            rawPhotos[index] = { file: f, img: img, timestamp: new Date() };
+            acquireDeviceGps(function() {
+              renderWatermarkForSlot(index, callback);
+            });
           };
         };
         reader.readAsDataURL(f);
@@ -3908,6 +4223,7 @@ function getTeacherPortalHtml() {
       const file = document.getElementById('photoFile' + index);
       if (cam) cam.value = '';
       if (file) file.value = '';
+      rawPhotos[index] = null;
       document.getElementById('previewWrap' + index).style.display = 'none';
       document.getElementById('btnGroup' + index).style.display = 'flex';
       if (index === 1) base64Photo1 = '';
@@ -4049,7 +4365,10 @@ function getTeacherPortalHtml() {
         photo2Base64: base64Photo2,
         photo3Base64: base64Photo3,
         photo4Base64: base64Photo4,
-        remarks: remarksVal
+        remarks: remarksVal,
+        gpsLatitude: (activeGpsCoords && activeGpsCoords.latitude !== null && activeGpsCoords.latitude !== undefined && !isNaN(Number(activeGpsCoords.latitude))) ? Number(activeGpsCoords.latitude) : null,
+        gpsLongitude: (activeGpsCoords && activeGpsCoords.longitude !== null && activeGpsCoords.longitude !== undefined && !isNaN(Number(activeGpsCoords.longitude))) ? Number(activeGpsCoords.longitude) : null,
+        gpsAccuracy: (activeGpsCoords && activeGpsCoords.accuracy !== null && activeGpsCoords.accuracy !== undefined && !isNaN(Number(activeGpsCoords.accuracy))) ? Number(activeGpsCoords.accuracy) : null
       };
 
       try {
@@ -4060,6 +4379,11 @@ function getTeacherPortalHtml() {
         });
         const result = await res.json();
         if (result.success) {
+          activeGpsCoords = null;
+          rawPhotos[1] = null;
+          rawPhotos[2] = null;
+          rawPhotos[3] = null;
+          rawPhotos[4] = null;
           document.getElementById('dispTicketId').textContent = result.ticketId;
           document.getElementById('formContainer').style.display = 'none';
           document.getElementById('successBox').style.display = 'block';
@@ -8233,8 +8557,10 @@ function generateTableRowsHtml(list) {
       else if (tCat === 'Solved by Direct Visit') badgeHtml = '<span class="badge badge-status-direct">🔵 Solved by Direct Visit</span>';
       else if (t.status === 'Vendor Escalated') badgeHtml = '<span class="badge badge-status-incomplete">🔴 Vendor Escalated</span>';
 
-      const has2of2Evidence = !!(t.completionEvidenceStatus === 'SUBMITTED' || ((t.hmReportPhotoUrl || t.completionEvidence?.hmSignedReport?.fileUrl) && (t.completionPhotoUrl || t.completionEvidence?.completionPhoto?.fileUrl)));
-      const has1of2Evidence = !has2of2Evidence && !!(t.completionEvidenceStatus === 'PARTIALLY_UPLOADED' || t.hmReportPhotoUrl || t.completionPhotoUrl || t.completionEvidence?.hmSignedReport?.fileUrl || t.completionEvidence?.completionPhoto?.fileUrl);
+      const hasHm = !!(t.hmReportPhotoBase64 || t.hmReportPhotoUrl || t.completionEvidence?.hmSignedReport?.data || t.completionEvidence?.hmSignedReport?.fileUrl);
+      const hasComp = !!(t.completionPhotoBase64 || t.completionPhotoUrl || t.completionEvidence?.completionPhoto?.data || t.completionEvidence?.completionPhoto?.fileUrl);
+      const has2of2Evidence = hasHm && hasComp;
+      const has1of2Evidence = !has2of2Evidence && (hasHm || hasComp);
       const isEvidenceReq = !has2of2Evidence && !has1of2Evidence && !!(t.completionEvidenceRequested || t.completionEvidenceStatus === 'REQUESTED');
 
       let evBadge = '';
@@ -8572,45 +8898,67 @@ function generateTableRowsHtml(list) {
       const str = String(input).trim();
       if (!str) return 0;
 
-      if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      // 1. Standard ISO 8601 (e.g. 2026-09-03T12:50:06+05:30, 2026-09-03T07:20:06.000Z, 2026-09-03)
+      if (str.length >= 10 && str.charAt(4) === '-' && str.charAt(7) === '-') {
         const parsed = Date.parse(str);
         if (!isNaN(parsed)) return parsed;
       }
 
-      const m = str.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:,?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?/i);
-      if (m) {
-        let part1 = parseInt(m[1], 10);
-        let part2 = parseInt(m[2], 10);
-        const year = parseInt(m[3], 10);
-        let hours = m[4] !== undefined ? parseInt(m[4], 10) : 0;
-        const minutes = m[5] !== undefined ? parseInt(m[5], 10) : 0;
-        const seconds = m[6] !== undefined ? parseInt(m[6], 10) : 0;
-        const mer = (m[7] || '').toLowerCase();
+      // 2. Tokenize DD/MM/YYYY or MM/DD/YYYY with time (Zero-regex, completely immune to template string escape issues)
+      const clean = str.split(',').join(' ').trim();
+      const tokens = clean.split(' ').filter(Boolean);
+      const dateToken = tokens[0] || '';
+      let dateParts = [];
+      if (dateToken.indexOf('/') !== -1) dateParts = dateToken.split('/');
+      else if (dateToken.indexOf('-') !== -1) dateParts = dateToken.split('-');
 
-        if (mer === 'pm' && hours < 12) hours += 12;
-        if (mer === 'am' && hours === 12) hours = 0;
+      if (dateParts.length === 3) {
+        let part1 = parseInt(dateParts[0], 10);
+        let part2 = parseInt(dateParts[1], 10);
+        let year = parseInt(dateParts[2], 10);
 
-        let day, month;
-        if (part1 > 12) {
-          day = part1;
-          month = part2;
-        } else if (part2 > 12) {
-          day = part2;
-          month = part1;
-        } else {
-          if (year === 2026 && part1 === 9 && part2 <= 12) {
-            day = part2;
-            month = 9;
-          } else {
+        if (!isNaN(part1) && !isNaN(part2) && !isNaN(year)) {
+          let hours = 0;
+          let minutes = 0;
+          let seconds = 0;
+
+          const timeToken = tokens[1] || '';
+          if (timeToken.indexOf(':') !== -1) {
+            const timeParts = timeToken.split(':');
+            hours = parseInt(timeParts[0] || '0', 10);
+            minutes = parseInt(timeParts[1] || '0', 10);
+            seconds = parseInt(timeParts[2] || '0', 10);
+          }
+
+          const merToken = (tokens[2] || '').toLowerCase();
+          if (merToken.indexOf('pm') !== -1 && hours < 12) hours += 12;
+          if (merToken.indexOf('am') !== -1 && hours === 12) hours = 0;
+
+          let day, month;
+          if (part1 > 12) {
             day = part1;
             month = part2;
+          } else if (part2 > 12) {
+            day = part2;
+            month = part1;
+          } else {
+            // Both <= 12: In 2026 September tickets, part1=9 is September, part2 is day
+            if (year === 2026 && part1 === 9 && part2 <= 12) {
+              day = part2;
+              month = 9;
+            } else {
+              day = part1;
+              month = part2;
+            }
           }
-        }
 
-        const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-        return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+          // Convert IST parts (UTC+05:30) to epoch milliseconds
+          const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+          return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
+        }
       }
 
+      // 3. Fallback
       const d = Date.parse(str);
       return isNaN(d) ? 0 : d;
     }
@@ -8638,6 +8986,7 @@ function generateTableRowsHtml(list) {
       if (!ts) return '';
       const now = fromTime || Date.now();
       const diffSec = Math.floor((now - ts) / 1000);
+      if (diffSec < 0) return 'Just now';
       if (diffSec < 60) return 'Just now';
       if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
       if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
@@ -9207,18 +9556,21 @@ function generateTableRowsHtml(list) {
             const fontSize = Math.max(14, Math.round(w * 0.022));
             ctx.font = 'bold ' + fontSize + 'px "Segoe UI", Arial, sans-serif';
 
-            const line1 = '📍 GPS: ' + Number(lat).toFixed(5) + '° N, ' + Number(lon).toFixed(5) + '° E';
+            const hasGps = (lat !== null && lat !== undefined && !isNaN(Number(lat)) && lon !== null && lon !== undefined && !isNaN(Number(lon)));
+            const line1 = hasGps ? ('📍 GPS: ' + Number(lat).toFixed(5) + '° N, ' + Number(lon).toFixed(5) + '° E') : '📍 GPS: Location Unavailable';
             const line2 = '📅 ' + dateStr + '  🕐 ' + timeStr;
-            const line3 = '🏫 ' + schoolLabel + ' (' + districtLabel + ')';
+            const line3 = '🏫 ' + schoolLabel;
+            const line4 = '🆔 UDISE: ' + (ticketObj.udise || 'Pending') + ' (' + districtLabel + ')';
 
             const pad = Math.round(fontSize * 0.9);
             const lineH = Math.round(fontSize * 1.35);
             const cardW = Math.max(
               ctx.measureText(line1).width,
               ctx.measureText(line2).width,
-              ctx.measureText(line3).width
+              ctx.measureText(line3).width,
+              ctx.measureText(line4).width
             ) + pad * 2 + 10;
-            const cardH = lineH * 3 + pad * 1.5;
+            const cardH = lineH * 4 + pad * 1.5;
 
             const cardX = w - cardW - Math.round(w * 0.025);
             const cardY = h - cardH - Math.round(h * 0.025);
@@ -9249,6 +9601,9 @@ function generateTableRowsHtml(list) {
 
             ctx.fillStyle = '#fde047';
             ctx.fillText(line3, cardX + pad, cardY + pad + fontSize * 0.9 + lineH * 2);
+
+            ctx.fillStyle = '#a7f3d0';
+            ctx.fillText(line4, cardX + pad, cardY + pad + fontSize * 0.9 + lineH * 3);
 
             resolve(canvas.toDataURL('image/jpeg', 0.88));
           };
@@ -9328,8 +9683,8 @@ function generateTableRowsHtml(list) {
           const ev = t.completionEvidence || {};
           const hmEv = ev.hmSignedReport || {};
           const compEv = ev.completionPhoto || {};
-          const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
-          const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
+          const hmUrl = t.hmReportPhotoBase64 || t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.data || hmEv.fileUrl || "";
+          const compUrl = t.completionPhotoBase64 || t.completionPhotoUrl || t.completionPhoto || compEv.data || compEv.fileUrl || "";
 
           editHmReportPhoto = hmUrl;
           editCompletionPhoto = compUrl;
