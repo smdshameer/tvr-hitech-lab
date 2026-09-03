@@ -37,29 +37,21 @@ async function runTests() {
   const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
   const dbJs = fs.readFileSync(path.join(__dirname, '../db.js'), 'utf8');
 
-  const testTicketId = 'HTL-TVR-08877';
-  const existingTestT = (await db.getAllTickets()).find(t => t.ticketId === testTicketId);
-  if (!existingTestT) {
-    await db.createTicket({
-      ticketId: testTicketId,
-      udise: '33200108877',
-      schoolName: 'GHSS ADICHAPURAM',
-      issue: 'UPS Backup Battery Problem',
-      priority: 'Medium',
-      status: 'New / Under Review',
-      hmReportPhotoUrl: '',
-      completionPhotoUrl: '',
-      completionEvidenceStatus: 'NOT_REQUESTED',
-      completionEvidenceRequested: true
-    });
-  } else {
-    await db.updateTicket(testTicketId, {
-      hmReportPhotoUrl: '',
-      completionPhotoUrl: '',
-      completionEvidenceStatus: 'NOT_REQUESTED',
-      completionEvidenceRequested: true
-    });
-  }
+  const randomSuffix = Math.floor(10000 + Math.random() * 89999);
+  const testTicketId = 'HTL-TVR-' + randomSuffix;
+  const testUdise = '332001' + randomSuffix;
+  await db.createTicket({
+    ticketId: testTicketId,
+    udise: testUdise,
+    schoolName: 'GHSS ADICHAPURAM',
+    issue: 'UPS Backup Battery Problem',
+    priority: 'Medium',
+    status: 'New / Under Review',
+    hmReportPhotoUrl: '',
+    completionPhotoUrl: '',
+    completionEvidenceStatus: 'NOT_REQUESTED',
+    completionEvidenceRequested: true
+  });
 
   // TEST 1: Submit completion evidence with HM only (partial)
   await testAsync('1. Submit completion evidence with HM only sets partial status', async () => {
