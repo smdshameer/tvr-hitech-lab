@@ -1,6 +1,6 @@
 {
   "name": "thiruvarur-hitech-lab-service-desk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ITSM Incident & Resolution Platform for 183 Hi-Tech Labs in Thiruvarur District",
   "main": "server.js",
   "scripts": {
