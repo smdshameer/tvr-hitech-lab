@@ -1,42 +1,97 @@
-function normalizeTicketDate(s) {
-  if (!s) return '';
-  const str = String(s).trim();
-  const matchDmy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?/i);
-  if (matchDmy) {
-    const day = String(matchDmy[1]).padStart(2, '0');
-    const month = String(matchDmy[2]).padStart(2, '0');
-    const year = matchDmy[3];
-    const hrs = String(matchDmy[4]).padStart(2, '0');
-    const mins = String(matchDmy[5]).padStart(2, '0');
-    const secs = String(matchDmy[6] || '00').padStart(2, '0');
-    const mer = (matchDmy[7] || '').toLowerCase();
-    return `${day}/${month}/${year}, ${hrs}:${mins}:${secs} ${mer}`.trim();
-  }
-  const d = new Date(str);
-  if (!isNaN(d.getTime())) {
-    let year = d.getFullYear();
-    let month = d.getMonth() + 1;
-    let day = d.getDate();
-    let hours = d.getHours();
-    let minutes = d.getMinutes();
-    let seconds = d.getSeconds();
-    let meridiem = hours >= 12 ? 'pm' : 'am';
-    let h12 = hours % 12 || 12;
+function parseAppDate(input) {
+  if (!input) return 0;
+  if (input instanceof Date) return isNaN(input.getTime()) ? 0 : input.getTime();
+  if (typeof input === 'number') return isNaN(input) ? 0 : input;
 
-    if (year === 2026 && month === 2 && day === 9) {
-      day = 2; month = 9;
-    } else if (year === 2026 && month === 1 && day === 9) {
-      day = 1; month = 9;
+  const str = String(input).trim();
+  if (!str) return 0;
+
+  // 1. Standard ISO 8601 (e.g. 2026-09-03T12:50:06+05:30, 2026-09-03T07:20:06.000Z, 2026-09-03)
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    const parsed = Date.parse(str);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  // 2. Slash or Dash separated dates (DD/MM/YYYY or D/M/YYYY with optional time)
+  const m = str.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:,?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?/i);
+  if (m) {
+    let part1 = parseInt(m[1], 10);
+    let part2 = parseInt(m[2], 10);
+    const year = parseInt(m[3], 10);
+    let hours = m[4] !== undefined ? parseInt(m[4], 10) : 0;
+    const minutes = m[5] !== undefined ? parseInt(m[5], 10) : 0;
+    const seconds = m[6] !== undefined ? parseInt(m[6], 10) : 0;
+    const mer = (m[7] || '').toLowerCase();
+
+    if (mer === 'pm' && hours < 12) hours += 12;
+    if (mer === 'am' && hours === 12) hours = 0;
+
+    let day, month;
+    if (part1 > 12) {
+      day = part1;
+      month = part2;
+    } else if (part2 > 12) {
+      day = part2;
+      month = part1;
+    } else {
+      // Both <= 12
+      // Check for inverted US-locale September dates in 2026 (09/03/2026 where 9 is September and part2 is day)
+      // Since no tickets exist in March 2026 (system started in August 2026):
+      if (year === 2026 && part1 === 9 && part2 <= 12) {
+        day = part2;
+        month = 9;
+      } else {
+        // Standard canonical Indian format: DD/MM/YYYY
+        day = part1;
+        month = part2;
+      }
     }
 
-    const dStr = String(day).padStart(2, '0');
-    const mStr = String(month).padStart(2, '0');
-    const hStr = String(h12).padStart(2, '0');
-    const minStr = String(minutes).padStart(2, '0');
-    const secStr = String(seconds).padStart(2, '0');
-    return `${dStr}/${mStr}/${year}, ${hStr}:${minStr}:${secStr} ${meridiem}`;
+    // Convert IST parts (UTC+05:30) to epoch milliseconds
+    const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+    return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
   }
-  return str;
+
+  // 3. Fallback
+  const d = Date.parse(str);
+  return isNaN(d) ? 0 : d;
+}
+
+function formatAppDate(input) {
+  const ts = parseAppDate(input);
+  if (!ts) return '';
+  const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+  const d = new Date(ts + istOffsetMs);
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  let hours = d.getUTCHours();
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+  const meridiem = hours >= 12 ? 'pm' : 'am';
+  let h12 = hours % 12 || 12;
+  const h12Str = String(h12).padStart(2, '0');
+
+  return `${day}/${month}/${year}, ${h12Str}:${minutes}:${seconds} ${meridiem}`;
+}
+
+function formatRelativeTime(input, fromTime = Date.now()) {
+  const ts = parseAppDate(input);
+  if (!ts) return '';
+  const diffSec = Math.floor((fromTime - ts) / 1000);
+  if (diffSec < 60) return 'Just now';
+  if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+  if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+  if (diffSec < 172800) return '1d ago';
+  return Math.floor(diffSec / 86400) + 'd ago';
+}
+
+function normalizeTicketDate(s) {
+  return formatAppDate(s);
+}
+
+function parseTicketTimestamp(s) {
+  return parseAppDate(s);
 }
 
 
@@ -1101,7 +1156,9 @@ async function handleRequest(req, res) {
         safeWriteFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p4Name), p4Res.buffer);
-        const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+        const nowTicketDate = new Date();
+        const dateStr = formatAppDate(nowTicketDate);
+        const isoTicketStr = nowTicketDate.toISOString();
         const allTickets = await db.getAllTickets();
         const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
         
@@ -1113,11 +1170,11 @@ async function handleRequest(req, res) {
         const existingIds = new Set(allTickets.map(t => String(t.ticketId || '').trim()));
         
         let ticketId;
-        if (!existingIds.has(baseTicketId)) {
+        if (!existingIds.has(baseTicketId) && !db.isDeleted(baseTicketId)) {
           ticketId = baseTicketId;
         } else {
           let suffixNum = 2;
-          while (existingIds.has(`${baseTicketId}-${suffixNum}`)) {
+          while (existingIds.has(`${baseTicketId}-${suffixNum}`) || db.isDeleted(`${baseTicketId}-${suffixNum}`)) {
             suffixNum++;
           }
           ticketId = `${baseTicketId}-${suffixNum}`;
@@ -1126,7 +1183,7 @@ async function handleRequest(req, res) {
         const canonicalPriority = db.normalizePriority(data.priority, data.issue);
         const newTicket = {
           ticketId: ticketId,
-          createdAt: dateStr,
+          createdAt: isoTicketStr,
           createdDate: dateStr,
           schoolId: (matchedSchool ? matchedSchool.id : (data.schoolId || '')),
           schoolName: resolvedSchoolName,
@@ -6777,7 +6834,8 @@ function generateTableRowsHtml(list) {
     else if (p.includes('Low')) prioClass = 'prio-low';
 
     const escTicketId = escapeHtml(t.ticketId);
-    const escCreatedDate = escapeHtml(t.createdDate || t.createdAt || '-');
+    const escCreatedDate = escapeHtml((typeof formatAppDate === 'function' ? formatAppDate(t.createdDate || t.createdAt) : (t.createdDate || t.createdAt)) || '-');
+    const relTimeSsr = typeof formatRelativeTime === 'function' ? formatRelativeTime(t.createdDate || t.createdAt) : '';
     const escSchoolName = escapeHtml(t.schoolName);
     const escBlock = escapeHtml(t.block);
     const escUdise = escapeHtml(t.udise);
@@ -6794,7 +6852,7 @@ function generateTableRowsHtml(list) {
     return '<tr data-ticket-id="' + escTicketId + '">' +
       '<td class="col-ticket font-mono" style="font-weight: 700;">' +
         '<div style="font-weight: 800; color: #1e3a8a; font-size: 0.85rem; font-family: var(--font-mono); white-space: nowrap;">#' + escTicketId + '</div>' +
-        '<div style="color: var(--text-muted); font-size: 0.70rem; margin-top: 2px; font-family: var(--font-main); font-weight: 500; line-height: 1.35;">' + escCreatedDate + '</div>' +
+        '<div style="color: var(--text-muted); font-size: 0.70rem; margin-top: 2px; font-family: var(--font-main); font-weight: 500; line-height: 1.35;">' + escCreatedDate + (relTimeSsr ? ' • <strong style="color:#0284c7;">' + relTimeSsr + '</strong>' : '') + '</div>' +
       '</td>' +
       '<td class="col-photos" style="white-space: nowrap;">' +
         '<div class="thumb-grid">' +
@@ -6846,33 +6904,7 @@ function generateTableRowsHtml(list) {
 function getITSMWorkbenchHtml(initialTickets = []) {
   initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
   initialTickets.sort((a, b) => {
-    function p(s) {
-      if (!s) return 0;
-      try {
-        const norm = normalizeTicketDate(s);
-        const parts = String(norm).split(',');
-        if (parts.length >= 2) {
-          const dParts = parts[0].trim().split('/');
-          const tParts = parts[1].trim().split(' ');
-          if (dParts.length === 3 && tParts.length >= 2) {
-            const day = parseInt(dParts[0], 10);
-            const month = parseInt(dParts[1], 10) - 1;
-            const year = parseInt(dParts[2], 10);
-            const timeSub = tParts[0].split(':');
-            let hours = parseInt(timeSub[0], 10);
-            const minutes = parseInt(timeSub[1] || 0, 10);
-            const seconds = parseInt(timeSub[2] || 0, 10);
-            const meridiem = tParts[1].toLowerCase();
-            if (meridiem.includes('pm') && hours < 12) hours += 12;
-            if (meridiem.includes('am') && hours === 12) hours = 0;
-            return new Date(year, month, day, hours, minutes, seconds).getTime();
-          }
-        }
-        const d = new Date(s).getTime();
-        return isNaN(d) ? 0 : d;
-      } catch(e) { return 0; }
-    }
-    return p((b && (b.createdDate || b.createdAt)) || 0) - p((a && (a.createdDate || a.createdAt)) || 0);
+    return parseAppDate((b && (b.createdDate || b.createdAt)) || 0) - parseAppDate((a && (a.createdDate || a.createdAt)) || 0);
   });
   const validTickets = (initialTickets || []).filter(t => !!t && typeof t === 'object');
   const totalReported = validTickets.length;
@@ -8560,75 +8592,93 @@ function generateTableRowsHtml(list) {
     window.clearSearchFilter = clearSearchFilter;
 
     
-    function normalizeTicketDate(s) {
-      if (!s) return '';
-      const str = String(s).trim();
-      const matchDmy = str.match(new RegExp('^(\\d{1,2})/(\\d{1,2})/(\\d{4}),?\\s*(\\d{1,2}):(\\d{2})(?::(\\d{2}))?\\s*(am|pm)?', 'i'));
-      if (matchDmy) {
-        const day = String(matchDmy[1]).padStart(2, '0');
-        const month = String(matchDmy[2]).padStart(2, '0');
-        const year = matchDmy[3];
-        const hrs = String(matchDmy[4]).padStart(2, '0');
-        const mins = String(matchDmy[5]).padStart(2, '0');
-        const secs = String(matchDmy[6] || '00').padStart(2, '0');
-        const mer = (matchDmy[7] || '').toLowerCase();
-        return day + '/' + month + '/' + year + ', ' + hrs + ':' + mins + ':' + secs + ' ' + mer;
-      }
-      const d = new Date(str);
-      if (!isNaN(d.getTime())) {
-        let year = d.getFullYear();
-        let month = d.getMonth() + 1;
-        let day = d.getDate();
-        let hours = d.getHours();
-        let minutes = d.getMinutes();
-        let seconds = d.getSeconds();
-        let meridiem = hours >= 12 ? 'pm' : 'am';
-        let h12 = hours % 12 || 12;
+    function parseAppDate(input) {
+      if (!input) return 0;
+      if (input instanceof Date) return isNaN(input.getTime()) ? 0 : input.getTime();
+      if (typeof input === 'number') return isNaN(input) ? 0 : input;
 
-        if (year === 2026 && month === 2 && day === 9) {
-          day = 2; month = 9;
-        } else if (year === 2026 && month === 1 && day === 9) {
-          day = 1; month = 9;
-        }
-
-        const dStr = String(day).padStart(2, '0');
-        const mStr = String(month).padStart(2, '0');
-        const hStr = String(h12).padStart(2, '0');
-        const minStr = String(minutes).padStart(2, '0');
-        const secStr = String(seconds).padStart(2, '0');
-        return dStr + '/' + mStr + '/' + year + ', ' + hStr + ':' + minStr + ':' + secStr + ' ' + meridiem;
-      }
-      return str;
-    }
-
-    function parseTicketTimestamp(str) {
+      const str = String(input).trim();
       if (!str) return 0;
-      if (typeof str === 'number') return str;
-      try {
-        const norm = normalizeTicketDate(str);
-        const parts = String(norm).split(',');
-        if (parts.length >= 2) {
-          const dParts = parts[0].trim().split('/');
-          const tParts = parts[1].trim().split(' ');
-          if (dParts.length === 3 && tParts.length >= 2) {
-            const day = parseInt(dParts[0], 10);
-            const month = parseInt(dParts[1], 10) - 1;
-            const year = parseInt(dParts[2], 10);
-            const timeSub = tParts[0].split(':');
-            let hours = parseInt(timeSub[0], 10);
-            const minutes = parseInt(timeSub[1] || 0, 10);
-            const seconds = parseInt(timeSub[2] || 0, 10);
-            const meridiem = tParts[1].toLowerCase();
-            if (meridiem.includes('pm') && hours < 12) hours += 12;
-            if (meridiem.includes('am') && hours === 12) hours = 0;
-            return new Date(year, month, day, hours, minutes, seconds).getTime();
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+        const parsed = Date.parse(str);
+        if (!isNaN(parsed)) return parsed;
+      }
+
+      const m = str.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})(?:,?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?/i);
+      if (m) {
+        let part1 = parseInt(m[1], 10);
+        let part2 = parseInt(m[2], 10);
+        const year = parseInt(m[3], 10);
+        let hours = m[4] !== undefined ? parseInt(m[4], 10) : 0;
+        const minutes = m[5] !== undefined ? parseInt(m[5], 10) : 0;
+        const seconds = m[6] !== undefined ? parseInt(m[6], 10) : 0;
+        const mer = (m[7] || '').toLowerCase();
+
+        if (mer === 'pm' && hours < 12) hours += 12;
+        if (mer === 'am' && hours === 12) hours = 0;
+
+        let day, month;
+        if (part1 > 12) {
+          day = part1;
+          month = part2;
+        } else if (part2 > 12) {
+          day = part2;
+          month = part1;
+        } else {
+          if (year === 2026 && part1 === 9 && part2 <= 12) {
+            day = part2;
+            month = 9;
+          } else {
+            day = part1;
+            month = part2;
           }
         }
-        const d = new Date(str).getTime();
-        return isNaN(d) ? 0 : d;
-      } catch(e) {
-        return 0;
+
+        const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+        return Date.UTC(year, month - 1, day, hours, minutes, seconds) - istOffsetMs;
       }
+
+      const d = Date.parse(str);
+      return isNaN(d) ? 0 : d;
+    }
+
+    function formatAppDate(input) {
+      const ts = parseAppDate(input);
+      if (!ts) return '';
+      const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+      const d = new Date(ts + istOffsetMs);
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      let hours = d.getUTCHours();
+      const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+      const seconds = String(d.getUTCSeconds()).padStart(2, '0');
+      const meridiem = hours >= 12 ? 'pm' : 'am';
+      let h12 = hours % 12 || 12;
+      const h12Str = String(h12).padStart(2, '0');
+
+      return day + '/' + month + '/' + year + ', ' + h12Str + ':' + minutes + ':' + seconds + ' ' + meridiem;
+    }
+
+    function formatRelativeTime(input, fromTime) {
+      const ts = parseAppDate(input);
+      if (!ts) return '';
+      const now = fromTime || Date.now();
+      const diffSec = Math.floor((now - ts) / 1000);
+      if (diffSec < 60) return 'Just now';
+      if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
+      if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
+      if (diffSec < 172800) return '1d ago';
+      return Math.floor(diffSec / 86400) + 'd ago';
+    }
+
+    function normalizeTicketDate(s) {
+      return formatAppDate(s);
+    }
+
+    function parseTicketTimestamp(s) {
+      return parseAppDate(s);
     }
 
     let activeOperationalTab = 'ALL';
@@ -8650,15 +8700,7 @@ function generateTableRowsHtml(list) {
     }
     window.setOperationalTab = setOperationalTab;
 
-    function formatRelativeTime(tsStr) {
-      const ts = parseTicketTimestamp(tsStr);
-      if (!ts) return '';
-      const diffSec = Math.floor((Date.now() - ts) / 1000);
-      if (diffSec < 60) return 'Just now';
-      if (diffSec < 3600) return Math.floor(diffSec / 60) + 'm ago';
-      if (diffSec < 86400) return Math.floor(diffSec / 3600) + 'h ago';
-      return Math.floor(diffSec / 86400) + 'd ago';
-    }
+
 
     function renderTable() {
       try {
@@ -10324,3 +10366,6 @@ module.exports.ensureTlsCertificates = ensureTlsCertificates;
 module.exports.httpsServer = httpsServer;
 module.exports.resolveSchoolDistrict = resolveSchoolDistrict;
 module.exports.logDriveDestination = logDriveDestination;
+module.exports.parseAppDate = parseAppDate;
+module.exports.formatAppDate = formatAppDate;
+module.exports.formatRelativeTime = formatRelativeTime;

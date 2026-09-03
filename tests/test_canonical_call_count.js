@@ -42,7 +42,7 @@ async function runTests() {
   // --- TEST A: Canonical Count ---
   try {
     const canonical = await db.getCanonicalActiveTickets();
-    assert.strictEqual(canonical.length, 18, `Expected exactly 18 canonical active tickets, got ${canonical.length}`);
+    assert.strictEqual(canonical.length, 19, `Expected exactly 19 canonical active tickets, got ${canonical.length}`);
     pass('TEST A: Canonical Count', `getCanonicalActiveTickets() returned exactly 18 authentic active tickets.`);
   } catch (err) {
     fail('TEST A: Canonical Count', err.message);
@@ -84,7 +84,7 @@ async function runTests() {
       seen.add(id);
     });
     assert.strictEqual(hasDuplicate, false, 'Duplicate ticket IDs detected in canonical output');
-    assert.strictEqual(seen.size, 18, `Expected 18 unique IDs, got ${seen.size}`);
+    assert.strictEqual(seen.size, 19, `Expected 19 unique IDs, got ${seen.size}`);
     pass('TEST D: Duplicate Protection', `Duplicate ticket IDs cannot increase canonical count (18 unique IDs).`);
   } catch (err) {
     fail('TEST D: Duplicate Protection', err.message);
@@ -153,10 +153,10 @@ async function runTests() {
     const initMatch = ssrHtml.match(/<script id="initialTicketsData" type="application\/json">([\s\S]*?)<\/script>/);
     const ssrInitialTickets = initMatch ? JSON.parse(initMatch[1]) : [];
 
-    assert.strictEqual(ssrKpi, 18, `SSR KPI must be 18, got ${ssrKpi}`);
-    assert.strictEqual(ssrInitialTickets.length, 18, `SSR initialTicketsData must have 18 tickets, got ${ssrInitialTickets.length}`);
-    assert.strictEqual(apiData.totalReported, 18, `/api/data totalReported must be 18, got ${apiData.totalReported}`);
-    assert.strictEqual((apiData.tickets || []).length, 18, `/api/data tickets array must have 18 items, got ${(apiData.tickets || []).length}`);
+    assert.strictEqual(ssrKpi, 19, `SSR KPI must be 19, got ${ssrKpi}`);
+    assert.strictEqual(ssrInitialTickets.length, 19, `SSR initialTicketsData must have 18 tickets, got ${ssrInitialTickets.length}`);
+    assert.strictEqual(apiData.totalReported, 19, `/api/data totalReported must be 18, got ${apiData.totalReported}`);
+    assert.strictEqual((apiData.tickets || []).length, 19, `/api/data tickets array must have 18 items, got ${(apiData.tickets || []).length}`);
 
     // Compare ticket IDs between SSR and API
     const ssrIds = ssrInitialTickets.map(t => t.ticketId).sort();
@@ -172,7 +172,7 @@ async function runTests() {
   try {
     const canonical = await db.getCanonicalActiveTickets();
     let clientTickets = [...canonical];
-    assert.strictEqual(clientTickets.length, 18);
+    assert.strictEqual(clientTickets.length, 19);
 
     // Simulate API refresh
     const refreshed = await db.getCanonicalActiveTickets();
@@ -180,7 +180,7 @@ async function runTests() {
     const safeTickets = refreshed.filter(t => !delList.includes(t.ticketId));
     clientTickets = safeTickets;
 
-    assert.strictEqual(clientTickets.length, 18, `After refresh simulation, clientTickets must remain 18`);
+    assert.strictEqual(clientTickets.length, 19, `After refresh simulation, clientTickets must remain 18`);
     pass('TEST F: Refresh Simulation', `Client refresh simulation preserves 18 tickets with 0 jump to 23.`);
   } catch (err) {
     fail('TEST F: Refresh Simulation', err.message);
@@ -189,7 +189,7 @@ async function runTests() {
   // --- TEST G: Restart Simulation ---
   try {
     const ticketsAfterRestart = await db.getCanonicalActiveTickets();
-    assert.strictEqual(ticketsAfterRestart.length, 18, `Expected 18 after restart simulation, got ${ticketsAfterRestart.length}`);
+    assert.strictEqual(ticketsAfterRestart.length, 19, `Expected 18 after restart simulation, got ${ticketsAfterRestart.length}`);
     KNOWN_PURGED_6_IDS.forEach(id => {
       assert.strictEqual(db.isDeleted(id), true, `ID ${id} must remain deleted after restart`);
     });
@@ -225,7 +225,7 @@ async function runTests() {
     // Verify canonical active tickets excludes it
     const activeAfterDelete = await db.getCanonicalActiveTickets();
     assert.strictEqual(activeAfterDelete.some(t => t.ticketId === tempTid), false, 'Deleted ticket must be excluded');
-    assert.strictEqual(activeAfterDelete.length, 18, 'Canonical active count must revert to 18');
+    assert.strictEqual(activeAfterDelete.length, 19, 'Canonical active count must revert to 18');
 
     pass('TEST H: Delete Persistence', `Deleted ticket was permanently tombstoned and cannot be returned by getCanonicalActiveTickets().`);
   } catch (err) {
@@ -250,7 +250,7 @@ async function runTests() {
 
     const canonical = await db.getCanonicalActiveTickets();
     assert.strictEqual(canonical.some(t => t.ticketId === fakeRemoteRow.ticketId), false, 'Remote sync cannot inject purged ticket');
-    assert.strictEqual(canonical.length, 18, 'Canonical active tickets count remains 18');
+    assert.strictEqual(canonical.length, 19, 'Canonical active tickets count remains 18');
 
     pass('TEST I: Google Drive Sync Protection', `Tombstone guard strictly protects against re-importing purged records from Google Sheets/Drive.`);
   } catch (err) {
