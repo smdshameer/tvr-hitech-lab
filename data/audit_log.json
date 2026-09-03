@@ -1,5 +1,13 @@
 [
   {
+    "timestamp": "3/9/2026, 10:55:57 pm",
+    "isoTime": "2026-09-03T17:25:57.879Z",
+    "action": "LOGIN_SUCCESS",
+    "ip": "127.0.0.1",
+    "user": "Mohamed Shameer",
+    "role": "Field Engineer"
+  },
+  {
     "timestamp": "3/9/2026, 10:37:39 pm",
     "isoTime": "2026-09-03T17:07:39.743Z",
     "action": "LOGIN_SUCCESS",
