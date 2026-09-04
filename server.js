@@ -935,6 +935,9 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
     console.log(`[DRIVE] Slot 1: HM REPORT`);
     console.log(`[DRIVE] Slot 2: GPS COMPLETION`);
 
+    const resolvedHmDriveFileId = payload.hmDriveFileId || ticket.hmDriveFileId || (ticket.completionEvidence && ticket.completionEvidence.hmSignedReport && ticket.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(payload.hmReportPhotoUrl) || extractDriveFileId(ticket.hmReportPhotoUrl) || '';
+    const resolvedCompDriveFileId = payload.compDriveFileId || ticket.compDriveFileId || (ticket.completionEvidence && ticket.completionEvidence.completionPhoto && ticket.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(payload.completionPhotoUrl) || extractDriveFileId(ticket.completionPhotoUrl) || '';
+
     const gasBody = {
       action: 'update',
       ticketId: ticket.ticketId,
@@ -949,8 +952,8 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       completionPhotoBase64: payload.completionPhotoBase64 || '',
       hmReportPhotoUrl: payload.hmReportPhotoUrl || ticket.hmReportPhotoUrl || '',
       completionPhotoUrl: payload.completionPhotoUrl || ticket.completionPhotoUrl || '',
-      hmDriveFileId: payload.hmDriveFileId || ticket.hmDriveFileId || '',
-      compDriveFileId: payload.compDriveFileId || ticket.compDriveFileId || '',
+      hmDriveFileId: resolvedHmDriveFileId,
+      compDriveFileId: resolvedCompDriveFileId,
       completionEvidenceStatus: payload.completionEvidenceStatus || ticket.completionEvidenceStatus || '',
       gpsLatitude: payload.gpsLatitude || null,
       gpsLongitude: payload.gpsLongitude || null
@@ -976,8 +979,18 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       if (result && result.success) {
         console.log(`🚀 [GOOGLE DRIVE EVIDENCE SYNC SUCCESS] Ticket ${ticket.ticketId}:`, result);
 
-        const hmId = result.hmDriveFileId || (result.slot1 && result.slot1.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'HM_REPORT')?.fileId) || (result.slot === 'HM_REPORT' ? result.fileId : '') || '';
-        const compId = result.compDriveFileId || (result.slot2 && result.slot2.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'GPS_COMPLETION')?.fileId) || (result.slot === 'GPS_COMPLETION' ? result.fileId : '') || '';
+        const hmId = result.hmDriveFileId || (result.slot1 && result.slot1.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'HM_REPORT')?.fileId) || (result.slot === 'HM_REPORT' ? result.fileId : '') || resolvedHmDriveFileId || '';
+        const compId = result.compDriveFileId || (result.slot2 && result.slot2.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'GPS_COMPLETION')?.fileId) || (result.slot === 'GPS_COMPLETION' ? result.fileId : '') || resolvedCompDriveFileId || '';
+
+        if (payload.hmReportPhotoBase64 && !hmId) {
+          console.warn(`[DRIVE] Slot 1 HM Report base64 was sent but no Drive File ID was returned`);
+          return { success: false, error: 'Google Drive did not return a file ID for HM Signed Completion Report' };
+        }
+        if (payload.completionPhotoBase64 && !compId) {
+          console.warn(`[DRIVE] Slot 2 Completion photo base64 was sent but no Drive File ID was returned`);
+          return { success: false, error: 'Google Drive did not return a file ID for GPS Completion Photo' };
+        }
+
         const hmUrl = (result.hmReportPhotoUrl && !result.hmReportPhotoUrl.startsWith('/uploads/')) 
           ? result.hmReportPhotoUrl 
           : (hmId ? `https://drive.google.com/thumbnail?id=${hmId}&sz=w800` : '');
@@ -1025,6 +1038,30 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
         if (result.hmDriveUrl || hmUrl) driveUpdates.hmDriveUrl = result.hmDriveUrl || hmUrl;
         if (result.compDriveUrl || compUrl) driveUpdates.compDriveUrl = result.compDriveUrl || compUrl;
         if (result.evidencePhotos && result.evidencePhotos.length > 0) driveUpdates.evidencePhotos = result.evidencePhotos;
+
+        const prevEv = ticket.completionEvidence || {};
+        const prevHm = prevEv.hmSignedReport || {};
+        const prevComp = prevEv.completionPhoto || {};
+        const finalHmUploaded = !!(hmId || hmUrl || prevHm.uploaded);
+        const finalCompUploaded = !!(compId || compUrl || prevComp.uploaded);
+        driveUpdates.completionEvidence = {
+          ...prevEv,
+          hmSignedReport: {
+            ...prevHm,
+            uploaded: finalHmUploaded,
+            fileUrl: hmUrl || (hmId ? `https://drive.google.com/thumbnail?id=${hmId}&sz=w800` : prevHm.fileUrl || ''),
+            driveFileId: hmId || prevHm.driveFileId || '',
+            originalFileName: `${ticket.ticketId}_HM_Signed_Completion_Report.jpg`
+          },
+          completionPhoto: {
+            ...prevComp,
+            uploaded: finalCompUploaded,
+            fileUrl: compUrl || (compId ? `https://drive.google.com/thumbnail?id=${compId}&sz=w800` : prevComp.fileUrl || ''),
+            driveFileId: compId || prevComp.driveFileId || '',
+            originalFileName: `${ticket.ticketId}_Completion_UPS_GPS.jpg`
+          },
+          status: (finalHmUploaded && finalCompUploaded) ? 'complete' : 'partial'
+        };
 
         if (Object.keys(driveUpdates).length > 0) {
           await db.updateTicket(ticket.ticketId, driveUpdates);
@@ -2084,7 +2121,9 @@ async function handleRequest(req, res) {
           // Preserve existing HM report photo & permanent Drive ID
           if (!data.hmReportPhotoUrl && existingCurTicket.hmReportPhotoUrl) data.hmReportPhotoUrl = existingCurTicket.hmReportPhotoUrl;
           if (!data.hmReportPhotoBase64 && existingCurTicket.hmReportPhotoBase64) data.hmReportPhotoBase64 = existingCurTicket.hmReportPhotoBase64;
-          if (!data.hmDriveFileId && existingCurTicket.hmDriveFileId) data.hmDriveFileId = existingCurTicket.hmDriveFileId;
+          if (!data.hmDriveFileId) {
+            data.hmDriveFileId = existingCurTicket.hmDriveFileId || (existingCurTicket.completionEvidence && existingCurTicket.completionEvidence.hmSignedReport && existingCurTicket.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(existingCurTicket.hmReportPhotoUrl) || '';
+          }
         }
 
         if (data.completionPhotoBase64 && typeof data.completionPhotoBase64 === 'string' && data.completionPhotoBase64.startsWith('data:image')) {
@@ -2101,7 +2140,9 @@ async function handleRequest(req, res) {
           // Preserve existing Completion photo & permanent Drive ID
           if (!data.completionPhotoUrl && existingCurTicket.completionPhotoUrl) data.completionPhotoUrl = existingCurTicket.completionPhotoUrl;
           if (!data.completionPhotoBase64 && existingCurTicket.completionPhotoBase64) data.completionPhotoBase64 = existingCurTicket.completionPhotoBase64;
-          if (!data.compDriveFileId && existingCurTicket.compDriveFileId) data.compDriveFileId = existingCurTicket.compDriveFileId;
+          if (!data.compDriveFileId) {
+            data.compDriveFileId = existingCurTicket.compDriveFileId || (existingCurTicket.completionEvidence && existingCurTicket.completionEvidence.completionPhoto && existingCurTicket.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(existingCurTicket.completionPhotoUrl) || '';
+          }
         }
 
         // Server-Side Validation: Closure requires meaningful resolution notes
@@ -2180,6 +2221,10 @@ async function handleRequest(req, res) {
                   if (driveSyncRes.compDriveFileId) {
                     extraUpdates.compDriveFileId = driveSyncRes.compDriveFileId;
                     data.compDriveFileId = driveSyncRes.compDriveFileId;
+                  }
+                  if (driveSyncRes.driveUpdates && driveSyncRes.driveUpdates.completionEvidence) {
+                    extraUpdates.completionEvidence = driveSyncRes.driveUpdates.completionEvidence;
+                    data.completionEvidence = driveSyncRes.driveUpdates.completionEvidence;
                   }
                   if (Object.keys(extraUpdates).length > 0) {
                     await db.updateTicket(data.ticketId, extraUpdates);
@@ -2450,6 +2495,12 @@ if (pathname === '/api/data' && req.method === 'GET') {
 
     ticketsResponse.forEach(t => {
       if (!t) return;
+      if (!t.hmDriveFileId) {
+        t.hmDriveFileId = (t.completionEvidence && t.completionEvidence.hmSignedReport && t.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(t.hmReportPhotoUrl) || '';
+      }
+      if (!t.compDriveFileId) {
+        t.compDriveFileId = (t.completionEvidence && t.completionEvidence.completionPhoto && t.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(t.completionPhotoUrl) || '';
+      }
       if (t.hmDriveFileId && (!t.hmReportPhotoUrl || t.hmReportPhotoUrl.startsWith('/uploads/'))) {
         t.hmReportPhotoUrl = 'https://drive.google.com/thumbnail?id=' + t.hmDriveFileId + '&sz=w800';
       }
@@ -7515,11 +7566,31 @@ function getITSMWorkbenchHtml(initialTickets = []) {
   initialTickets = initialTickets.filter(t => !db.isTestOrPurgedTicket(t) && !db.isDeleted(t.ticketId));
   initialTickets.forEach(t => {
     if (!t) return;
+    if (!t.hmDriveFileId) {
+      t.hmDriveFileId = (t.completionEvidence && t.completionEvidence.hmSignedReport && t.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(t.hmReportPhotoUrl) || '';
+    }
+    if (!t.compDriveFileId) {
+      t.compDriveFileId = (t.completionEvidence && t.completionEvidence.completionPhoto && t.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(t.completionPhotoUrl) || '';
+    }
     if (t.hmDriveFileId && (!t.hmReportPhotoUrl || t.hmReportPhotoUrl.startsWith('/uploads/'))) {
       t.hmReportPhotoUrl = 'https://drive.google.com/thumbnail?id=' + t.hmDriveFileId + '&sz=w800';
     }
     if (t.compDriveFileId && (!t.completionPhotoUrl || t.completionPhotoUrl.startsWith('/uploads/'))) {
       t.completionPhotoUrl = 'https://drive.google.com/thumbnail?id=' + t.compDriveFileId + '&sz=w800';
+    }
+    if (t.completionEvidence) {
+      if (t.hmDriveFileId && t.completionEvidence.hmSignedReport) {
+        t.completionEvidence.hmSignedReport.driveFileId = t.hmDriveFileId;
+        if (!t.completionEvidence.hmSignedReport.fileUrl || t.completionEvidence.hmSignedReport.fileUrl.startsWith('/uploads/')) {
+          t.completionEvidence.hmSignedReport.fileUrl = 'https://drive.google.com/thumbnail?id=' + t.hmDriveFileId + '&sz=w800';
+        }
+      }
+      if (t.compDriveFileId && t.completionEvidence.completionPhoto) {
+        t.completionEvidence.completionPhoto.driveFileId = t.compDriveFileId;
+        if (!t.completionEvidence.completionPhoto.fileUrl || t.completionEvidence.completionPhoto.fileUrl.startsWith('/uploads/')) {
+          t.completionEvidence.completionPhoto.fileUrl = 'https://drive.google.com/thumbnail?id=' + t.compDriveFileId + '&sz=w800';
+        }
+      }
     }
   });
   initialTickets.sort((a, b) => {
@@ -9746,7 +9817,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (isNewHmUpload && editHmReportPhoto && editHmReportPhoto.startsWith('data:image')) {
           norm = editHmReportPhoto;
         } else if (curTicket) {
-          const hmFid = curTicket.hmDriveFileId || extractDriveFileId(curTicket.hmReportPhotoUrl) || extractDriveFileId(editHmReportPhoto);
+          const hmFid = curTicket.hmDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(curTicket.hmReportPhotoUrl) || extractDriveFileId(editHmReportPhoto);
           if (hmFid) norm = 'https://lh3.googleusercontent.com/d/' + hmFid + '=w800';
           else if (curTicket.hmReportPhotoBase64) norm = curTicket.hmReportPhotoBase64;
           else if (curTicket.hmReportPhotoUrl && curTicket.hmReportPhotoUrl.startsWith('http')) norm = curTicket.hmReportPhotoUrl;
@@ -9772,7 +9843,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           hmImg.style.display = 'block';
           noHm.style.display = 'none';
           hmImg.onerror = function() {
-            const fid = (curTicket && curTicket.hmDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl);
+            const fid = (curTicket && (curTicket.hmDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.driveFileId))) || extractDriveFileId(this.src) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl);
             if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
               this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
@@ -9811,7 +9882,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         if (isNewCompUpload && editCompletionPhoto && editCompletionPhoto.startsWith('data:image')) {
           norm = editCompletionPhoto;
         } else if (curTicket) {
-          const compFid = curTicket.compDriveFileId || extractDriveFileId(curTicket.completionPhotoUrl) || extractDriveFileId(editCompletionPhoto);
+          const compFid = curTicket.compDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(curTicket.completionPhotoUrl) || extractDriveFileId(editCompletionPhoto);
           if (compFid) norm = 'https://lh3.googleusercontent.com/d/' + compFid + '=w800';
           else if (curTicket.completionPhotoBase64) norm = curTicket.completionPhotoBase64;
           else if (curTicket.completionPhotoUrl && curTicket.completionPhotoUrl.startsWith('http')) norm = curTicket.completionPhotoUrl;
@@ -9837,7 +9908,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           compImg.style.display = 'block';
           noComp.style.display = 'none';
           compImg.onerror = function() {
-            const fid = (curTicket && curTicket.compDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl);
+            const fid = (curTicket && (curTicket.compDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.driveFileId))) || extractDriveFileId(this.src) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl);
             if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
               this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
@@ -9915,7 +9986,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     function viewHmReportFullscreen() {
       const curTicket = (allTickets || []).find(i => (i.ticketId || i.id) === currentEditingTicketId);
-      const hmFid = (curTicket && curTicket.hmDriveFileId) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl) || extractDriveFileId(editHmReportPhoto);
+      const hmFid = (curTicket && (curTicket.hmDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.driveFileId))) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl) || extractDriveFileId(editHmReportPhoto);
       let viewUrl = '';
       if (isNewHmUpload && editHmReportPhoto && editHmReportPhoto.startsWith('data:image')) {
         viewUrl = editHmReportPhoto;
@@ -10071,7 +10142,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
     function viewCompletionPhotoFullscreen() {
       const curTicket = (allTickets || []).find(i => (i.ticketId || i.id) === currentEditingTicketId);
-      const compFid = (curTicket && curTicket.compDriveFileId) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl) || extractDriveFileId(editCompletionPhoto);
+      const compFid = (curTicket && (curTicket.compDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.driveFileId))) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl) || extractDriveFileId(editCompletionPhoto);
       let viewUrl = '';
       if (isNewCompUpload && editCompletionPhoto && editCompletionPhoto.startsWith('data:image')) {
         viewUrl = editCompletionPhoto;
@@ -10147,10 +10218,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           const compEv = ev.completionPhoto || {};
           const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
           const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
-          const hmDriveFileId = t.hmDriveFileId || extractDriveFileId(hmUrl) || (hmEv.uploaded && hmEv.driveFileId) || "";
-          const compDriveFileId = t.compDriveFileId || extractDriveFileId(compUrl) || (compEv.uploaded && compEv.driveFileId) || "";
-          const resolvedHmDisplay = (hmDriveFileId ? ('https://lh3.googleusercontent.com/d/' + hmDriveFileId + '=w800') : '') || hmUrl || t.hmReportPhotoBase64 || hmEv.data || "";
-          const resolvedCompDisplay = (compDriveFileId ? ('https://lh3.googleusercontent.com/d/' + compDriveFileId + '=w800') : '') || compUrl || t.completionPhotoBase64 || compEv.data || "";
+          const hmDriveFileId = t.hmDriveFileId || extractDriveFileId(hmUrl) || (hmEv.uploaded && hmEv.driveFileId) || hmEv.driveFileId || "";
+          const compDriveFileId = t.compDriveFileId || extractDriveFileId(compUrl) || (compEv.uploaded && compEv.driveFileId) || compEv.driveFileId || "";
+          const resolvedHmDisplay = (hmDriveFileId ? ('https://lh3.googleusercontent.com/d/' + hmDriveFileId + '=w800') : '') || (hmUrl && !hmUrl.startsWith('/uploads/') ? hmUrl : '') || t.hmReportPhotoBase64 || hmEv.data || "";
+          const resolvedCompDisplay = (compDriveFileId ? ('https://lh3.googleusercontent.com/d/' + compDriveFileId + '=w800') : '') || (compUrl && !compUrl.startsWith('/uploads/') ? compUrl : '') || t.completionPhotoBase64 || compEv.data || "";
 
           editHmReportPhoto = resolvedHmDisplay;
           editCompletionPhoto = resolvedCompDisplay;

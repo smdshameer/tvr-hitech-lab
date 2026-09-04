@@ -689,6 +689,28 @@ KNOWN_TEST_PURGED_IDS.forEach(id => {
   PERMANENT_TOMBSTONES.add(id);
 });
 
+function extractDriveFileId(url) {
+  if (!url || typeof url !== 'string') return '';
+  const u = url.trim();
+  if (!u || u === 'No Photo') return '';
+  if (u.includes('drive.google.com/file/d/')) {
+    const parts = u.split('drive.google.com/file/d/')[1];
+    return parts.split('/')[0].split('?')[0];
+  }
+  if (u.includes('googleusercontent.com/d/')) {
+    const parts = u.split('googleusercontent.com/d/')[1];
+    return parts.split('=')[0].split('?')[0].split('/')[0];
+  }
+  if (u.includes('id=')) {
+    const parts = u.split('id=')[1];
+    if (parts) return parts.split('&')[0].split('/')[0];
+  }
+  if (/^[a-zA-Z0-9_-]{25,45}$/.test(u)) {
+    return u;
+  }
+  return '';
+}
+
 function reloadTombstonesFromDisk() {
   try {
     const delFiles = [
@@ -1285,31 +1307,60 @@ async function syncGasTickets() {
               completionPhotoUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || (existing.completionEvidence?.completionPhoto?.fileUrl) || '',
               hmReportPhotoBase64: existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64 || (existing.completionEvidence?.hmSignedReport?.data) || '',
               completionPhotoBase64: existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64 || (existing.completionEvidence?.completionPhoto?.data) || '',
-              completionEvidence: existing.completionEvidence || cleanTicket.completionEvidence || (existing.hmReportPhotoUrl || existing.completionPhotoUrl || existing.hmReportPhotoBase64 || existing.completionPhotoBase64 ? {
-                hmSignedReport: {
-                  uploaded: !!(existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64),
-                  fileUrl: existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || '',
-                  data: existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64 || (existing.completionEvidence?.hmSignedReport?.data) || '',
-                  uploadedAt: existing.completionEvidence?.hmSignedReport?.uploadedAt || existing.completionDate || normDate,
-                  submittedBy: existing.completionEvidence?.hmSignedReport?.submittedBy || existing.completedBy || 'AI Teacher',
-                  source: existing.completionEvidence?.hmSignedReport?.source || 'AI Teacher'
-                },
-                completionPhoto: {
-                  uploaded: !!(existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64),
-                  fileUrl: existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || '',
-                  data: existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64 || (existing.completionEvidence?.completionPhoto?.data) || '',
-                  uploadedAt: existing.completionEvidence?.completionPhoto?.uploadedAt || existing.completionDate || normDate,
-                  submittedBy: existing.completionEvidence?.completionPhoto?.submittedBy || existing.completedBy || 'AI Teacher',
-                  source: existing.completionEvidence?.completionPhoto?.source || 'AI Teacher',
-                  gpsLatitude: existing.gpsLatitude,
-                  gpsLongitude: existing.gpsLongitude,
-                  gpsAccuracy: existing.gpsAccuracy,
-                  gpsWatermarkRequired: true
-                },
-                status: ((existing.hmReportPhotoUrl || existing.hmReportPhotoBase64) && (existing.completionPhotoUrl || existing.completionPhotoBase64)) ? 'complete' : 'partial',
-                completedAt: existing.completionDate || normDate,
-                completedBy: existing.completedBy || 'AI Teacher'
-              } : undefined),
+              completionEvidence: (function() {
+                const baseEv = existing.completionEvidence || cleanTicket.completionEvidence;
+                const finalHmId = existing.hmDriveFileId || cleanTicket.hmDriveFileId || baseEv?.hmSignedReport?.driveFileId || extractDriveFileId(existing.hmReportPhotoUrl) || extractDriveFileId(cleanTicket.hmReportPhotoUrl) || '';
+                const finalCompId = existing.compDriveFileId || cleanTicket.compDriveFileId || baseEv?.completionPhoto?.driveFileId || extractDriveFileId(existing.completionPhotoUrl) || extractDriveFileId(cleanTicket.completionPhotoUrl) || '';
+                if (baseEv) {
+                  return {
+                    ...baseEv,
+                    hmSignedReport: {
+                      ...(baseEv.hmSignedReport || {}),
+                      driveFileId: finalHmId || baseEv.hmSignedReport?.driveFileId || '',
+                      fileUrl: (!baseEv.hmSignedReport?.fileUrl || baseEv.hmSignedReport.fileUrl.startsWith('/uploads/'))
+                        ? (finalHmId ? ('https://drive.google.com/thumbnail?id=' + finalHmId + '&sz=w800') : (baseEv.hmSignedReport?.fileUrl || ''))
+                        : baseEv.hmSignedReport.fileUrl
+                    },
+                    completionPhoto: {
+                      ...(baseEv.completionPhoto || {}),
+                      driveFileId: finalCompId || baseEv.completionPhoto?.driveFileId || '',
+                      fileUrl: (!baseEv.completionPhoto?.fileUrl || baseEv.completionPhoto.fileUrl.startsWith('/uploads/'))
+                        ? (finalCompId ? ('https://drive.google.com/thumbnail?id=' + finalCompId + '&sz=w800') : (baseEv.completionPhoto?.fileUrl || ''))
+                        : baseEv.completionPhoto.fileUrl
+                    }
+                  };
+                }
+                if (existing.hmReportPhotoUrl || existing.completionPhotoUrl || existing.hmReportPhotoBase64 || existing.completionPhotoBase64 || finalHmId || finalCompId) {
+                  return {
+                    hmSignedReport: {
+                      uploaded: !!(finalHmId || existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64),
+                      fileUrl: (finalHmId ? ('https://drive.google.com/thumbnail?id=' + finalHmId + '&sz=w800') : (existing.hmReportPhotoUrl || cleanTicket.hmReportPhotoUrl || '')),
+                      data: existing.hmReportPhotoBase64 || cleanTicket.hmReportPhotoBase64 || '',
+                      driveFileId: finalHmId,
+                      uploadedAt: existing.completionDate || normDate,
+                      submittedBy: existing.completedBy || 'AI Teacher',
+                      source: 'AI Teacher'
+                    },
+                    completionPhoto: {
+                      uploaded: !!(finalCompId || existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64),
+                      fileUrl: (finalCompId ? ('https://drive.google.com/thumbnail?id=' + finalCompId + '&sz=w800') : (existing.completionPhotoUrl || cleanTicket.completionPhotoUrl || '')),
+                      data: existing.completionPhotoBase64 || cleanTicket.completionPhotoBase64 || '',
+                      driveFileId: finalCompId,
+                      uploadedAt: existing.completionDate || normDate,
+                      submittedBy: existing.completedBy || 'AI Teacher',
+                      source: 'AI Teacher',
+                      gpsLatitude: existing.gpsLatitude,
+                      gpsLongitude: existing.gpsLongitude,
+                      gpsAccuracy: existing.gpsAccuracy,
+                      gpsWatermarkRequired: true
+                    },
+                    status: ((finalHmId || existing.hmReportPhotoUrl || existing.hmReportPhotoBase64) && (finalCompId || existing.completionPhotoUrl || existing.completionPhotoBase64)) ? 'complete' : 'partial',
+                    completedAt: existing.completionDate || normDate,
+                    completedBy: existing.completedBy || 'AI Teacher'
+                  };
+                }
+                return undefined;
+              })(),
               completionEvidenceRequested: (existing.completionEvidenceRequested !== undefined) ? existing.completionEvidenceRequested : cleanTicket.completionEvidenceRequested,
               completionEvidenceRequestedAt: existing.completionEvidenceRequestedAt || cleanTicket.completionEvidenceRequestedAt,
               completionEvidenceRequestedBy: existing.completionEvidenceRequestedBy || cleanTicket.completionEvidenceRequestedBy,
@@ -1334,11 +1385,44 @@ async function syncGasTickets() {
               p2DriveFileId: existing.p2DriveFileId || cleanTicket.p2DriveFileId || '',
               p3DriveFileId: existing.p3DriveFileId || cleanTicket.p3DriveFileId || '',
               p4DriveFileId: existing.p4DriveFileId || cleanTicket.p4DriveFileId || '',
-              hmDriveFileId: existing.hmDriveFileId || cleanTicket.hmDriveFileId || '',
-              compDriveFileId: existing.compDriveFileId || cleanTicket.compDriveFileId || '',
+              hmDriveFileId: existing.hmDriveFileId || cleanTicket.hmDriveFileId || extractDriveFileId(existing.hmReportPhotoUrl) || extractDriveFileId(cleanTicket.hmReportPhotoUrl) || '',
+              compDriveFileId: existing.compDriveFileId || cleanTicket.compDriveFileId || extractDriveFileId(existing.completionPhotoUrl) || extractDriveFileId(cleanTicket.completionPhotoUrl) || '',
               timeline: (existing.timeline && existing.timeline.length > 0) ? existing.timeline : (cleanTicket.timeline || [])
             };
           } else {
+            const finalCleanHmId = cleanTicket.hmDriveFileId || extractDriveFileId(cleanTicket.hmReportPhotoUrl) || '';
+            const finalCleanCompId = cleanTicket.compDriveFileId || extractDriveFileId(cleanTicket.completionPhotoUrl) || '';
+            cleanTicket.hmDriveFileId = finalCleanHmId;
+            cleanTicket.compDriveFileId = finalCleanCompId;
+            if (!cleanTicket.completionEvidence && (finalCleanHmId || finalCleanCompId || cleanTicket.hmReportPhotoUrl || cleanTicket.completionPhotoUrl)) {
+              cleanTicket.completionEvidence = {
+                hmSignedReport: {
+                  uploaded: !!(finalCleanHmId || cleanTicket.hmReportPhotoUrl),
+                  fileUrl: cleanTicket.hmReportPhotoUrl || (finalCleanHmId ? ('https://drive.google.com/thumbnail?id=' + finalCleanHmId + '&sz=w800') : ''),
+                  data: '',
+                  driveFileId: finalCleanHmId,
+                  uploadedAt: cleanTicket.createdDate || normDate,
+                  submittedBy: cleanTicket.completedBy || cleanTicket.aiName || 'AI Teacher',
+                  source: 'AI Teacher'
+                },
+                completionPhoto: {
+                  uploaded: !!(finalCleanCompId || cleanTicket.completionPhotoUrl),
+                  fileUrl: cleanTicket.completionPhotoUrl || (finalCleanCompId ? ('https://drive.google.com/thumbnail?id=' + finalCleanCompId + '&sz=w800') : ''),
+                  data: '',
+                  driveFileId: finalCleanCompId,
+                  uploadedAt: cleanTicket.createdDate || normDate,
+                  submittedBy: cleanTicket.completedBy || cleanTicket.aiName || 'AI Teacher',
+                  source: 'AI Teacher',
+                  gpsLatitude: cleanTicket.gpsLatitude,
+                  gpsLongitude: cleanTicket.gpsLongitude,
+                  gpsAccuracy: cleanTicket.gpsAccuracy,
+                  gpsWatermarkRequired: true
+                },
+                status: ((finalCleanHmId || cleanTicket.hmReportPhotoUrl) && (finalCleanCompId || cleanTicket.completionPhotoUrl)) ? 'complete' : 'partial',
+                completedAt: cleanTicket.createdDate || normDate,
+                completedBy: cleanTicket.completedBy || cleanTicket.aiName || 'AI Teacher'
+              };
+            }
             localTickets.unshift(cleanTicket);
           }
           added++;
@@ -1850,8 +1934,14 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.p2DriveFileId !== undefined) ticket.p2DriveFileId = updateData.p2DriveFileId;
     if (updateData.p3DriveFileId !== undefined) ticket.p3DriveFileId = updateData.p3DriveFileId;
     if (updateData.p4DriveFileId !== undefined) ticket.p4DriveFileId = updateData.p4DriveFileId;
-    if (updateData.hmDriveFileId !== undefined && (updateData.hmDriveFileId || !ticket.hmDriveFileId)) ticket.hmDriveFileId = updateData.hmDriveFileId;
-    if (updateData.compDriveFileId !== undefined && (updateData.compDriveFileId || !ticket.compDriveFileId)) ticket.compDriveFileId = updateData.compDriveFileId;
+    const derivedHmId = updateData.hmDriveFileId || extractDriveFileId(updateData.hmReportPhotoUrl || '') || '';
+    if (derivedHmId) ticket.hmDriveFileId = derivedHmId;
+    else if (updateData.hmDriveFileId !== undefined && (updateData.hmDriveFileId || !ticket.hmDriveFileId)) ticket.hmDriveFileId = updateData.hmDriveFileId;
+
+    const derivedCompId = updateData.compDriveFileId || extractDriveFileId(updateData.completionPhotoUrl || '') || '';
+    if (derivedCompId) ticket.compDriveFileId = derivedCompId;
+    else if (updateData.compDriveFileId !== undefined && (updateData.compDriveFileId || !ticket.compDriveFileId)) ticket.compDriveFileId = updateData.compDriveFileId;
+
     if (updateData.evidencePhotos !== undefined && Array.isArray(updateData.evidencePhotos)) {
       ticket.evidencePhotos = updateData.evidencePhotos;
     }
@@ -1867,6 +1957,8 @@ async function updateTicket(ticketId, updateData) {
       const prevComp = prevEv.completionPhoto || {};
       const newHm = updateData.completionEvidence.hmSignedReport || {};
       const newComp = updateData.completionEvidence.completionPhoto || {};
+      const activeHmFid = newHm.driveFileId || prevHm.driveFileId || ticket.hmDriveFileId || '';
+      const activeCompFid = newComp.driveFileId || prevComp.driveFileId || ticket.compDriveFileId || '';
 
       ticket.completionEvidence = {
         ...prevEv,
@@ -1874,40 +1966,47 @@ async function updateTicket(ticketId, updateData) {
         hmSignedReport: {
           ...prevHm,
           ...newHm,
-          uploaded: newHm.uploaded !== undefined ? newHm.uploaded : (prevHm.uploaded || !!ticket.hmReportPhotoUrl || !!ticket.hmReportPhotoBase64),
-          fileUrl: newHm.fileUrl || prevHm.fileUrl || ticket.hmReportPhotoUrl || '',
-          data: newHm.data || prevHm.data || ticket.hmReportPhotoBase64 || ''
+          uploaded: newHm.uploaded !== undefined ? newHm.uploaded : (prevHm.uploaded || !!activeHmFid || !!ticket.hmReportPhotoUrl || !!ticket.hmReportPhotoBase64),
+          fileUrl: (activeHmFid && (!newHm.fileUrl || newHm.fileUrl.startsWith('/uploads/'))) ? ('https://drive.google.com/thumbnail?id=' + activeHmFid + '&sz=w800') : (newHm.fileUrl || prevHm.fileUrl || ticket.hmReportPhotoUrl || ''),
+          data: newHm.data || prevHm.data || ticket.hmReportPhotoBase64 || '',
+          driveFileId: activeHmFid
         },
         completionPhoto: {
           ...prevComp,
           ...newComp,
-          uploaded: newComp.uploaded !== undefined ? newComp.uploaded : (prevComp.uploaded || !!ticket.completionPhotoUrl || !!ticket.completionPhotoBase64),
-          fileUrl: newComp.fileUrl || prevComp.fileUrl || ticket.completionPhotoUrl || '',
+          uploaded: newComp.uploaded !== undefined ? newComp.uploaded : (prevComp.uploaded || !!activeCompFid || !!ticket.completionPhotoUrl || !!ticket.completionPhotoBase64),
+          fileUrl: (activeCompFid && (!newComp.fileUrl || newComp.fileUrl.startsWith('/uploads/'))) ? ('https://drive.google.com/thumbnail?id=' + activeCompFid + '&sz=w800') : (newComp.fileUrl || prevComp.fileUrl || ticket.completionPhotoUrl || ''),
           data: newComp.data || prevComp.data || ticket.completionPhotoBase64 || '',
+          driveFileId: activeCompFid,
           gpsLatitude: newComp.gpsLatitude !== undefined ? newComp.gpsLatitude : (prevComp.gpsLatitude || ticket.gpsLatitude || null),
           gpsLongitude: newComp.gpsLongitude !== undefined ? newComp.gpsLongitude : (prevComp.gpsLongitude || ticket.gpsLongitude || null),
           gpsAccuracy: newComp.gpsAccuracy !== undefined ? newComp.gpsAccuracy : (prevComp.gpsAccuracy || ticket.gpsAccuracy || null),
           gpsWatermarkRequired: true
         },
-        status: ((ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64 || newHm.fileUrl || newHm.data) && (ticket.completionPhotoUrl || ticket.completionPhotoBase64 || newComp.fileUrl || newComp.data)) ? 'complete' : 'partial'
+        status: ((activeHmFid || ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64 || newHm.fileUrl || newHm.data) && (activeCompFid || ticket.completionPhotoUrl || ticket.completionPhotoBase64 || newComp.fileUrl || newComp.data)) ? 'complete' : 'partial'
       };
-    } else if (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl || ticket.hmReportPhotoBase64 || ticket.completionPhotoBase64) {
+    } else if (ticket.hmReportPhotoUrl || ticket.completionPhotoUrl || ticket.hmReportPhotoBase64 || ticket.completionPhotoBase64 || ticket.hmDriveFileId || ticket.compDriveFileId) {
       const prevEv = ticket.completionEvidence || {};
       const prevHm = prevEv.hmSignedReport || {};
       const prevComp = prevEv.completionPhoto || {};
+      const activeHmFid = prevHm.driveFileId || ticket.hmDriveFileId || '';
+      const activeCompFid = prevComp.driveFileId || ticket.compDriveFileId || '';
+
       ticket.completionEvidence = {
         hmSignedReport: {
-          uploaded: !!(ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64),
-          fileUrl: ticket.hmReportPhotoUrl || '',
+          uploaded: !!(activeHmFid || ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64),
+          fileUrl: (activeHmFid && (!ticket.hmReportPhotoUrl || ticket.hmReportPhotoUrl.startsWith('/uploads/'))) ? ('https://drive.google.com/thumbnail?id=' + activeHmFid + '&sz=w800') : (ticket.hmReportPhotoUrl || ''),
           data: ticket.hmReportPhotoBase64 || prevHm.data || '',
+          driveFileId: activeHmFid,
           uploadedAt: prevHm.uploadedAt || ticket.completionDate || dateStr,
           submittedBy: updateData.hmSubmittedBy || prevHm.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
           source: updateData.hmSource || prevHm.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer')
         },
         completionPhoto: {
-          uploaded: !!(ticket.completionPhotoUrl || ticket.completionPhotoBase64),
-          fileUrl: ticket.completionPhotoUrl || '',
+          uploaded: !!(activeCompFid || ticket.completionPhotoUrl || ticket.completionPhotoBase64),
+          fileUrl: (activeCompFid && (!ticket.completionPhotoUrl || ticket.completionPhotoUrl.startsWith('/uploads/'))) ? ('https://drive.google.com/thumbnail?id=' + activeCompFid + '&sz=w800') : (ticket.completionPhotoUrl || ''),
           data: ticket.completionPhotoBase64 || prevComp.data || '',
+          driveFileId: activeCompFid,
           uploadedAt: prevComp.uploadedAt || ticket.completionDate || dateStr,
           submittedBy: updateData.compSubmittedBy || prevComp.submittedBy || ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer'),
           source: updateData.compSource || prevComp.source || (updateData.source === 'AI Teacher' ? 'AI Teacher' : 'Engineer'),
@@ -1916,7 +2015,7 @@ async function updateTicket(ticketId, updateData) {
           gpsAccuracy: ticket.gpsAccuracy || null,
           gpsWatermarkRequired: true
         },
-        status: ((ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64) && (ticket.completionPhotoUrl || ticket.completionPhotoBase64)) ? 'complete' : 'partial',
+        status: ((activeHmFid || ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64) && (activeCompFid || ticket.completionPhotoUrl || ticket.completionPhotoBase64)) ? 'complete' : 'partial',
         completedAt: ticket.completionDate || dateStr,
         completedBy: ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer')
       };
@@ -2551,5 +2650,6 @@ module.exports = {
   normalizeIndianPhone,
   isValidIndianPhone,
   maskPhone,
-  syncGasTickets
+  syncGasTickets,
+  extractDriveFileId
 };
