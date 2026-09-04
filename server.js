@@ -1624,6 +1624,19 @@ async function handleRequest(req, res) {
         const p3Name = `UPS_B_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p3Res.ext}`;
         const p4Name = `UPS_T_${data.udise || 'TVR'}_${cleanSchool}_${ts}${p4Res.ext}`;
 
+        // Burn genuine GPS EXIF into the 4 intake JPEGs when live coords were sent (visual banner is client-side)
+        try {
+          const intakeLat = Number(data.gpsLatitude), intakeLon = Number(data.gpsLongitude);
+          if (Number.isFinite(intakeLat) && Number.isFinite(intakeLon)) {
+            [p1Res, p2Res, p3Res, p4Res].forEach(function(r) {
+              try {
+                if (r && r.buffer && r.buffer.length >= 4 && r.buffer[0] === 0xFF && r.buffer[1] === 0xD8) {
+                  r.buffer = injectGpsExif(r.buffer, intakeLat, intakeLon, new Date(), 'BROWSER_DEVICE_GPS');
+                }
+              } catch (e) { console.warn('Intake EXIF inject skipped:', e.message); }
+            });
+          }
+        } catch (e) { console.warn('Intake EXIF batch skipped:', e.message); }
         safeWriteFileSync(path.join(UPLOADS_DIR, p1Name), p1Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p2Name), p2Res.buffer);
         safeWriteFileSync(path.join(UPLOADS_DIR, p3Name), p3Res.buffer);
@@ -4698,7 +4711,7 @@ function getTeacherPortalHtml() {
               latitude: pos.coords.latitude,
               longitude: pos.coords.longitude,
               accuracy: pos.coords.accuracy,
-              timestamp: Date.now()
+              timestamp: pos.timestamp || Date.now()
             };
             if (typeof cb === 'function') cb(activeGpsCoords);
           },
@@ -4746,6 +4759,15 @@ function getTeacherPortalHtml() {
 
     const rawPhotos = { 1: null, 2: null, 3: null, 4: null };
 
+    const PHOTO_SLOT_LABELS = {
+      1: 'Photo 1/4 — UPS Display',
+      2: 'Photo 2/4 — Overall UPS Setup',
+      3: 'Photo 3/4 — Battery / MCB',
+      4: 'Photo 4/4 — Isolation Transformer'
+    };
+    const photoGpsOk = { 1: false, 2: false, 3: false, 4: false };
+    window.photoGpsOk = photoGpsOk;
+
     function renderWatermarkForSlot(index, callback) {
       const item = rawPhotos[index];
       if (!item || !item.img) return;
@@ -4756,7 +4778,7 @@ function getTeacherPortalHtml() {
       const btnGroup = document.getElementById('btnGroup' + index);
 
       const canvas = document.createElement('canvas');
-      const maxDim = 1000;
+      const maxDim = 1600;
       let width = img.width;
       let height = img.height;
       if (width > height && width > maxDim) {
@@ -4771,72 +4793,65 @@ function getTeacherPortalHtml() {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Live Maps / GPS Watermark on Complaint Photos
+      // Per-photo GPS snapshot (frozen at capture; falls back to latest shared fix)
+      const gps = (item.gps && Number.isFinite(Number(item.gps.latitude))) ? item.gps
+        : (activeGpsCoords && Number.isFinite(Number(activeGpsCoords.latitude)) ? activeGpsCoords : null);
+      const hasGps = !!(gps && Number.isFinite(Number(gps.latitude)) && Number.isFinite(Number(gps.longitude)));
+      photoGpsOk[index] = hasGps;
+
+      // Capture time + GPS fix time (with seconds)
       const now = item.timestamp || new Date();
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = now.getFullYear();
-      const dateStr = day + '/' + month + '/' + year;
-      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      function fmtDT(d) {
+        const p2 = function(n) { return String(n).padStart(2, '0'); };
+        return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+      }
+      const dateStr = fmtDT(now instanceof Date ? now : new Date(now));
+      let fixStr = '';
+      if (hasGps && gps.timestamp) {
+        try { fixStr = fmtDT(new Date(gps.timestamp)); } catch (e) { fixStr = ''; }
+      }
 
       const selMeta = getCurrentSchoolMetadata();
       let sName = 'Hi-Tech Lab UPS';
       let dName = 'Thiruvarur';
       let sUdise = '';
       if (selMeta) {
-        sName = (selMeta.schoolName || 'Hi-Tech Lab').substring(0, 28);
+        sName = (selMeta.schoolName || 'Hi-Tech Lab').substring(0, 44);
         dName = selMeta.district || 'Thiruvarur';
         sUdise = selMeta.udise || '';
       }
 
-      const fontSize = Math.max(11, Math.round(width * 0.022));
+      // Full-width bottom banner (harder to crop than corner card, readable on phones)
+      const fontSize = Math.max(13, Math.round(width * 0.028));
       ctx.font = 'bold ' + fontSize + 'px "Segoe UI", Arial, sans-serif';
 
-      let line1;
-      if (activeGpsCoords && activeGpsCoords.latitude !== null && activeGpsCoords.latitude !== undefined && !isNaN(Number(activeGpsCoords.latitude))) {
-        line1 = '📍 GPS: ' + Number(activeGpsCoords.latitude).toFixed(5) + '° N, ' + Number(activeGpsCoords.longitude).toFixed(5) + '° E';
+      const lines = [];
+      if (hasGps) {
+        lines.push({ text: '📍 GPS: ' + Number(gps.latitude).toFixed(5) + ' N, ' + Number(gps.longitude).toFixed(5) + ' E (±' + Math.round(Number(gps.accuracy) || 0) + 'm)', color: '#38bdf8' });
+        lines.push({ text: '📅 ' + dateStr + (fixStr ? '  •  🛰 Fix: ' + fixStr : ''), color: '#f8fafc' });
       } else {
-        line1 = '📍 GPS: Location Unavailable';
+        lines.push({ text: '📍 GPS UNAVAILABLE — RETAKE WITH LOCATION ON', color: '#f87171' });
+        lines.push({ text: '📅 ' + dateStr, color: '#f8fafc' });
       }
-      const line2 = '📅 ' + dateStr + '  🕐 ' + timeStr;
-      const line3 = '🏫 ' + sName;
-      const line4 = '🆔 UDISE: ' + (sUdise || 'Pending') + ' (' + dName + ')';
+      lines.push({ text: '🏫 ' + sName, color: '#fde047' });
+      lines.push({ text: '🆔 UDISE: ' + (sUdise || 'Pending') + ' (' + dName + ')  •  ' + (PHOTO_SLOT_LABELS[index] || ('Photo ' + index + '/4')), color: '#a7f3d0' });
 
       const pad = Math.round(fontSize * 0.7);
-      const lineH = Math.round(fontSize * 1.3);
-      const cardW = Math.max(
-        ctx.measureText(line1).width,
-        ctx.measureText(line2).width,
-        ctx.measureText(line3).width,
-        ctx.measureText(line4).width
-      ) + (pad * 2);
-      const cardH = (lineH * 4) + (pad * 1.5);
-      const cardX = width - cardW - Math.round(width * 0.02);
-      const cardY = height - cardH - Math.round(height * 0.02);
+      const lineH = Math.round(fontSize * 1.4);
+      const bannerH = (lineH * lines.length) + Math.round(pad * 1.2);
+      const bannerY = height - bannerH;
 
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
-      else ctx.rect(cardX, cardY, cardW, cardH);
-      ctx.fill();
+      ctx.fillStyle = hasGps ? 'rgba(15, 23, 42, 0.88)' : 'rgba(127, 29, 29, 0.90)';
+      ctx.fillRect(0, bannerY, width, bannerH);
+      ctx.fillStyle = hasGps ? '#38bdf8' : '#f87171';
+      ctx.fillRect(0, bannerY, width, Math.max(3, Math.round(fontSize * 0.22)));
 
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cardX, cardY, cardW, cardH, 8);
-      else ctx.rect(cardX, cardY, cardW, cardH);
-      ctx.stroke();
+      lines.forEach(function(ln, i) {
+        ctx.fillStyle = ln.color;
+        ctx.fillText(ln.text, pad, bannerY + pad * 0.6 + (fontSize * 0.85) + (lineH * i), width - (pad * 2));
+      });
 
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillText(line1, cardX + pad, cardY + pad + (fontSize * 0.85));
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillText(line2, cardX + pad, cardY + pad + (fontSize * 0.85) + lineH);
-      ctx.fillStyle = '#fde047';
-      ctx.fillText(line3, cardX + pad, cardY + pad + (fontSize * 0.85) + (lineH * 2));
-      ctx.fillStyle = '#a7f3d0';
-      ctx.fillText(line4, cardX + pad, cardY + pad + (fontSize * 0.85) + (lineH * 3));
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
       if (preview) preview.src = dataUrl;
       if (wrap) wrap.style.display = 'block';
       if (btnGroup) btnGroup.style.display = 'none';
@@ -4869,8 +4884,11 @@ function getTeacherPortalHtml() {
         reader.onload = function(ev) {
           img.src = ev.target.result;
           img.onload = function() {
-            rawPhotos[index] = { file: f, img: img, timestamp: new Date() };
-            acquireDeviceGps(function() {
+            rawPhotos[index] = { file: f, img: img, timestamp: new Date(), gps: null };
+            acquireDeviceGps(function(g) {
+              if (g && Number.isFinite(Number(g.latitude)) && Number.isFinite(Number(g.longitude))) {
+                rawPhotos[index].gps = { latitude: Number(g.latitude), longitude: Number(g.longitude), accuracy: g.accuracy, timestamp: g.timestamp || Date.now() };
+              }
               renderWatermarkForSlot(index, callback);
             });
           };
@@ -4888,6 +4906,7 @@ function getTeacherPortalHtml() {
       if (cam) cam.value = '';
       if (file) file.value = '';
       rawPhotos[index] = null;
+      if (typeof photoGpsOk !== 'undefined') photoGpsOk[index] = false;
       document.getElementById('previewWrap' + index).style.display = 'none';
       document.getElementById('btnGroup' + index).style.display = 'flex';
       if (index === 1) base64Photo1 = '';
@@ -4956,6 +4975,18 @@ function getTeacherPortalHtml() {
         showPhotoMissingAlert("photoBox4", 4, "Isolation Transformer (ஐசோலேஷன் டிரான்ஸ்பார்மர்)");
         return;
       }
+
+      // GPS watermark required on all 4 complaint photos (retake with Location ON if missing)
+      try {
+        const gpsLabels = { 1: 'Photo 1 (UPS Display)', 2: 'Photo 2 (Overall UPS Setup)', 3: 'Photo 3 (Battery MCB)', 4: 'Photo 4 (Isolation Transformer)' };
+        const missingGps = [1, 2, 3, 4].filter(function(i) { return !(typeof photoGpsOk !== 'undefined' && photoGpsOk[i]); });
+        if (missingGps.length > 0) {
+          alert('⚠️ GPS location missing on ' + missingGps.map(function(i) { return gpsLabels[i]; }).join(', ') + '.\nPlease turn ON Location/GPS and retake the photo(s) so the GPS watermark burns in.\n(GPS watermark is mandatory on all 4 photos.)');
+          const firstBox = document.getElementById('photoBox' + missingGps[0]);
+          if (firstBox) firstBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+      } catch (gpsCheckErr) { console.warn('GPS slot check skipped:', gpsCheckErr); }
 
       const remarksInput = document.getElementById('remarks');
       const remarksVal = (remarksInput && remarksInput.value) ? remarksInput.value.trim() : '';
