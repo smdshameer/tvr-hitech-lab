@@ -816,7 +816,9 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
     photo1Base64: rawData.photo1Base64,
     photo2Base64: rawData.photo2Base64,
     photo3Base64: rawData.photo3Base64,
-    photo4Base64: rawData.photo4Base64
+    photo4Base64: rawData.photo4Base64,
+    hmReportPhotoBase64: rawData.hmReportPhotoBase64 || '',
+    completionPhotoBase64: rawData.completionPhotoBase64 || ''
   };
 
   try {
@@ -2030,7 +2032,7 @@ async function handleRequest(req, res) {
   }
 
   // 3. API: Update Ticket Status (Engineer - Protected with Vendor Validation)
-  if (pathname === '/api/tickets/update' && req.method === 'POST') {
+  if ((pathname === '/api/tickets/update' || pathname === '/api/update') && req.method === 'POST') {
     const session = getAuthenticatedSession(req);
     if (!session) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -2155,6 +2157,9 @@ async function handleRequest(req, res) {
                   completionPhotoBase64: data.completionPhotoBase64,
                   hmReportPhotoUrl: data.hmReportPhotoUrl,
                   completionPhotoUrl: data.completionPhotoUrl,
+                  hmDriveFileId: data.hmDriveFileId || (existingCurTicket && existingCurTicket.hmDriveFileId) || (existingTicket && existingTicket.hmDriveFileId) || '',
+                  compDriveFileId: data.compDriveFileId || (existingCurTicket && existingCurTicket.compDriveFileId) || (existingTicket && existingTicket.compDriveFileId) || '',
+                  completionEvidenceStatus: data.completionEvidenceStatus || (existingCurTicket && existingCurTicket.completionEvidenceStatus) || '',
                   gpsLatitude: data.gpsLatitude,
                   gpsLongitude: data.gpsLongitude
                 });
@@ -9756,6 +9761,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           hmImg.setAttribute('referrerpolicy', 'no-referrer');
           hmImg.dataset.triedProxy = '';
           hmImg.dataset.triedEndpoint = '';
+          hmImg.onload = function() {
+            const hmBadge = document.getElementById("modalHmUploadedBadge");
+            if (hmBadge) {
+              hmBadge.textContent = "✅ Uploaded";
+              hmBadge.style.color = "#15803d";
+            }
+          };
           hmImg.src = norm;
           hmImg.style.display = 'block';
           noHm.style.display = 'none';
@@ -9773,11 +9785,21 @@ function getITSMWorkbenchHtml(initialTickets = []) {
             }
             this.style.display = 'none';
             if (noHm) noHm.style.display = 'block';
+            const hmBadge = document.getElementById("modalHmUploadedBadge");
+            if (hmBadge) {
+              hmBadge.textContent = "❌ Missing";
+              hmBadge.style.color = "#b91c1c";
+            }
           };
         } else {
           hmImg.src = '';
           hmImg.style.display = 'none';
           noHm.style.display = 'block';
+          const hmBadge = document.getElementById("modalHmUploadedBadge");
+          if (hmBadge) {
+            hmBadge.textContent = "❌ Missing";
+            hmBadge.style.color = "#b91c1c";
+          }
         }
       }
 
@@ -9804,6 +9826,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           compImg.setAttribute('referrerpolicy', 'no-referrer');
           compImg.dataset.triedProxy = '';
           compImg.dataset.triedEndpoint = '';
+          compImg.onload = function() {
+            const compBadge = document.getElementById("modalCompUploadedBadge");
+            if (compBadge) {
+              compBadge.textContent = "✅ Uploaded";
+              compBadge.style.color = "#15803d";
+            }
+          };
           compImg.src = norm;
           compImg.style.display = 'block';
           noComp.style.display = 'none';
@@ -9821,11 +9850,21 @@ function getITSMWorkbenchHtml(initialTickets = []) {
             }
             this.style.display = 'none';
             if (noComp) noComp.style.display = 'block';
+            const compBadge = document.getElementById("modalCompUploadedBadge");
+            if (compBadge) {
+              compBadge.textContent = "❌ Missing";
+              compBadge.style.color = "#b91c1c";
+            }
           };
         } else {
           compImg.src = '';
           compImg.style.display = 'none';
           noComp.style.display = 'block';
+          const compBadge = document.getElementById("modalCompUploadedBadge");
+          if (compBadge) {
+            compBadge.textContent = "❌ Missing";
+            compBadge.style.color = "#b91c1c";
+          }
         }
       }
       if (gpsPill) {

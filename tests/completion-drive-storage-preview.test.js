@@ -62,6 +62,47 @@ async function run() {
     assert(gasJs.includes('completionFolder: "Completion Photos"'), 'Contract must state Completion Photos folder');
   });
 
+  await test('GAS prevents Slot 1 and Slot 2 deletion collision in saveAndVerifyBase64Image', () => {
+    assert(gasJs.includes('isSlot1'), 'Must distinguish Slot 1');
+    assert(gasJs.includes('isSlot2'), 'Must distinguish Slot 2');
+    assert(gasJs.includes('(isSlot1 && fIsSlot1 && prefixMatch)'), 'Slot 1 only trashes prior Slot 1');
+    assert(gasJs.includes('(isSlot2 && fIsSlot2 && prefixMatch)'), 'Slot 2 only trashes prior Slot 2');
+
+    // Simulate collision logic: saving Slot 2 must never trash Slot 1
+    const filename = 'HTL-NGP-01004_Completion_UPS_GPS.jpg';
+    const isSlot1 = (filename.indexOf('HM_Signed') !== -1);
+    const isSlot2 = (filename.indexOf('Completion_UPS') !== -1 || (filename.indexOf('Completion') !== -1 && !isSlot1));
+
+    const fName = 'HTL-NGP-01004_HM_Signed_Completion_Report.jpg';
+    const fIsSlot1 = (fName.indexOf('HM_Signed') !== -1);
+    const fIsSlot2 = (fName.indexOf('Completion_UPS') !== -1 || (fName.indexOf('Completion') !== -1 && !fIsSlot1));
+    const prefixMatch = (filename.split('_')[0] === fName.split('_')[0]);
+
+    const shouldTrash = (fName === filename || (isSlot1 && fIsSlot1 && prefixMatch) || (isSlot2 && fIsSlot2 && prefixMatch));
+    assert.strictEqual(shouldTrash, false, 'Saving Slot 2 must NOT trash Slot 1');
+  });
+
+  await test('GAS self-healing untrashes Slot 1 if previously trashed', () => {
+    assert(gasJs.includes('trashedHm.setTrashed(false)'), 'Self-healing must untrash Slot 1 HM Report');
+    assert(gasJs.includes('trashedComp.setTrashed(false)'), 'Self-healing must untrash Slot 2 Completion Photo');
+  });
+
+  await test('GAS supports action === HM_REPORT and GPS_COMPLETION', () => {
+    assert(gasJs.includes("action === 'HM_REPORT'"), 'Must support action HM_REPORT');
+    assert(gasJs.includes("action === 'GPS_COMPLETION'"), 'Must support action GPS_COMPLETION');
+  });
+
+  await test('server.js routes /api/update as alias to /api/tickets/update', () => {
+    assert(serverJs.includes("pathname === '/api/tickets/update' || pathname === '/api/update'"), 'Must support /api/update alias');
+  });
+
+  await test('server.js syncCompletionEvidenceToGoogleDrive receives explicit Drive IDs and reset badges on load failure', () => {
+    assert(serverJs.includes('hmDriveFileId: data.hmDriveFileId || (existingCurTicket && existingCurTicket.hmDriveFileId)'), 'Must pass hmDriveFileId');
+    assert(serverJs.includes('compDriveFileId: data.compDriveFileId || (existingCurTicket && existingCurTicket.compDriveFileId)'), 'Must pass compDriveFileId');
+    assert(serverJs.includes('hmBadge.textContent = "❌ Missing"'), 'Must reset HM badge on error');
+    assert(serverJs.includes('compBadge.textContent = "❌ Missing"'), 'Must reset Completion badge on error');
+  });
+
   // TEST 2: District Routing
   await test('Thiruvarur (3320...) routes to Thiruvarur_HTL_UPS_Photos', () => {
     const tvr = serverModule.resolveSchoolDistrict('33200101234', '', 'Thiruvarur', 'GHSS THIRUVARUR');
@@ -250,7 +291,7 @@ async function run() {
     // Clean up isolated test ticket
     const list = db.loadTicketsFromJson();
     const cleaned = list.filter(t => t.ticketId !== testTid);
-    db.safeWriteFileSync('data/htl_itsm_tickets.json', JSON.stringify(cleaned, null, 2));
+    db.safeWriteFileSync(path.join(__dirname, '../data/htl_itsm_tickets.json'), JSON.stringify(cleaned, null, 2));
     console.log(`🧹 Cleaned up test ticket ${testTid}`);
   }
 

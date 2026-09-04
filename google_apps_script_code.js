@@ -109,7 +109,7 @@ function doPost(e) {
     }
 
     // 2. ACTION: UPDATE TICKET (Handles ticket updates and Slot 1/Slot 2 completion evidence uploads)
-    if (action === 'update' || action === 'upload_completion' || action === 'completion_evidence' || action === 'upload_hm_report') {
+    if (action === 'update' || action === 'upload_completion' || action === 'completion_evidence' || action === 'upload_hm_report' || action === 'HM_REPORT' || action === 'GPS_COMPLETION' || action === 'hm_report' || action === 'gps_completion') {
       return updateTicketRow(sheet, data);
     }
 
@@ -327,6 +327,36 @@ function updateTicketRow(sheet, data) {
         }
       } catch(moveErr) {}
     }
+
+    // Self-healing: untrash previously collided HM report if trashed, or recover from hmFileId
+    try {
+      var compHmCheck = compFolder.getFilesByName(hmName);
+      if (!compHmCheck.hasNext() && hmFileId) {
+        var trashedHm = DriveApp.getFileById(hmFileId);
+        if (trashedHm) {
+          if (trashedHm.isTrashed()) {
+            trashedHm.setTrashed(false);
+          }
+          var hmParents = trashedHm.getParents();
+          var alreadyInComp = false;
+          while (hmParents.hasNext()) {
+            if (hmParents.next().getId() === compFolder.getId()) {
+              alreadyInComp = true;
+              break;
+            }
+          }
+          if (!alreadyInComp) {
+            trashedHm.moveTo(compFolder);
+          }
+          if (!hmUrl) hmUrl = 'https://drive.google.com/thumbnail?id=' + hmFileId + '&sz=w800';
+        }
+      } else if (compHmCheck.hasNext() && !hmFileId) {
+        var activeHmFile = compHmCheck.next();
+        hmFileId = activeHmFile.getId();
+        if (!hmUrl) hmUrl = 'https://drive.google.com/thumbnail?id=' + hmFileId + '&sz=w800';
+      }
+    } catch(untrashHmErr) {}
+
     if (data.completionPhotoBase64) {
       var compRes = saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64, compName, meta);
       if (compRes && compRes.fileUrl) {
@@ -337,6 +367,35 @@ function updateTicketRow(sheet, data) {
         compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
       }
     }
+
+    // Self-healing: untrash previously collided Completion photo if trashed, or recover from compFileId
+    try {
+      var compCheckSlot2 = compFolder.getFilesByName(compName);
+      if (!compCheckSlot2.hasNext() && compFileId) {
+        var trashedComp = DriveApp.getFileById(compFileId);
+        if (trashedComp) {
+          if (trashedComp.isTrashed()) {
+            trashedComp.setTrashed(false);
+          }
+          var compParents = trashedComp.getParents();
+          var alreadyInComp2 = false;
+          while (compParents.hasNext()) {
+            if (compParents.next().getId() === compFolder.getId()) {
+              alreadyInComp2 = true;
+              break;
+            }
+          }
+          if (!alreadyInComp2) {
+            trashedComp.moveTo(compFolder);
+          }
+          if (!compUrl) compUrl = 'https://drive.google.com/thumbnail?id=' + compFileId + '&sz=w800';
+        }
+      } else if (compCheckSlot2.hasNext() && !compFileId) {
+        var activeCompFile = compCheckSlot2.next();
+        compFileId = activeCompFile.getId();
+        if (!compUrl) compUrl = 'https://drive.google.com/thumbnail?id=' + compFileId + '&sz=w800';
+      }
+    } catch(untrashCompErr) {}
   }
 
   // Structured contracts for Slot 1 and Slot 2
@@ -562,17 +621,24 @@ function saveAndVerifyBase64Image(folder, base64Data, filename, meta) {
       } catch (trashErr) {}
     }
 
+    var isSlot1 = (filename.indexOf('HM_Signed') !== -1);
+    var isSlot2 = (filename.indexOf('Completion_UPS') !== -1 || (filename.indexOf('Completion') !== -1 && !isSlot1));
+
     var allFiles = folder.getFiles();
     while (allFiles.hasNext()) {
       var f = allFiles.next();
       var fName = f.getName();
+      var fIsSlot1 = (fName.indexOf('HM_Signed') !== -1);
+      var fIsSlot2 = (fName.indexOf('Completion_UPS') !== -1 || (fName.indexOf('Completion') !== -1 && !fIsSlot1));
+      var prefixMatch = (filename.split('_')[0] === fName.split('_')[0]);
+
       if (fName === filename || 
          (filename.indexOf('Evidence_1') !== -1 && (fName.indexOf('Evidence_1') !== -1 || fName.indexOf('1_UPS_Display') !== -1)) ||
          (filename.indexOf('Evidence_2') !== -1 && (fName.indexOf('Evidence_2') !== -1 || fName.indexOf('2_Overall_Setup') !== -1)) ||
          (filename.indexOf('Evidence_3') !== -1 && (fName.indexOf('Evidence_3') !== -1 || fName.indexOf('3_Battery_MCB') !== -1)) ||
          (filename.indexOf('Evidence_4') !== -1 && (fName.indexOf('Evidence_4') !== -1 || fName.indexOf('4_Isolation_Transformer') !== -1)) ||
-         (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1 && (filename.split('_')[0] === fName.split('_')[0])) || 
-         (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1 && (filename.split('_')[0] === fName.split('_')[0]))) {
+         (isSlot1 && fIsSlot1 && prefixMatch) || 
+         (isSlot2 && fIsSlot2 && prefixMatch)) {
         try {
           f.setTrashed(true);
         } catch (trashErr) {}
