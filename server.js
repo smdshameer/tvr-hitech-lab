@@ -9809,7 +9809,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     let editGpsTimestamp = null;
 
     function updateCompletionPhotoPreviews() {
-      const curTicket = (allTickets || []).find(i => (i.ticketId || i.id) === currentEditingTicketId);
+      const cleanEditId = String(currentEditingTicketId || '').trim().toLowerCase();
+      const curTicket = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === cleanEditId);
       const hmImg = document.getElementById('editHmReportPreview');
       const noHm = document.getElementById('noHmReportImg');
       if (hmImg && noHm) {
@@ -9830,6 +9831,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         }
         if (norm) {
           hmImg.setAttribute('referrerpolicy', 'no-referrer');
+          hmImg.dataset.triedThumbnail = '';
           hmImg.dataset.triedProxy = '';
           hmImg.dataset.triedEndpoint = '';
           hmImg.onload = function() {
@@ -9844,6 +9846,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           noHm.style.display = 'none';
           hmImg.onerror = function() {
             const fid = (curTicket && (curTicket.hmDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.driveFileId))) || extractDriveFileId(this.src) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl);
+            if (!this.dataset.triedThumbnail && fid) {
+              this.dataset.triedThumbnail = '1';
+              this.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fid) + '&sz=w800';
+              return;
+            }
             if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
               this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
@@ -9895,6 +9902,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         }
         if (norm) {
           compImg.setAttribute('referrerpolicy', 'no-referrer');
+          compImg.dataset.triedThumbnail = '';
           compImg.dataset.triedProxy = '';
           compImg.dataset.triedEndpoint = '';
           compImg.onload = function() {
@@ -9909,6 +9917,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           noComp.style.display = 'none';
           compImg.onerror = function() {
             const fid = (curTicket && (curTicket.compDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.driveFileId))) || extractDriveFileId(this.src) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl);
+            if (!this.dataset.triedThumbnail && fid) {
+              this.dataset.triedThumbnail = '1';
+              this.src = 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(fid) + '&sz=w800';
+              return;
+            }
             if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
               this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
@@ -10392,6 +10405,10 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         btn.textContent = 'சேமிக்கப்படுகிறது...';
       }
 
+      const curSaveTicket = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === String(currentEditingTicketId || '').trim().toLowerCase());
+      const curHmFid = (curSaveTicket && (curSaveTicket.hmDriveFileId || (curSaveTicket.completionEvidence && curSaveTicket.completionEvidence.hmSignedReport && curSaveTicket.completionEvidence.hmSignedReport.driveFileId))) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curSaveTicket && curSaveTicket.hmReportPhotoUrl) || '';
+      const curCompFid = (curSaveTicket && (curSaveTicket.compDriveFileId || (curSaveTicket.completionEvidence && curSaveTicket.completionEvidence.completionPhoto && curSaveTicket.completionEvidence.completionPhoto.driveFileId))) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curSaveTicket && curSaveTicket.completionPhotoUrl) || '';
+
       const payload = {
         ticketId: currentEditingTicketId,
         status: document.getElementById('modalStatus').value,
@@ -10409,6 +10426,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         completionPhotoBase64: (editCompletionPhoto && editCompletionPhoto.startsWith('data:image')) ? editCompletionPhoto : undefined,
         hmReportPhotoUrl: (editHmReportPhoto && !editHmReportPhoto.startsWith('data:image')) ? editHmReportPhoto : undefined,
         completionPhotoUrl: (editCompletionPhoto && !editCompletionPhoto.startsWith('data:image')) ? editCompletionPhoto : undefined,
+        hmDriveFileId: curHmFid || undefined,
+        compDriveFileId: curCompFid || undefined,
         gpsLatitude: editGpsLat,
         gpsLongitude: editGpsLon,
         gpsAccuracy: editGpsAccuracy,

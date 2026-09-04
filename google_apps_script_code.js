@@ -26,6 +26,18 @@ function doGet(e) {
       return deleteTicketRow(sheet, ticketId);
     }
 
+    // Action: Authoritative Google Drive Physical Hierarchy & File Verification
+    if (action === 'inspect_drive_structure' || action === 'verify_drive_structure' || action === 'check_drive') {
+      return inspectDriveStructure(
+        (e && e.parameter && e.parameter.district) || '',
+        (e && e.parameter && e.parameter.udise) || '',
+        (e && e.parameter && e.parameter.schoolName) || '',
+        (e && e.parameter && e.parameter.ticketId) || '',
+        (e && e.parameter && e.parameter.hmDriveFileId) || '',
+        (e && e.parameter && e.parameter.compDriveFileId) || ''
+      );
+    }
+
     // Default Action: Get All Tickets
     var lastRow = sheet.getLastRow();
     if (lastRow <= 1) {
@@ -106,6 +118,18 @@ function doPost(e) {
     // 1. ACTION: DELETE TICKET
     if (action === 'delete') {
       return deleteTicketRow(sheet, data.ticketId);
+    }
+
+    // 1B. ACTION: INSPECT PHYSICAL GOOGLE DRIVE HIERARCHY & FILES
+    if (action === 'inspect_drive_structure' || action === 'verify_drive_structure' || action === 'check_drive') {
+      return inspectDriveStructure(
+        data.district || '',
+        data.udise || '',
+        data.schoolName || '',
+        data.ticketId || '',
+        data.hmDriveFileId || '',
+        data.compDriveFileId || ''
+      );
     }
 
     // 2. ACTION: UPDATE TICKET (Handles ticket updates and Slot 1/Slot 2 completion evidence uploads)
@@ -335,7 +359,7 @@ function updateTicketRow(sheet, data) {
         var trashedHm = DriveApp.getFileById(hmFileId);
         if (trashedHm) {
           if (trashedHm.isTrashed()) {
-            trashedHm.setTrashed(false);
+            try { trashedHm.setTrashed(false); } catch(utErr) {}
           }
           var hmParents = trashedHm.getParents();
           var alreadyInComp = false;
@@ -346,8 +370,13 @@ function updateTicketRow(sheet, data) {
             }
           }
           if (!alreadyInComp) {
-            trashedHm.moveTo(compFolder);
+            try {
+              trashedHm.moveTo(compFolder);
+            } catch(moveErr) {
+              try { compFolder.addFile(trashedHm); } catch(addErr) {}
+            }
           }
+          try { trashedHm.setName(hmName); } catch(nameErr) {}
           if (!hmUrl) hmUrl = 'https://drive.google.com/thumbnail?id=' + hmFileId + '&sz=w800';
         }
       } else if (compHmCheck.hasNext() && !hmFileId) {
@@ -375,7 +404,7 @@ function updateTicketRow(sheet, data) {
         var trashedComp = DriveApp.getFileById(compFileId);
         if (trashedComp) {
           if (trashedComp.isTrashed()) {
-            trashedComp.setTrashed(false);
+            try { trashedComp.setTrashed(false); } catch(utErr2) {}
           }
           var compParents = trashedComp.getParents();
           var alreadyInComp2 = false;
@@ -386,8 +415,13 @@ function updateTicketRow(sheet, data) {
             }
           }
           if (!alreadyInComp2) {
-            trashedComp.moveTo(compFolder);
+            try {
+              trashedComp.moveTo(compFolder);
+            } catch(moveErr2) {
+              try { compFolder.addFile(trashedComp); } catch(addErr2) {}
+            }
           }
+          try { trashedComp.setName(compName); } catch(nameErr2) {}
           if (!compUrl) compUrl = 'https://drive.google.com/thumbnail?id=' + compFileId + '&sz=w800';
         }
       } else if (compCheckSlot2.hasNext() && !compFileId) {
@@ -598,6 +632,11 @@ function getOrCreateSubFolder(schoolFolder, subFolderName) {
   return newSub;
 }
 
+function extractTicketPrefix(fname) {
+  if (!fname) return '';
+  return String(fname).replace(/_(HM_Signed_Completion_Report|Completion_UPS_GPS|Evidence_\d+|1_UPS_Display|2_Overall_Setup|3_Battery_MCB|4_Isolation_Transformer)\.jpg$/i, '');
+}
+
 function saveAndVerifyBase64Image(folder, base64Data, filename, meta) {
   if (!base64Data || typeof base64Data !== 'string') return null;
   var raw = base64Data;
@@ -630,7 +669,13 @@ function saveAndVerifyBase64Image(folder, base64Data, filename, meta) {
       var fName = f.getName();
       var fIsSlot1 = (fName.indexOf('HM_Signed') !== -1);
       var fIsSlot2 = (fName.indexOf('Completion_UPS') !== -1 || (fName.indexOf('Completion') !== -1 && !fIsSlot1));
-      var prefixMatch = (filename.split('_')[0] === fName.split('_')[0]);
+      var tPrefix = extractTicketPrefix(filename);
+      var fPrefix = extractTicketPrefix(fName);
+      var prefixMatch = (tPrefix && fPrefix && tPrefix === fPrefix) || (filename.split('_')[0] === fName.split('_')[0]);
+
+      // STRICT SLOT ISOLATION: Slot 1 NEVER touches Slot 2; Slot 2 NEVER touches Slot 1
+      if (isSlot1 && fIsSlot2) continue;
+      if (isSlot2 && fIsSlot1) continue;
 
       if (fName === filename || 
          (filename.indexOf('Evidence_1') !== -1 && (fName.indexOf('Evidence_1') !== -1 || fName.indexOf('1_UPS_Display') !== -1)) ||
@@ -690,4 +735,149 @@ function saveBase64Image(folder, base64Data, filename) {
   var res = saveAndVerifyBase64Image(folder, base64Data, filename, {});
   return res ? res.fileUrl : '';
 }
+
+/**
+ * Authoritative Inspection & Verification of physical Google Drive folder hierarchy and files.
+ * Directly examines the physical folders in Google Drive and inventories all files.
+ */
+function inspectDriveStructure(districtName, udise, schoolName, ticketId, hmFileIdHint, compFileIdHint) {
+  try {
+    var distStr = String(districtName || '').trim();
+    var udiseStr = String(udise || '').trim();
+    var tid = String(ticketId || '').trim();
+    if (!distStr && udiseStr) {
+      distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
+    }
+    if (!distStr) distStr = 'Thiruvarur';
+
+    var districtFolder = getOrCreateDistrictFolder(distStr);
+    var schoolFolder = getOrCreateSchoolFolder(districtFolder, udiseStr, schoolName);
+    var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
+    var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
+
+    var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
+    var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
+
+    // Self-healing recovery: If hint IDs provided, ensure files are in compFolder and untrashed
+    if (hmFileIdHint) {
+      try {
+        var checkHm = compFolder.getFilesByName(hmName);
+        if (!checkHm.hasNext()) {
+          var trHm = DriveApp.getFileById(hmFileIdHint);
+          if (trHm) {
+            if (trHm.isTrashed()) {
+              try { trHm.setTrashed(false); } catch(e) {}
+            }
+            try {
+              trHm.moveTo(compFolder);
+            } catch(moveErr) {
+              try { compFolder.addFile(trHm); } catch(addErr) {}
+            }
+            try { trHm.setName(hmName); } catch(e) {}
+          }
+        }
+      } catch(e) {}
+    }
+
+    if (compFileIdHint) {
+      try {
+        var checkComp = compFolder.getFilesByName(compName);
+        if (!checkComp.hasNext()) {
+          var trComp = DriveApp.getFileById(compFileIdHint);
+          if (trComp) {
+            if (trComp.isTrashed()) {
+              try { trComp.setTrashed(false); } catch(e) {}
+            }
+            try {
+              trComp.moveTo(compFolder);
+            } catch(moveErr) {
+              try { compFolder.addFile(trComp); } catch(addErr) {}
+            }
+            try { trComp.setName(compName); } catch(e) {}
+          }
+        }
+      } catch(e) {}
+    }
+
+    var evidenceFiles = [];
+    var evIt = evidenceFolder.getFiles();
+    while (evIt.hasNext()) {
+      var ef = evIt.next();
+      evidenceFiles.push({
+        fileId: ef.getId(),
+        fileName: ef.getName(),
+        fileSize: ef.getSize(),
+        isTrashed: ef.isTrashed(),
+        fileUrl: 'https://drive.google.com/thumbnail?id=' + ef.getId() + '&sz=w800'
+      });
+    }
+
+    var completionFiles = [];
+    var compIt = compFolder.getFiles();
+    while (compIt.hasNext()) {
+      var cf = compIt.next();
+      completionFiles.push({
+        fileId: cf.getId(),
+        fileName: cf.getName(),
+        fileSize: cf.getSize(),
+        isTrashed: cf.isTrashed(),
+        fileUrl: 'https://drive.google.com/thumbnail?id=' + cf.getId() + '&sz=w800'
+      });
+    }
+
+    var hasHm = false;
+    var hasComp = false;
+    var foundHmId = '';
+    var foundCompId = '';
+
+    for (var i = 0; i < completionFiles.length; i++) {
+      var f = completionFiles[i];
+      if (f.fileName === hmName || (tid && f.fileName.indexOf(tid) !== -1 && f.fileName.indexOf('HM_Signed') !== -1)) {
+        hasHm = true;
+        foundHmId = f.fileId;
+      }
+      if (f.fileName === compName || (tid && f.fileName.indexOf(tid) !== -1 && (f.fileName.indexOf('Completion_UPS') !== -1 || (f.fileName.indexOf('Completion') !== -1 && f.fileName.indexOf('HM_Signed') === -1)))) {
+        hasComp = true;
+        foundCompId = f.fileId;
+      }
+    }
+
+    var evidenceCount = 0;
+    for (var j = 1; j <= 4; j++) {
+      var evName = (tid ? tid + "_" : "") + "Evidence_" + j + ".jpg";
+      for (var k = 0; k < evidenceFiles.length; k++) {
+        if (evidenceFiles[k].fileName === evName || (tid && evidenceFiles[k].fileName.indexOf(tid) !== -1 && evidenceFiles[k].fileName.indexOf('Evidence_' + j) !== -1)) {
+          evidenceCount++;
+          break;
+        }
+      }
+    }
+
+    var result = {
+      success: true,
+      ticketId: tid,
+      district: distStr,
+      districtFolder: districtFolder.getName(),
+      schoolFolder: schoolFolder.getName(),
+      schoolFolderUrl: schoolFolder.getUrl(),
+      evidenceFolder: evidenceFolder.getName(),
+      completionFolder: compFolder.getName(),
+      evidenceTotal: evidenceFiles.length,
+      completionTotal: completionFiles.length,
+      ticketEvidenceCount: evidenceCount,
+      hasHmSignedReport: hasHm,
+      hmDriveFileId: foundHmId,
+      hasGpsCompletion: hasComp,
+      compDriveFileId: foundCompId,
+      evidenceFiles: evidenceFiles,
+      completionFiles: completionFiles,
+      isFullyVerified: (evidenceCount === 4 && hasHm && hasComp)
+    };
+
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
 
