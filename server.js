@@ -10145,10 +10145,12 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           const ev = t.completionEvidence || {};
           const hmEv = ev.hmSignedReport || {};
           const compEv = ev.completionPhoto || {};
-          const hmUrl = (t.hmDriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.hmDriveFileId + '=w800') : '') || t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
-          const compUrl = (t.compDriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.compDriveFileId + '=w800') : '') || t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
-          const resolvedHmDisplay = hmUrl || t.hmReportPhotoBase64 || hmEv.data || "";
-          const resolvedCompDisplay = compUrl || t.completionPhotoBase64 || compEv.data || "";
+          const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
+          const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
+          const hmDriveFileId = t.hmDriveFileId || extractDriveFileId(hmUrl) || (hmEv.uploaded && hmEv.driveFileId) || "";
+          const compDriveFileId = t.compDriveFileId || extractDriveFileId(compUrl) || (compEv.uploaded && compEv.driveFileId) || "";
+          const resolvedHmDisplay = (hmDriveFileId ? ('https://lh3.googleusercontent.com/d/' + hmDriveFileId + '=w800') : '') || hmUrl || t.hmReportPhotoBase64 || hmEv.data || "";
+          const resolvedCompDisplay = (compDriveFileId ? ('https://lh3.googleusercontent.com/d/' + compDriveFileId + '=w800') : '') || compUrl || t.completionPhotoBase64 || compEv.data || "";
 
           editHmReportPhoto = resolvedHmDisplay;
           editCompletionPhoto = resolvedCompDisplay;
