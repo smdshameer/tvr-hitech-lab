@@ -1934,13 +1934,21 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.p2DriveFileId !== undefined) ticket.p2DriveFileId = updateData.p2DriveFileId;
     if (updateData.p3DriveFileId !== undefined) ticket.p3DriveFileId = updateData.p3DriveFileId;
     if (updateData.p4DriveFileId !== undefined) ticket.p4DriveFileId = updateData.p4DriveFileId;
-    const derivedHmId = updateData.hmDriveFileId || extractDriveFileId(updateData.hmReportPhotoUrl || '') || '';
-    if (derivedHmId) ticket.hmDriveFileId = derivedHmId;
-    else if (updateData.hmDriveFileId !== undefined && (updateData.hmDriveFileId || !ticket.hmDriveFileId)) ticket.hmDriveFileId = updateData.hmDriveFileId;
+    if (updateData.hmDriveFileId === '') {
+      ticket.hmDriveFileId = '';
+    } else {
+      const derivedHmId = updateData.hmDriveFileId || extractDriveFileId(updateData.hmReportPhotoUrl || '') || '';
+      if (derivedHmId) ticket.hmDriveFileId = derivedHmId;
+      else if (updateData.hmDriveFileId !== undefined && (updateData.hmDriveFileId || !ticket.hmDriveFileId)) ticket.hmDriveFileId = updateData.hmDriveFileId;
+    }
 
-    const derivedCompId = updateData.compDriveFileId || extractDriveFileId(updateData.completionPhotoUrl || '') || '';
-    if (derivedCompId) ticket.compDriveFileId = derivedCompId;
-    else if (updateData.compDriveFileId !== undefined && (updateData.compDriveFileId || !ticket.compDriveFileId)) ticket.compDriveFileId = updateData.compDriveFileId;
+    if (updateData.compDriveFileId === '') {
+      ticket.compDriveFileId = '';
+    } else {
+      const derivedCompId = updateData.compDriveFileId || extractDriveFileId(updateData.completionPhotoUrl || '') || '';
+      if (derivedCompId) ticket.compDriveFileId = derivedCompId;
+      else if (updateData.compDriveFileId !== undefined && (updateData.compDriveFileId || !ticket.compDriveFileId)) ticket.compDriveFileId = updateData.compDriveFileId;
+    }
 
     if (updateData.evidencePhotos !== undefined && Array.isArray(updateData.evidencePhotos)) {
       ticket.evidencePhotos = updateData.evidencePhotos;
@@ -2037,6 +2045,119 @@ async function updateTicket(ticketId, updateData) {
     return { success: true, ticket: ticket };
   }
   return { success: false, error: 'Ticket not found or has been permanently deleted.' };
+}
+
+async function deleteCompletionEvidence(ticketId, slot) {
+  if (!ticketId) return { success: false, error: 'Ticket ID is required' };
+  const cleanId = String(ticketId).trim();
+  const lowerId = cleanId.toLowerCase();
+  const normalizedSlot = String(slot || '').toUpperCase();
+  const isSlot1 = normalizedSlot === 'HM_REPORT' || normalizedSlot === '1' || normalizedSlot === 'SLOT1';
+  const isSlot2 = normalizedSlot === 'GPS_COMPLETION' || normalizedSlot === '2' || normalizedSlot === 'SLOT2';
+
+  if (!isSlot1 && !isSlot2) {
+    return { success: false, error: 'Invalid slot. Must be HM_REPORT or GPS_COMPLETION' };
+  }
+
+  const list = loadTicketsFromJson();
+  let ticket = list.find(t => String(t.ticketId || t.id).trim().toLowerCase() === lowerId);
+  if (!ticket) {
+    return { success: false, error: 'Ticket not found.' };
+  }
+
+  const dateStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+
+  if (isSlot1) {
+    ticket.hmReportPhotoUrl = '';
+    ticket.hmReportPhotoBase64 = '';
+    ticket.hmDriveFileId = '';
+    if (ticket.completionEvidence) {
+      ticket.completionEvidence.hmSignedReport = {
+        uploaded: false,
+        fileUrl: '',
+        data: '',
+        driveFileId: '',
+        uploadedAt: '',
+        submittedBy: '',
+        source: ''
+      };
+      const compUploaded = !!(ticket.compDriveFileId || (ticket.completionEvidence.completionPhoto && ticket.completionEvidence.completionPhoto.uploaded));
+      ticket.completionEvidence.status = compUploaded ? 'partial' : 'none';
+      ticket.completionEvidenceStatus = compUploaded ? 'PARTIALLY_UPLOADED' : 'PENDING';
+    } else {
+      const compUploaded = !!(ticket.compDriveFileId || ticket.completionPhotoUrl);
+      ticket.completionEvidenceStatus = compUploaded ? 'PARTIALLY_UPLOADED' : 'PENDING';
+    }
+  } else if (isSlot2) {
+    ticket.completionPhotoUrl = '';
+    ticket.completionPhotoBase64 = '';
+    ticket.compDriveFileId = '';
+    ticket.gpsLatitude = null;
+    ticket.gpsLongitude = null;
+    ticket.gpsAccuracy = null;
+    ticket.gpsTimestamp = null;
+    if (ticket.completionEvidence) {
+      ticket.completionEvidence.completionPhoto = {
+        uploaded: false,
+        fileUrl: '',
+        data: '',
+        driveFileId: '',
+        uploadedAt: '',
+        submittedBy: '',
+        source: '',
+        gpsLatitude: null,
+        gpsLongitude: null,
+        gpsAccuracy: null,
+        gpsWatermarkRequired: true
+      };
+      const hmUploaded = !!(ticket.hmDriveFileId || (ticket.completionEvidence.hmSignedReport && ticket.completionEvidence.hmSignedReport.uploaded));
+      ticket.completionEvidence.status = hmUploaded ? 'partial' : 'none';
+      ticket.completionEvidenceStatus = hmUploaded ? 'PARTIALLY_UPLOADED' : 'PENDING';
+    } else {
+      const hmUploaded = !!(ticket.hmDriveFileId || ticket.hmReportPhotoUrl);
+      ticket.completionEvidenceStatus = hmUploaded ? 'PARTIALLY_UPLOADED' : 'PENDING';
+    }
+  }
+
+  if (!ticket.timeline) ticket.timeline = [];
+  ticket.timeline.unshift({
+    time: dateStr,
+    action: 'Completion Evidence Deleted: ' + (isSlot1 ? 'HM Signed Report' : 'GPS Completion Photo'),
+    note: 'Removed by Field Engineer'
+  });
+
+  if (usePostgres && pool) {
+    try {
+      if (isSlot1) {
+        await pool.query(`
+          UPDATE tickets SET
+            hm_report_photo_url = '',
+            hm_drive_file_id = '',
+            completion_evidence = $1::jsonb,
+            completion_evidence_status = $2
+          WHERE ticket_id = $3
+        `, [JSON.stringify(ticket.completionEvidence || {}), ticket.completionEvidenceStatus, cleanId]);
+      } else if (isSlot2) {
+        await pool.query(`
+          UPDATE tickets SET
+            completion_photo_url = '',
+            comp_drive_file_id = '',
+            gps_latitude = NULL,
+            gps_longitude = NULL,
+            gps_accuracy = NULL,
+            gps_timestamp = NULL,
+            completion_evidence = $1::jsonb,
+            completion_evidence_status = $2
+          WHERE ticket_id = $3
+        `, [JSON.stringify(ticket.completionEvidence || {}), ticket.completionEvidenceStatus, cleanId]);
+      }
+    } catch (e) {
+      console.error('Postgres completion evidence delete error:', e.message);
+    }
+  }
+
+  saveTicketsToJson(list);
+  return { success: true, ticket: ticket, slot: isSlot1 ? 'HM_REPORT' : 'GPS_COMPLETION' };
 }
 
 async function deleteTicket(ticketId, reason = 'Deleted by Field Engineer', deletedBy = 'engineer') {
@@ -2625,6 +2746,7 @@ module.exports = {
   createTicket,
   updateTicket,
   deleteTicket,
+  deleteCompletionEvidence,
   resetAllTickets,
   logAudit,
   getAuditLogs,

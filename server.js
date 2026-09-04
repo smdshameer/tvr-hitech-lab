@@ -1090,6 +1090,48 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
   }
 }
 
+async function deleteCompletionEvidenceFromGoogleDrive(ticket, slot, driveFileId) {
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  if (!webhookUrl) return { success: false, reason: 'No webhook URL configured' };
+
+  try {
+    const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
+    const gasBody = {
+      action: 'delete_completion_photo',
+      ticketId: ticket.ticketId,
+      slot: slot,
+      driveFileId: driveFileId || '',
+      district: resolved.district,
+      schoolName: resolved.schoolName || ticket.schoolName,
+      udise: resolved.udise || ticket.udise
+    };
+
+    const fetch = globalThis.fetch;
+    if (typeof fetch === 'function') {
+      let controller = null;
+      let timeoutId = null;
+      if (typeof AbortController !== 'undefined') {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 25000);
+      }
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gasBody),
+        redirect: 'follow',
+        signal: controller ? controller.signal : undefined
+      });
+      if (timeoutId) clearTimeout(timeoutId);
+      const result = await response.json();
+      return result;
+    }
+    return { success: false, reason: 'Fetch unavailable' };
+  } catch (err) {
+    console.warn(`[DRIVE] Delete completion evidence error: ${err.message}`);
+    return { success: false, error: err.message };
+  }
+}
+
 // ========================================================
 // 4. HTTP REQUEST ROUTER & CONTROLLER
 // ========================================================
@@ -2320,6 +2362,79 @@ async function handleRequest(req, res) {
     } catch(err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return;
+  }
+
+  if (pathname === '/api/tickets/delete-completion-evidence' && req.method === 'POST') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Authentication required.' }));
+      return;
+    }
+    if (!requireCsrf(req, res)) return;
+
+    try {
+      const payload = await parseRequestBody(req);
+      const ticketId = String(payload.ticketId || '').trim();
+      const slot = String(payload.slot || '').toUpperCase();
+      if (!ticketId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Missing ticketId in request.' }));
+        return;
+      }
+      if (slot !== 'HM_REPORT' && slot !== 'GPS_COMPLETION') {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid slot. Must be HM_REPORT or GPS_COMPLETION.' }));
+        return;
+      }
+
+      const allT = db.getAllTicketsSync();
+      const targetTicket = allT.find(t => String(t.ticketId || t.id).trim().toLowerCase() === ticketId.toLowerCase());
+      if (!targetTicket) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Ticket not found.' }));
+        return;
+      }
+
+      const driveFileId = payload.driveFileId || (slot === 'HM_REPORT'
+        ? (targetTicket.hmDriveFileId || (targetTicket.completionEvidence && targetTicket.completionEvidence.hmSignedReport && targetTicket.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(targetTicket.hmReportPhotoUrl))
+        : (targetTicket.compDriveFileId || (targetTicket.completionEvidence && targetTicket.completionEvidence.completionPhoto && targetTicket.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(targetTicket.completionPhotoUrl))) || '';
+
+      // 1. Delete/trash from Google Drive & Sheets via GAS
+      let driveResult = null;
+      try {
+        driveResult = await deleteCompletionEvidenceFromGoogleDrive(targetTicket, slot, driveFileId);
+      } catch(driveErr) {
+        console.warn('Google Drive completion photo delete error:', driveErr.message);
+      }
+
+      // 2. Delete/clear from database
+      const dbResult = await db.deleteCompletionEvidence(ticketId, slot);
+
+      // 3. Log audit
+      await db.logAudit({
+        action: 'COMPLETION_EVIDENCE_DELETED',
+        ip: clientIp,
+        user: session.displayName || 'engineer',
+        ticketId: ticketId,
+        details: `Slot: ${slot}, DriveFileId: ${driveFileId || 'none'}`
+      });
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: `${slot === 'HM_REPORT' ? 'HM Signed Report' : 'GPS Completion Photo'} deleted successfully.`,
+        slot: slot,
+        ticketId: ticketId,
+        driveResult: driveResult,
+        updatedTicket: dbResult.ticket
+      }));
+    } catch(e) {
+      console.error('Delete completion evidence error:', e);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
     }
     return;
   }
@@ -8836,6 +8951,26 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     </div>
   </div>
 
+  <!-- Delete Completion Photo Confirmation Modal -->
+  <div id="deleteCompletionModal" class="drawer-overlay" style="display:none; z-index:100001; align-items:center; justify-content:center;" onclick="handleBackdropClick(event, 'deleteCompletionModal')">
+    <div class="drawer" style="max-width:440px; margin:auto; border-radius:14px; background:var(--bg-card); box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); border:1px solid var(--border-color); overflow:hidden;" onclick="event.stopPropagation()">
+      <div class="drawer-header" style="padding:14px 18px; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; background:var(--bg-main);">
+        <div class="drawer-title" id="deleteCompletionModalTitle" style="color:#dc2626; font-size:15px; font-weight:800; display:flex; align-items:center; gap:6px;">
+          <span>🗑️</span> <span id="deleteCompletionTitleText">Delete Photo?</span>
+        </div>
+        <button type="button" class="drawer-close" onclick="closeDeleteCompletionModal()" style="background:none; border:none; font-size:16px; cursor:pointer; color:var(--text-muted); padding:4px 8px;">✕</button>
+      </div>
+      <div class="drawer-body" style="padding:18px;">
+        <p id="deleteCompletionModalMessage" style="font-size:13.5px; font-weight:600; color:var(--text-primary); margin:0; line-height:1.5;">Are you sure you want to remove this uploaded photo?</p>
+        <p id="deleteCompletionSubMessage" style="font-size:12px; color:var(--text-muted); margin:8px 0 0 0; line-height:1.4;">This will remove the file from Google Drive and clear it from the ticket records.</p>
+      </div>
+      <div class="drawer-footer" style="padding:12px 18px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end; gap:8px; background:var(--bg-main);">
+        <button type="button" class="btn btn-outline" onclick="closeDeleteCompletionModal()" style="padding:6px 14px; font-size:12px; font-weight:700;">Cancel</button>
+        <button type="button" class="btn" id="btnConfirmDeleteCompletion" onclick="executeDeleteCompletionPhoto()" style="background:#dc2626; color:#fff; border:none; padding:6px 16px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer;">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Reset Password Protection Modal -->
   <div id="resetModal" class="drawer-overlay" onclick="handleBackdropClick(event, 'resetModal')">
     <div class="drawer" style="max-width:440px;" onclick="event.stopPropagation()">
@@ -9103,6 +9238,11 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     // Keyboard navigation (Esc key closes modals)
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
+        const delModal = document.getElementById('deleteCompletionModal');
+        if (delModal && delModal.style.display !== 'none') {
+          closeDeleteCompletionModal();
+          return;
+        }
         closeActionModal();
         closeImgModal();
         closeResetModal();
@@ -9113,6 +9253,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       if (e.target.id === modalId) {
         if (modalId === 'actionModal') closeActionModal();
         else if (modalId === 'resetModal') closeResetModal();
+        else if (modalId === 'deleteCompletionModal') closeDeleteCompletionModal();
       }
     }
 
@@ -9958,11 +10099,30 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     }
 
     function clearHmReportPhoto() {
-      editHmReportPhoto = '';
-      isNewHmUpload = false;
-      const f = document.getElementById('editHmReportFile');
-      if (f) f.value = '';
-      updateCompletionPhotoPreviews();
+      const cleanEditId = String(currentEditingTicketId || '').trim().toLowerCase();
+      const curTicket = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === cleanEditId);
+      const hasUploaded = !!(curTicket && (curTicket.hmDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.uploaded) || curTicket.hmReportPhotoUrl));
+      const hasStaged = isNewHmUpload || (editHmReportPhoto && editHmReportPhoto.startsWith('data:image'));
+
+      if (!hasUploaded && !hasStaged) {
+        const f = document.getElementById('editHmReportFile');
+        if (f) f.value = '';
+        return;
+      }
+
+      pendingDeleteCompletionSlot = 'HM_REPORT';
+      const titleText = document.getElementById('deleteCompletionTitleText');
+      const msgText = document.getElementById('deleteCompletionModalMessage');
+      const subText = document.getElementById('deleteCompletionSubMessage');
+      if (titleText) titleText.textContent = 'Delete HM Signed Report?';
+      if (msgText) msgText.textContent = 'Are you sure you want to remove this uploaded HM Signed Report?';
+      if (subText) subText.textContent = 'This will remove the file from Google Drive and clear it from the ticket records.';
+
+      const m = document.getElementById('deleteCompletionModal');
+      if (m) {
+        m.style.display = 'flex';
+        m.classList.add('active');
+      }
     }
 
     function viewHmReportFullscreen() {
@@ -10109,17 +10269,239 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       });
     }
 
+    let pendingDeleteCompletionSlot = null;
+
     function clearCompletionPhoto() {
-      editCompletionPhoto = '';
-      isNewCompUpload = false;
-      editGpsLat = null;
-      editGpsLon = null;
-      editGpsAccuracy = null;
-      editGpsTimestamp = null;
-      const f = document.getElementById('editCompletionPhotoFile');
-      if (f) f.value = '';
-      updateCompletionPhotoPreviews();
+      const cleanEditId = String(currentEditingTicketId || '').trim().toLowerCase();
+      const curTicket = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === cleanEditId);
+      const hasUploaded = !!(curTicket && (curTicket.compDriveFileId || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.uploaded) || curTicket.completionPhotoUrl));
+      const hasStaged = isNewCompUpload || (editCompletionPhoto && editCompletionPhoto.startsWith('data:image'));
+
+      if (!hasUploaded && !hasStaged) {
+        const f = document.getElementById('editCompletionPhotoFile');
+        if (f) f.value = '';
+        return;
+      }
+
+      pendingDeleteCompletionSlot = 'GPS_COMPLETION';
+      const titleText = document.getElementById('deleteCompletionTitleText');
+      const msgText = document.getElementById('deleteCompletionModalMessage');
+      const subText = document.getElementById('deleteCompletionSubMessage');
+      if (titleText) titleText.textContent = 'Delete GPS Completion Photo?';
+      if (msgText) msgText.textContent = 'Are you sure you want to remove this uploaded GPS completion photo?';
+      if (subText) subText.textContent = 'This will remove the file from Google Drive and clear it from the ticket records.';
+
+      const m = document.getElementById('deleteCompletionModal');
+      if (m) {
+        m.style.display = 'flex';
+        m.classList.add('active');
+      }
     }
+
+    function closeDeleteCompletionModal() {
+      pendingDeleteCompletionSlot = null;
+      const m = document.getElementById('deleteCompletionModal');
+      if (m) {
+        m.style.display = 'none';
+        m.classList.remove('active');
+      }
+      const btn = document.getElementById('btnConfirmDeleteCompletion');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
+    }
+
+    function updateCompletionEvidenceBadges(t) {
+      if (!t) return;
+      const ev = t.completionEvidence || {};
+      const hmEv = ev.hmSignedReport || {};
+      const compEv = ev.completionPhoto || {};
+      const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || '';
+      const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || '';
+      const hasValidHm = !!(t.hmDriveFileId || (hmUrl && (hmUrl.startsWith('http') || hmUrl.startsWith('data:'))) || t.hmReportPhotoBase64 || (hmEv.uploaded && hmEv.driveFileId) || (isNewHmUpload && editHmReportPhoto));
+      const hasValidComp = !!(t.compDriveFileId || (compUrl && (compUrl.startsWith('http') || compUrl.startsWith('data:'))) || t.completionPhotoBase64 || (compEv.uploaded && compEv.driveFileId) || (isNewCompUpload && editCompletionPhoto));
+
+      const reqBadge = document.getElementById("modalEvidenceRequestBadge");
+      if (reqBadge) {
+        if (t.completionEvidenceStatus === 'SUBMITTED' || (hasValidHm && hasValidComp)) {
+          reqBadge.textContent = "🟢 Completion Evidence Submitted";
+          reqBadge.style.background = "#dcfce7";
+          reqBadge.style.color = "#15803d";
+        } else if (t.completionEvidenceStatus === 'PARTIALLY_UPLOADED' || (hasValidHm || hasValidComp)) {
+          reqBadge.textContent = "🟡 Partially Uploaded (1 of 2)";
+          reqBadge.style.background = "#fef3c7";
+          reqBadge.style.color = "#92400e";
+        } else if (t.completionEvidenceRequested) {
+          reqBadge.textContent = "🟡 Completion Evidence Requested (" + (t.completionEvidenceRequestedAt || "Recently") + ")";
+          reqBadge.style.background = "#fef3c7";
+          reqBadge.style.color = "#92400e";
+        } else {
+          reqBadge.textContent = "⭕ Not Requested";
+          reqBadge.style.background = "#f1f5f9";
+          reqBadge.style.color = "#475569";
+        }
+      }
+
+      const hmBadge = document.getElementById("modalHmUploadedBadge");
+      if (hmBadge) {
+        hmBadge.textContent = hasValidHm ? "✅ Uploaded" : "❌ Missing";
+        hmBadge.style.color = hasValidHm ? "#15803d" : "#b91c1c";
+      }
+
+      const compBadge = document.getElementById("modalCompUploadedBadge");
+      if (compBadge) {
+        compBadge.textContent = hasValidComp ? "✅ Uploaded" : "❌ Missing";
+        compBadge.style.color = hasValidComp ? "#15803d" : "#b91c1c";
+      }
+    }
+
+    async function executeDeleteCompletionPhoto() {
+      const slot = pendingDeleteCompletionSlot;
+      if (!slot) return;
+      const tid = currentEditingTicketId;
+      if (!tid) return;
+
+      const btn = document.getElementById('btnConfirmDeleteCompletion');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Deleting...';
+      }
+
+      const cleanEditId = String(tid).trim().toLowerCase();
+      const curTicket = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === cleanEditId);
+
+      const isServerSaved = !!(curTicket && (
+        (slot === 'HM_REPORT' && (curTicket.hmDriveFileId || curTicket.hmReportPhotoUrl || (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.uploaded))) ||
+        (slot === 'GPS_COMPLETION' && (curTicket.compDriveFileId || curTicket.completionPhotoUrl || (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.uploaded)))
+      ));
+
+      try {
+        if (isServerSaved) {
+          const csrfHeaders = { 'Content-Type': 'application/json' };
+          const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
+          if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
+
+          const res = await fetch('/api/tickets/delete-completion-evidence', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: csrfHeaders,
+            body: JSON.stringify({
+              ticketId: tid,
+              slot: slot,
+              driveFileId: slot === 'HM_REPORT' ? (curTicket.hmDriveFileId || '') : (curTicket.compDriveFileId || '')
+            })
+          });
+          const resData = await res.json();
+          if (!resData || !resData.success) {
+            throw new Error((resData && resData.error) || 'Failed to delete photo from server');
+          }
+        }
+
+        // Update in-memory ticket
+        if (curTicket) {
+          if (slot === 'HM_REPORT') {
+            curTicket.hmReportPhotoUrl = '';
+            curTicket.hmReportPhotoBase64 = '';
+            curTicket.hmDriveFileId = '';
+            if (curTicket.completionEvidence) {
+              curTicket.completionEvidence.hmSignedReport = {
+                uploaded: false,
+                fileUrl: '',
+                data: '',
+                driveFileId: '',
+                uploadedAt: '',
+                submittedBy: '',
+                source: ''
+              };
+              const compUp = !!(curTicket.compDriveFileId || (curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.uploaded));
+              curTicket.completionEvidence.status = compUp ? 'partial' : 'none';
+              curTicket.completionEvidenceStatus = compUp ? 'PARTIALLY_UPLOADED' : 'PENDING';
+            } else {
+              const compUp = !!(curTicket.compDriveFileId || curTicket.completionPhotoUrl);
+              curTicket.completionEvidenceStatus = compUp ? 'PARTIALLY_UPLOADED' : 'PENDING';
+            }
+          } else if (slot === 'GPS_COMPLETION') {
+            curTicket.completionPhotoUrl = '';
+            curTicket.completionPhotoBase64 = '';
+            curTicket.compDriveFileId = '';
+            curTicket.gpsLatitude = null;
+            curTicket.gpsLongitude = null;
+            curTicket.gpsAccuracy = null;
+            curTicket.gpsTimestamp = null;
+            if (curTicket.completionEvidence) {
+              curTicket.completionEvidence.completionPhoto = {
+                uploaded: false,
+                fileUrl: '',
+                data: '',
+                driveFileId: '',
+                uploadedAt: '',
+                submittedBy: '',
+                source: '',
+                gpsLatitude: null,
+                gpsLongitude: null,
+                gpsAccuracy: null,
+                gpsWatermarkRequired: true
+              };
+              const hmUp = !!(curTicket.hmDriveFileId || (curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.uploaded));
+              curTicket.completionEvidence.status = hmUp ? 'partial' : 'none';
+              curTicket.completionEvidenceStatus = hmUp ? 'PARTIALLY_UPLOADED' : 'PENDING';
+            } else {
+              const hmUp = !!(curTicket.hmDriveFileId || curTicket.hmReportPhotoUrl);
+              curTicket.completionEvidenceStatus = hmUp ? 'PARTIALLY_UPLOADED' : 'PENDING';
+            }
+          }
+        }
+
+        // Reset staged local state and UI elements
+        if (slot === 'HM_REPORT') {
+          editHmReportPhoto = '';
+          isNewHmUpload = false;
+          const f = document.getElementById('editHmReportFile');
+          if (f) f.value = '';
+          const hmImg = document.getElementById('editHmReportPreview');
+          const noHm = document.getElementById('noHmReportImg');
+          if (hmImg) { hmImg.src = ''; hmImg.style.display = 'none'; }
+          if (noHm) noHm.style.display = 'block';
+          const hmBadge = document.getElementById('modalHmUploadedBadge');
+          if (hmBadge) { hmBadge.textContent = '❌ Missing'; hmBadge.style.color = '#b91c1c'; }
+          const hmSource = document.getElementById('modalHmSourceText');
+          if (hmSource) hmSource.style.display = 'none';
+        } else if (slot === 'GPS_COMPLETION') {
+          editCompletionPhoto = '';
+          isNewCompUpload = false;
+          editGpsLat = null;
+          editGpsLon = null;
+          editGpsAccuracy = null;
+          editGpsTimestamp = null;
+          const f = document.getElementById('editCompletionPhotoFile');
+          if (f) f.value = '';
+          const compImg = document.getElementById('editCompletionPhotoPreview');
+          const noComp = document.getElementById('noCompletionImg');
+          if (compImg) { compImg.src = ''; compImg.style.display = 'none'; }
+          if (noComp) noComp.style.display = 'block';
+          const compBadge = document.getElementById('modalCompUploadedBadge');
+          if (compBadge) { compBadge.textContent = '❌ Missing'; compBadge.style.color = '#b91c1c'; }
+          const gpsPill = document.getElementById('gpsStatusPill');
+          if (gpsPill) gpsPill.style.display = 'none';
+          const compSource = document.getElementById('modalCompSourceText');
+          if (compSource) compSource.style.display = 'none';
+        }
+
+        updateCompletionEvidenceBadges(curTicket);
+        renderTable();
+        closeDeleteCompletionModal();
+        showDeleteToast(slot === 'HM_REPORT' ? 'HM Signed Report deleted successfully.' : 'GPS Completion Photo deleted successfully.');
+      } catch(err) {
+        alert('Error deleting photo: ' + err.message);
+        closeDeleteCompletionModal();
+      }
+    }
+
+    window.clearHmReportPhoto = clearHmReportPhoto;
+    window.clearCompletionPhoto = clearCompletionPhoto;
+    window.closeDeleteCompletionModal = closeDeleteCompletionModal;
+    window.executeDeleteCompletionPhoto = executeDeleteCompletionPhoto;
 
     function viewCompletionPhotoFullscreen() {
       const curTicket = (allTickets || []).find(i => (i.ticketId || i.id) === currentEditingTicketId);
@@ -10212,41 +10594,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           editGpsTimestamp = t.gpsTimestamp || null;
           if (typeof updateCompletionPhotoPreviews === 'function') updateCompletionPhotoPreviews();
 
-          const hasValidHm = !!(t.hmDriveFileId || (hmUrl && (hmUrl.startsWith('http') || hmUrl.startsWith('data:'))) || t.hmReportPhotoBase64 || (hmEv.uploaded && hmEv.driveFileId));
-          const hasValidComp = !!(t.compDriveFileId || (compUrl && (compUrl.startsWith('http') || compUrl.startsWith('data:'))) || t.completionPhotoBase64 || (compEv.uploaded && compEv.driveFileId));
-
-          const reqBadge = document.getElementById("modalEvidenceRequestBadge");
-          if (reqBadge) {
-            if (t.completionEvidenceStatus === 'SUBMITTED' || (hmUrl && compUrl)) {
-              reqBadge.textContent = "🟢 Completion Evidence Submitted";
-              reqBadge.style.background = "#dcfce7";
-              reqBadge.style.color = "#15803d";
-            } else if (t.completionEvidenceStatus === 'PARTIALLY_UPLOADED' || (hasValidHm || hasValidComp)) {
-              reqBadge.textContent = "🟡 Partially Uploaded (1 of 2)";
-              reqBadge.style.background = "#fef3c7";
-              reqBadge.style.color = "#92400e";
-            } else if (t.completionEvidenceRequested) {
-              reqBadge.textContent = "🟡 Completion Evidence Requested (" + (t.completionEvidenceRequestedAt || "Recently") + ")";
-              reqBadge.style.background = "#fef3c7";
-              reqBadge.style.color = "#92400e";
-            } else {
-              reqBadge.textContent = "⭕ Not Requested";
-              reqBadge.style.background = "#f1f5f9";
-              reqBadge.style.color = "#475569";
-            }
-          }
-
-          const hmBadge = document.getElementById("modalHmUploadedBadge");
-          if (hmBadge) {
-            hmBadge.textContent = hasValidHm ? "✅ Uploaded" : "❌ Missing";
-            hmBadge.style.color = hasValidHm ? "#15803d" : "#b91c1c";
-          }
-
-          const compBadge = document.getElementById("modalCompUploadedBadge");
-          if (compBadge) {
-            compBadge.textContent = hasValidComp ? "✅ Uploaded" : "❌ Missing";
-            compBadge.style.color = hasValidComp ? "#15803d" : "#b91c1c";
-          }
+          updateCompletionEvidenceBadges(t);
 
           const hmSrc = document.getElementById("modalHmSourceText");
           if (hmSrc) {

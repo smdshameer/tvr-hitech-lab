@@ -26,6 +26,11 @@ function doGet(e) {
       return deleteTicketRow(sheet, ticketId);
     }
 
+    // Action: Delete Completion Evidence Photo (Slot 1 or Slot 2)
+    if ((action === 'delete_completion_photo' || action === 'delete_completion_evidence') && ticketId) {
+      return deleteCompletionPhoto(sheet, e.parameter);
+    }
+
     // Action: Authoritative Google Drive Physical Hierarchy & File Verification
     if (action === 'inspect_drive_structure' || action === 'verify_drive_structure' || action === 'check_drive') {
       return inspectDriveStructure(
@@ -130,6 +135,11 @@ function doPost(e) {
         data.hmDriveFileId || '',
         data.compDriveFileId || ''
       );
+    }
+
+    // 1C. ACTION: DELETE COMPLETION PHOTO (Slot 1 or Slot 2 with strict slot isolation)
+    if (action === 'delete_completion_photo' || action === 'delete_completion_evidence') {
+      return deleteCompletionPhoto(sheet, data);
     }
 
     // 2. ACTION: UPDATE TICKET (Handles ticket updates and Slot 1/Slot 2 completion evidence uploads)
@@ -274,6 +284,118 @@ function deleteTicketRow(sheet, ticketId) {
     }
   }
   return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Ticket not found in Google Sheets' })).setMimeType(ContentService.MimeType.JSON);
+}
+
+function deleteCompletionPhoto(sheet, data) {
+  var tid = String(data.ticketId || '').trim();
+  var slot = String(data.slot || '').toUpperCase();
+  var isSlot1 = slot === 'HM_REPORT' || slot === '1' || slot === 'SLOT1';
+  var isSlot2 = slot === 'GPS_COMPLETION' || slot === '2' || slot === 'SLOT2';
+
+  if (!tid) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Missing ticketId' })).setMimeType(ContentService.MimeType.JSON);
+  }
+  if (!isSlot1 && !isSlot2) {
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid slot specified: must be HM_REPORT or GPS_COMPLETION' })).setMimeType(ContentService.MimeType.JSON);
+  }
+
+  ensureHeader(sheet);
+
+  var fileId = String((isSlot1 ? (data.hmDriveFileId || data.fileId) : (data.compDriveFileId || data.fileId)) || '').trim();
+  var targetFilename = (tid ? tid + '_' : '') + (isSlot1 ? 'HM_Signed_Completion_Report.jpg' : 'Completion_UPS_GPS.jpg');
+  var trashedFilesCount = 0;
+  var trashedFileIds = [];
+
+  // 1. Direct deletion by Drive File ID if provided
+  if (fileId) {
+    try {
+      var f = DriveApp.getFileById(fileId);
+      if (f && !f.isTrashed()) {
+        var fName = f.getName();
+        // Strict slot safety check
+        var safeToTrash = false;
+        if (isSlot1 && fName.indexOf('HM_Signed') !== -1) safeToTrash = true;
+        else if (isSlot2 && (fName.indexOf('GPS') !== -1 || fName.indexOf('Completion_UPS') !== -1)) safeToTrash = true;
+        else if (fName === targetFilename) safeToTrash = true;
+
+        if (safeToTrash) {
+          f.setTrashed(true);
+          trashedFilesCount++;
+          trashedFileIds.push(fileId);
+        }
+      }
+    } catch(err) {}
+  }
+
+  // 2. Folder-level deletion inside School Folder -> Completion Photos
+  var distStr = String(data.district || '').trim();
+  var udiseStr = String(data.udise || '').trim();
+  if (!distStr && udiseStr) {
+    distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
+  }
+  if (!distStr) distStr = 'Thiruvarur';
+
+  if (data.udise || data.schoolName) {
+    try {
+      var districtFolder = getOrCreateDistrictFolder(distStr);
+      var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
+      var compFolder = getOrCreateSubFolder(schoolFolder, 'Completion Photos');
+
+      var exactFiles = compFolder.getFilesByName(targetFilename);
+      while (exactFiles.hasNext()) {
+        var ef = exactFiles.next();
+        var efName = ef.getName();
+        // STRICT SLOT ISOLATION:
+        if (isSlot1 && (efName.indexOf('UPS_GPS') !== -1 || efName.indexOf('Completion_UPS') !== -1)) continue;
+        if (isSlot2 && efName.indexOf('HM_Signed') !== -1) continue;
+
+        if (!ef.isTrashed()) {
+          ef.setTrashed(true);
+          trashedFilesCount++;
+          trashedFileIds.push(ef.getId());
+        }
+      }
+    } catch(folderErr) {}
+  }
+
+  // 3. Clear from Google Sheets row
+  var lastRow = sheet.getLastRow();
+  var rowFound = false;
+  if (lastRow > 1) {
+    var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < colA.length; i++) {
+      if (String(colA[i][0]).trim() === tid) {
+        var rowNum = i + 2;
+        rowFound = true;
+        if (isSlot1) {
+          sheet.getRange(rowNum, 20).setValue(''); // HM Report Photo URL
+          sheet.getRange(rowNum, 22).setValue(''); // HM Drive File ID
+          var remainingCompFid = String(sheet.getRange(rowNum, 23).getValue() || '').trim();
+          var remainingCompUrl = String(sheet.getRange(rowNum, 21).getValue() || '').trim();
+          var newStatus1 = (remainingCompFid || remainingCompUrl) ? 'PARTIALLY_UPLOADED' : 'PENDING';
+          sheet.getRange(rowNum, 24).setValue(newStatus1);
+        } else if (isSlot2) {
+          sheet.getRange(rowNum, 21).setValue(''); // Completion Photo URL
+          sheet.getRange(rowNum, 23).setValue(''); // Completion Drive File ID
+          var remainingHmFid = String(sheet.getRange(rowNum, 22).getValue() || '').trim();
+          var remainingHmUrl = String(sheet.getRange(rowNum, 20).getValue() || '').trim();
+          var newStatus2 = (remainingHmFid || remainingHmUrl) ? 'PARTIALLY_UPLOADED' : 'PENDING';
+          sheet.getRange(rowNum, 24).setValue(newStatus2);
+        }
+        break;
+      }
+    }
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    message: (isSlot1 ? 'HM Signed Report' : 'GPS Completion Photo') + ' deleted successfully for ticket ' + tid,
+    ticketId: tid,
+    slot: isSlot1 ? 'HM_REPORT' : 'GPS_COMPLETION',
+    trashedFilesCount: trashedFilesCount,
+    trashedFileIds: trashedFileIds,
+    sheetRowUpdated: rowFound
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 function updateTicketRow(sheet, data) {
