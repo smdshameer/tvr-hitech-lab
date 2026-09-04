@@ -4500,6 +4500,17 @@ function getTeacherPortalHtml() {
     }
     window.chooseSchool = chooseSchool;
 
+    // Teacher-portal HTML escaper (this template has no shared helper; engineer template defines its own)
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function renderSuggestions(matches) {
       var otherBtn = '<div class="suggest-item" data-id="OTHER" style="background:#eff6ff; border-top:2px dashed #93c5fd; text-align:center; color:#1d4ed8; font-weight:800; padding:13px; margin-top:4px; border-radius:8px; cursor:pointer;">' +
         '➕ உங்கள் பள்ளி இந்தப் பட்டியலில் இல்லையா? புதிய பள்ளியைச் சேர்க்கவும் (Add New / Other School)' +
