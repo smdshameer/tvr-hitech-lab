@@ -8,8 +8,8 @@ console.log('====================================================\n');
 // ----------------------------------------------------
 // 1. TEST SCHOOL SEARCH TOUCH / SCROLL EVENT LOGIC
 // ----------------------------------------------------
-console.log('--- 1. Testing School Search / Scroll Touch Logic ---');
-const serverJs = fs.readFileSync('server.js', 'utf8');
+const path = require('path');
+const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 
 // Verify CSS has touch-scrolling and pan-y
 assert(serverJs.includes('touch-action: pan-y;'), 'CSS must include touch-action: pan-y');
@@ -134,7 +134,7 @@ console.log('✅ GPS Camera & location verification strictly mandatory for compl
 // 5. TEST GOOGLE DRIVE FOLDER STRUCTURE & RESOLUTION
 // ----------------------------------------------------
 console.log('\n--- 5. Testing Google Drive Folder Structure & Idempotency ---');
-const gasCode = fs.readFileSync('google_apps_script_code.js', 'utf8');
+const gasCode = fs.readFileSync(path.join(__dirname, '../google_apps_script_code.js'), 'utf8');
 
 // Mock Google DriveApp
 function createMockDriveApp() {

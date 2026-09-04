@@ -5,7 +5,8 @@ console.log('====================================================');
 console.log('STARTING GPS CAMERA & WATERMARK VERIFICATION SUITE');
 console.log('====================================================\n');
 
-const serverJs = fs.readFileSync('server.js', 'utf8');
+const path = require('path');
+const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 
 // ----------------------------------------------------
 // TEST 1: Watermark Content & Dedicated Fields

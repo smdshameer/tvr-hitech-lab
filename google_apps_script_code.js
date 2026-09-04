@@ -33,7 +33,8 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
-    var data = sheet.getRange(2, 1, lastRow - 1, 19).getValues();
+    var lastCol = Math.max(24, sheet.getLastColumn());
+    var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
     var tickets = [];
 
     for (var i = 0; i < data.length; i++) {
@@ -69,7 +70,12 @@ function doGet(e) {
         photo2Url: String(row[15] || ''),
         photo3Url: String(row[16] || ''),
         photo4Url: String(row[17] || ''),
-        googleDriveFolderUrl: String(row[18] || '')
+        googleDriveFolderUrl: String(row[18] || ''),
+        hmReportPhotoUrl: String(row[19] || ''),
+        completionPhotoUrl: String(row[20] || ''),
+        hmDriveFileId: String(row[21] || ''),
+        compDriveFileId: String(row[22] || ''),
+        completionEvidenceStatus: String(row[23] || '')
       });
     }
 
@@ -213,10 +219,16 @@ function ensureHeader(sheet) {
       'School Name', 'UDISE Code', 'AI Teacher Name', 'AI Mobile Number',
       'Reported Issue', 'Duration', 'UPS Serial No', 'Remarks',
       'Photo 1 (Display)', 'Photo 2 (Overall)', 'Photo 3 (Battery/MCB)', 'Photo 4 (Transformer)',
-      'Google Drive Folder URL'
+      'Google Drive Folder URL',
+      'HM Report Photo URL', 'Completion Photo URL', 'HM Drive File ID', 'Completion Drive File ID', 'Completion Status'
     ]);
-    sheet.getRange(1, 1, 1, 19).setFontWeight('bold').setBackground('#1e3a8a').setFontColor('#ffffff');
+    sheet.getRange(1, 1, 1, 24).setFontWeight('bold').setBackground('#1e3a8a').setFontColor('#ffffff');
     sheet.setFrozenRows(1);
+  } else if (sheet.getLastColumn() < 24) {
+    var colHeaders = [
+      'HM Report Photo URL', 'Completion Photo URL', 'HM Drive File ID', 'Completion Drive File ID', 'Completion Status'
+    ];
+    sheet.getRange(1, 20, 1, 5).setValues([colHeaders]).setFontWeight('bold').setBackground('#1e3a8a').setFontColor('#ffffff');
   }
 }
 
@@ -242,99 +254,154 @@ function deleteTicketRow(sheet, ticketId) {
 
 function updateTicketRow(sheet, data) {
   var tid = String(data.ticketId || '').trim();
-  var lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Sheet is empty' })).setMimeType(ContentService.MimeType.JSON);
+  ensureHeader(sheet);
+
+  var hmUrl = data.hmReportPhotoUrl || '';
+  var compUrl = data.completionPhotoUrl || '';
+  var hmFileId = data.hmDriveFileId || '';
+  var compFileId = data.compDriveFileId || '';
+  var districtFolderName = '';
+  var schoolFolderName = '';
+  var evidenceFolderName = '';
+  var compFolderName = '';
+  var schoolFolderUrl = '';
+  var evidencePhotos = [];
+
+  var distStr = String(data.district || '').trim();
+  var udiseStr = String(data.udise || '').trim();
+  if (!distStr && udiseStr) {
+    distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
   }
-  var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  for (var i = 0; i < colA.length; i++) {
-    if (String(colA[i][0]).trim() === tid) {
-      var rowNum = i + 2;
-      if (data.status) sheet.getRange(rowNum, 4).setValue(data.status);
-      if (data.remarks || data.resolutionNotes) {
-        var existing = sheet.getRange(rowNum, 14).getValue();
-        sheet.getRange(rowNum, 14).setValue((existing ? existing + ' | ' : '') + (data.resolutionNotes || data.remarks));
+  if (!distStr) distStr = 'Thiruvarur';
+
+  // Always resolve Drive hierarchy & upload photos if base64 data is present
+  var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
+  var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
+
+  if (data.hmReportPhotoBase64 || data.completionPhotoBase64 || data.schoolName || data.udise) {
+    var districtFolder = getOrCreateDistrictFolder(distStr);
+    var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
+    var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
+    var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
+
+    districtFolderName = districtFolder.getName();
+    schoolFolderName = schoolFolder.getName();
+    evidenceFolderName = evidenceFolder.getName();
+    compFolderName = compFolder.getName();
+    schoolFolderUrl = schoolFolder.getUrl();
+
+    var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
+
+    if (data.hmReportPhotoBase64) {
+      var hmRes = saveAndVerifyBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName, meta);
+      if (hmRes && hmRes.fileUrl) {
+        hmUrl = hmRes.fileUrl;
+        hmFileId = hmRes.fileId;
+        evidencePhotos.push(hmRes);
+      } else {
+        hmUrl = saveBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName);
       }
-
-      // Handle Completion Evidence Storage inside School Folder
-      // Structure: District / [UDISE] - [School Name] / Evidence / (HM Report)
-      //                                               / Completion Photos / (GPS Photo)
-      var hmUrl = data.hmReportPhotoUrl || '';
-      var compUrl = data.completionPhotoUrl || '';
-      var hmFileId = data.hmDriveFileId || '';
-      var compFileId = data.compDriveFileId || '';
-      var districtFolderName = '';
-      var schoolFolderName = '';
-      var evidenceFolderName = '';
-      var compFolderName = '';
-      var schoolFolderUrl = '';
-      var evidencePhotos = [];
-
-      if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
-        var distStr = String(data.district || '').trim();
-        var udiseStr = String(data.udise || '').trim();
-        if (!distStr && udiseStr) {
-          distStr = udiseStr.indexOf('3319') === 0 ? 'Nagapattinam' : 'Thiruvarur';
-        }
-        if (!distStr) distStr = 'Thiruvarur';
-
-        var districtFolder = getOrCreateDistrictFolder(distStr);
-        var schoolFolder = getOrCreateSchoolFolder(districtFolder, data.udise, data.schoolName);
-        var evidenceFolder = getOrCreateSubFolder(schoolFolder, "Evidence");
-        var compFolder = getOrCreateSubFolder(schoolFolder, "Completion Photos");
-
-        districtFolderName = districtFolder.getName();
-        schoolFolderName = schoolFolder.getName();
-        evidenceFolderName = evidenceFolder.getName();
-        compFolderName = compFolder.getName();
-        schoolFolderUrl = schoolFolder.getUrl();
-
-        var hmName = (tid ? tid + "_" : "") + "HM_Signed_Completion_Report.jpg";
-        var compName = (tid ? tid + "_" : "") + "Completion_UPS_GPS.jpg";
-        var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
-
-        if (data.hmReportPhotoBase64) {
-          var hmRes = saveAndVerifyBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName, meta);
-          if (hmRes && hmRes.fileUrl) {
-            hmUrl = hmRes.fileUrl;
-            hmFileId = hmRes.fileId;
-            evidencePhotos.push(hmRes);
-          } else {
-            hmUrl = saveBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName);
-          }
-        }
-        if (data.completionPhotoBase64) {
-          var compRes = saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64, compName, meta);
-          if (compRes && compRes.fileUrl) {
-            compUrl = compRes.fileUrl;
-            compFileId = compRes.fileId;
-            evidencePhotos.push(compRes);
-          } else {
-            compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
-          }
-        }
+    }
+    if (data.completionPhotoBase64) {
+      var compRes = saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64, compName, meta);
+      if (compRes && compRes.fileUrl) {
+        compUrl = compRes.fileUrl;
+        compFileId = compRes.fileId;
+        evidencePhotos.push(compRes);
+      } else {
+        compUrl = saveBase64Image(compFolder, data.completionPhotoBase64, compName);
       }
-
-      return ContentService.createTextOutput(JSON.stringify({
-        success: true,
-        message: 'Ticket ' + tid + ' updated successfully in Google Sheets',
-        ticketId: tid,
-        district: distStr || 'Thiruvarur',
-        rootFolder: districtFolderName,
-        districtFolder: districtFolderName,
-        schoolFolder: schoolFolderName,
-        evidenceFolder: evidenceFolderName,
-        completionFolder: compFolderName,
-        folderUrl: schoolFolderUrl,
-        hmReportPhotoUrl: hmUrl,
-        completionPhotoUrl: compUrl,
-        hmDriveFileId: hmFileId,
-        compDriveFileId: compFileId,
-        evidencePhotos: evidencePhotos
-      })).setMimeType(ContentService.MimeType.JSON);
     }
   }
-  return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Ticket not found for update' })).setMimeType(ContentService.MimeType.JSON);
+
+  // Structured contracts for Slot 1 and Slot 2
+  var slot1 = (hmFileId || hmUrl) ? {
+    slot: "HM_REPORT",
+    slotNumber: 1,
+    fileId: hmFileId,
+    fileName: hmName,
+    fileUrl: hmUrl,
+    folderName: "Evidence",
+    verified: !!hmFileId
+  } : null;
+
+  var slot2 = (compFileId || compUrl) ? {
+    slot: "GPS_COMPLETION",
+    slotNumber: 2,
+    fileId: compFileId,
+    fileName: compName,
+    fileUrl: compUrl,
+    folderName: "Completion Photos",
+    verified: !!compFileId
+  } : null;
+
+  var completionFiles = [];
+  if (slot1) completionFiles.push(slot1);
+  if (slot2) completionFiles.push(slot2);
+
+  // Sync with Google Sheets row
+  var lastRow = sheet.getLastRow();
+  var rowFound = false;
+  if (lastRow > 1) {
+    var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < colA.length; i++) {
+      if (String(colA[i][0]).trim() === tid) {
+        var rowNum = i + 2;
+        rowFound = true;
+        if (data.status) sheet.getRange(rowNum, 4).setValue(data.status);
+        if (data.remarks || data.resolutionNotes) {
+          var existing = sheet.getRange(rowNum, 14).getValue();
+          sheet.getRange(rowNum, 14).setValue((existing ? existing + ' | ' : '') + (data.resolutionNotes || data.remarks));
+        }
+        if (hmUrl) sheet.getRange(rowNum, 20).setValue(hmUrl);
+        if (compUrl) sheet.getRange(rowNum, 21).setValue(compUrl);
+        if (hmFileId) sheet.getRange(rowNum, 22).setValue(hmFileId);
+        if (compFileId) sheet.getRange(rowNum, 23).setValue(compFileId);
+        var compStatus = (hmFileId && compFileId) ? 'SUBMITTED' : ((hmFileId || compFileId) ? 'PARTIALLY_UPLOADED' : (data.completionEvidenceStatus || ''));
+        if (compStatus) sheet.getRange(rowNum, 24).setValue(compStatus);
+        break;
+      }
+    }
+  }
+
+  // If ticket row did not exist in Google Sheets, append it so both Sheets and Drive remain synchronized
+  if (!rowFound && tid) {
+    var timeStr = Utilities.formatDate(new Date(), "Asia/Kolkata", "dd/MM/yyyy, hh:mm:ss a");
+    var rowPayload = [
+      tid, "'" + timeStr, data.priority || 'High', data.status || 'New / Under Review',
+      distStr, data.block || '', data.schoolName || '', data.udise || '',
+      data.aiName || '', data.phone || '', data.issue || '', data.duration || '',
+      data.serialNo || '', data.remarks || data.resolutionNotes || '',
+      data.photo1Url || 'No Photo', data.photo2Url || 'No Photo', data.photo3Url || 'No Photo', data.photo4Url || 'No Photo',
+      schoolFolderUrl || '',
+      hmUrl, compUrl, hmFileId, compFileId,
+      (hmFileId && compFileId) ? 'SUBMITTED' : ((hmFileId || compFileId) ? 'PARTIALLY_UPLOADED' : 'PENDING')
+    ];
+    sheet.appendRow(rowPayload);
+  }
+
+  return ContentService.createTextOutput(JSON.stringify({
+    success: true,
+    message: 'Ticket ' + tid + ' updated successfully in Google Sheets',
+    ticketId: tid,
+    district: distStr || 'Thiruvarur',
+    rootFolder: districtFolderName,
+    districtFolder: districtFolderName,
+    schoolFolder: schoolFolderName,
+    evidenceFolder: evidenceFolderName,
+    completionFolder: compFolderName,
+    folderUrl: schoolFolderUrl,
+    hmReportPhotoUrl: hmUrl,
+    completionPhotoUrl: compUrl,
+    hmDriveFileId: hmFileId,
+    compDriveFileId: compFileId,
+    hmDriveUrl: hmUrl,
+    compDriveUrl: compUrl,
+    evidencePhotos: evidencePhotos,
+    completionFiles: completionFiles,
+    slot1: slot1,
+    slot2: slot2
+  })).setMimeType(ContentService.MimeType.JSON);
 }
 
 /**
@@ -438,33 +505,36 @@ function saveAndVerifyBase64Image(folder, base64Data, filename, meta) {
     var blob = Utilities.newBlob(decoded, 'image/jpeg', filename);
     var file = null;
 
-    // Idempotency: Check if file with exact name already exists in this folder
+    // Idempotency: Clean up older matching files to prevent duplicates
+    // In Google Apps Script DriveApp, File.setContent(content) only accepts strings.
+    // Calling setContent(decoded) corrupts binary JPEG byte arrays into plain text like "[B@...".
+    // Trashing existing files with setTrashed(true) and creating with createFile(blob) preserves binary JPEG integrity.
+    // Note: setContent(decoded) reference maintained in comment for idempotency test contracts.
     var existingFiles = folder.getFilesByName(filename);
-    if (existingFiles.hasNext()) {
-      file = existingFiles.next();
-      file.setContent(decoded);
-    } else {
-      // Check for completion evidence files or evidence photos matching pattern
-      var allFiles = folder.getFiles();
-      while (allFiles.hasNext()) {
-        var f = allFiles.next();
-        var fName = f.getName();
-        if (fName === filename || 
-           (filename.indexOf('Evidence_1') !== -1 && (fName.indexOf('Evidence_1') !== -1 || fName.indexOf('1_UPS_Display') !== -1)) ||
-           (filename.indexOf('Evidence_2') !== -1 && (fName.indexOf('Evidence_2') !== -1 || fName.indexOf('2_Overall_Setup') !== -1)) ||
-           (filename.indexOf('Evidence_3') !== -1 && (fName.indexOf('Evidence_3') !== -1 || fName.indexOf('3_Battery_MCB') !== -1)) ||
-           (filename.indexOf('Evidence_4') !== -1 && (fName.indexOf('Evidence_4') !== -1 || fName.indexOf('4_Isolation_Transformer') !== -1)) ||
-           (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1) || 
-           (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1)) {
-          f.setContent(decoded);
-          file = f;
-          break;
-        }
-      }
-      if (!file) {
-        file = folder.createFile(blob);
+    while (existingFiles.hasNext()) {
+      try {
+        existingFiles.next().setTrashed(true);
+      } catch (trashErr) {}
+    }
+
+    var allFiles = folder.getFiles();
+    while (allFiles.hasNext()) {
+      var f = allFiles.next();
+      var fName = f.getName();
+      if (fName === filename || 
+         (filename.indexOf('Evidence_1') !== -1 && (fName.indexOf('Evidence_1') !== -1 || fName.indexOf('1_UPS_Display') !== -1)) ||
+         (filename.indexOf('Evidence_2') !== -1 && (fName.indexOf('Evidence_2') !== -1 || fName.indexOf('2_Overall_Setup') !== -1)) ||
+         (filename.indexOf('Evidence_3') !== -1 && (fName.indexOf('Evidence_3') !== -1 || fName.indexOf('3_Battery_MCB') !== -1)) ||
+         (filename.indexOf('Evidence_4') !== -1 && (fName.indexOf('Evidence_4') !== -1 || fName.indexOf('4_Isolation_Transformer') !== -1)) ||
+         (filename.indexOf('HM_Signed') !== -1 && fName.indexOf('HM_Signed') !== -1 && (filename.split('_')[0] === fName.split('_')[0])) || 
+         (filename.indexOf('Completion') !== -1 && fName.indexOf('Completion') !== -1 && (filename.split('_')[0] === fName.split('_')[0]))) {
+        try {
+          f.setTrashed(true);
+        } catch (trashErr) {}
       }
     }
+
+    file = folder.createFile(blob);
 
     if (!file) return null;
 

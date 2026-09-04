@@ -1011,6 +1011,16 @@ function mapRowToTicket(r) {
     photo4Url: r.photo4_data || '',
     hmReportPhotoUrl: r.hm_report_photo_url || '',
     completionPhotoUrl: r.completion_photo_url || '',
+    hmDriveFileId: r.hm_drive_file_id || '',
+    compDriveFileId: r.comp_drive_file_id || '',
+    p1DriveFileId: r.p1_drive_file_id || '',
+    p2DriveFileId: r.p2_drive_file_id || '',
+    p3DriveFileId: r.p3_drive_file_id || '',
+    p4DriveFileId: r.p4_drive_file_id || '',
+    p1DriveUrl: r.p1_drive_url || '',
+    p2DriveUrl: r.p2_drive_url || '',
+    p3DriveUrl: r.p3_drive_url || '',
+    p4DriveUrl: r.p4_drive_url || '',
     hmReportPhotoBase64: r.hm_report_photo_base64 || '',
     completionPhotoBase64: r.completion_photo_base64 || '',
     completionEvidence: r.completion_evidence || null,
@@ -1087,6 +1097,17 @@ async function initDatabase() {
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_longitude DOUBLE PRECISION;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_accuracy DOUBLE PRECISION;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS gps_timestamp TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS hm_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS comp_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p1_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p2_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p3_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p4_drive_file_id TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p1_drive_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p2_drive_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p3_drive_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p4_drive_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS drive_folder_url TEXT;
       DELETE FROM tickets WHERE reported_issue ILIKE '%simulation%' OR remarks ILIKE '%simulation%';
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
@@ -1353,9 +1374,18 @@ async function syncGasTickets() {
                   ai_instructor_name, ai_instructor_mobile, reported_issue,
                   duration, ups_serial_number, resolution_type, vendor_name,
                   vendor_ticket_no, parts_required, resolution_notes,
-                  resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
-                ON CONFLICT (ticket_id) DO NOTHING
+                  resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log,
+                  hm_report_photo_url, completion_photo_url, hm_drive_file_id, comp_drive_file_id, drive_folder_url
+                ) VALUES (
+                  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb,
+                  $28, $29, $30, $31, $32
+                )
+                ON CONFLICT (ticket_id) DO UPDATE SET
+                  hm_report_photo_url = COALESCE(NULLIF(EXCLUDED.hm_report_photo_url, ''), tickets.hm_report_photo_url),
+                  completion_photo_url = COALESCE(NULLIF(EXCLUDED.completion_photo_url, ''), tickets.completion_photo_url),
+                  hm_drive_file_id = COALESCE(NULLIF(EXCLUDED.hm_drive_file_id, ''), tickets.hm_drive_file_id),
+                  comp_drive_file_id = COALESCE(NULLIF(EXCLUDED.comp_drive_file_id, ''), tickets.comp_drive_file_id),
+                  drive_folder_url = COALESCE(NULLIF(EXCLUDED.drive_folder_url, ''), tickets.drive_folder_url)
               `, [
                 rt.ticketId,
                 rt.createdDate || rt.createdAt || new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
@@ -1383,7 +1413,12 @@ async function syncGasTickets() {
                 rt.photo3Url || '',
                 rt.photo4Url || '',
                 rt.remarks || '',
-                JSON.stringify(rt.timeline || [])
+                JSON.stringify(rt.timeline || []),
+                rt.hmReportPhotoUrl || null,
+                rt.completionPhotoUrl || null,
+                rt.hmDriveFileId || null,
+                rt.compDriveFileId || null,
+                rt.googleDriveFolderUrl || null
               ]);
             } catch(pgErr) {}
           }
@@ -1577,8 +1612,13 @@ async function createTicket(ticketData) {
           ai_instructor_name, ai_instructor_mobile, reported_issue,
           duration, ups_serial_number, resolution_type, vendor_name,
           vendor_ticket_no, parts_required, resolution_notes,
-          resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb)
+          resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log,
+          p1_drive_file_id, p2_drive_file_id, p3_drive_file_id, p4_drive_file_id,
+          hm_drive_file_id, comp_drive_file_id, hm_report_photo_url, completion_photo_url, drive_folder_url
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb,
+          $28, $29, $30, $31, $32, $33, $34, $35, $36
+        )
         ON CONFLICT (ticket_id) DO UPDATE SET
           created_date = EXCLUDED.created_date,
           reported_issue = EXCLUDED.reported_issue,
@@ -1589,6 +1629,15 @@ async function createTicket(ticketData) {
           photo3_data = EXCLUDED.photo3_data,
           photo4_data = EXCLUDED.photo4_data,
           remarks = EXCLUDED.remarks,
+          p1_drive_file_id = COALESCE(NULLIF(EXCLUDED.p1_drive_file_id, ''), tickets.p1_drive_file_id),
+          p2_drive_file_id = COALESCE(NULLIF(EXCLUDED.p2_drive_file_id, ''), tickets.p2_drive_file_id),
+          p3_drive_file_id = COALESCE(NULLIF(EXCLUDED.p3_drive_file_id, ''), tickets.p3_drive_file_id),
+          p4_drive_file_id = COALESCE(NULLIF(EXCLUDED.p4_drive_file_id, ''), tickets.p4_drive_file_id),
+          hm_drive_file_id = COALESCE(NULLIF(EXCLUDED.hm_drive_file_id, ''), tickets.hm_drive_file_id),
+          comp_drive_file_id = COALESCE(NULLIF(EXCLUDED.comp_drive_file_id, ''), tickets.comp_drive_file_id),
+          hm_report_photo_url = COALESCE(NULLIF(EXCLUDED.hm_report_photo_url, ''), tickets.hm_report_photo_url),
+          completion_photo_url = COALESCE(NULLIF(EXCLUDED.completion_photo_url, ''), tickets.completion_photo_url),
+          drive_folder_url = COALESCE(NULLIF(EXCLUDED.drive_folder_url, ''), tickets.drive_folder_url),
           status = 'New / Under Review'
       `, [
         ticketData.ticketId,
@@ -1617,7 +1666,16 @@ async function createTicket(ticketData) {
         ticketData.photo3Url,
         ticketData.photo4Url,
         ticketData.remarks,
-        JSON.stringify(ticketData.timeline || [])
+        JSON.stringify(ticketData.timeline || []),
+        ticketData.p1DriveFileId || null,
+        ticketData.p2DriveFileId || null,
+        ticketData.p3DriveFileId || null,
+        ticketData.p4DriveFileId || null,
+        ticketData.hmDriveFileId || null,
+        ticketData.compDriveFileId || null,
+        ticketData.hmReportPhotoUrl || null,
+        ticketData.completionPhotoUrl || null,
+        ticketData.googleDriveFolderUrl || null
       ]);
     } catch (e) {
       console.error('Postgres insert ticket error:', e.message);
@@ -1673,6 +1731,22 @@ async function updateTicket(ticketId, updateData) {
         const newPhoto2 = updateData.photo2Url !== undefined ? updateData.photo2Url : existing.photo2_data;
         const newPhoto3 = updateData.photo3Url !== undefined ? updateData.photo3Url : existing.photo3_data;
         const newPhoto4 = updateData.photo4Url !== undefined ? updateData.photo4Url : existing.photo4_data;
+        const newHmUrl = updateData.hmReportPhotoUrl !== undefined ? updateData.hmReportPhotoUrl : existing.hm_report_photo_url;
+        const newCompUrl = updateData.completionPhotoUrl !== undefined ? updateData.completionPhotoUrl : existing.completion_photo_url;
+        const newHmFileId = updateData.hmDriveFileId !== undefined ? updateData.hmDriveFileId : existing.hm_drive_file_id;
+        const newCompFileId = updateData.compDriveFileId !== undefined ? updateData.compDriveFileId : existing.comp_drive_file_id;
+        const newP1FileId = updateData.p1DriveFileId !== undefined ? updateData.p1DriveFileId : existing.p1_drive_file_id;
+        const newP2FileId = updateData.p2DriveFileId !== undefined ? updateData.p2DriveFileId : existing.p2_drive_file_id;
+        const newP3FileId = updateData.p3DriveFileId !== undefined ? updateData.p3DriveFileId : existing.p3_drive_file_id;
+        const newP4FileId = updateData.p4DriveFileId !== undefined ? updateData.p4DriveFileId : existing.p4_drive_file_id;
+        const newDriveFolderUrl = updateData.googleDriveFolderUrl !== undefined ? updateData.googleDriveFolderUrl : existing.drive_folder_url;
+        const newCompEvidence = updateData.completionEvidence !== undefined ? JSON.stringify(updateData.completionEvidence) : (existing.completion_evidence ? JSON.stringify(existing.completion_evidence) : null);
+        const newCompStatus = updateData.completionEvidenceStatus !== undefined ? updateData.completionEvidenceStatus : existing.completion_evidence_status;
+        const newRemarks = updateData.remarks !== undefined ? updateData.remarks : existing.remarks;
+        const newGpsLat = updateData.gpsLatitude !== undefined ? updateData.gpsLatitude : existing.gps_latitude;
+        const newGpsLon = updateData.gpsLongitude !== undefined ? updateData.gpsLongitude : existing.gps_longitude;
+        const newGpsAcc = updateData.gpsAccuracy !== undefined ? updateData.gpsAccuracy : existing.gps_accuracy;
+        const newGpsTime = updateData.gpsTimestamp !== undefined ? updateData.gpsTimestamp : existing.gps_timestamp;
         let resolvedAt = existing.resolved_at;
         if (newStatus === 'Resolved Remotely' || newStatus === 'Solved by Direct Visit' || newStatus === 'Closed / Verified') {
           resolvedAt = dateStr;
@@ -1691,13 +1765,21 @@ async function updateTicket(ticketId, updateData) {
             photo3_data = $10, photo4_data = $11, resolved_at = $12,
             ups_serial_number = $13, visit_date = $14, visit_time = $15,
             diagnosis_type = $16, action_taken = $17, battery_condition = $18,
-            activity_log = $19
-          WHERE ticket_id = $20
+            activity_log = $19, hm_report_photo_url = $20, completion_photo_url = $21,
+            hm_drive_file_id = $22, comp_drive_file_id = $23,
+            p1_drive_file_id = $24, p2_drive_file_id = $25, p3_drive_file_id = $26, p4_drive_file_id = $27,
+            drive_folder_url = $28, completion_evidence = $29::jsonb, completion_evidence_status = $30,
+            remarks = $31, gps_latitude = $32, gps_longitude = $33, gps_accuracy = $34, gps_timestamp = $35
+          WHERE ticket_id = $36
         `, [
           newStatus, newPriority, newResolutionCat, newVendor, newVendorTicket,
           newParts, newNotes, newPhoto1, newPhoto2, newPhoto3, newPhoto4, resolvedAt,
           newSerial, newVisitDate, newVisitTime, newDiagType, newActionTaken, newBatteryCond,
-          JSON.stringify(timeline), ticketId
+          JSON.stringify(timeline), newHmUrl, newCompUrl, newHmFileId, newCompFileId,
+          newP1FileId, newP2FileId, newP3FileId, newP4FileId,
+          newDriveFolderUrl, newCompEvidence, newCompStatus,
+          newRemarks, newGpsLat, newGpsLon, newGpsAcc, newGpsTime,
+          ticketId
         ]);
       }
     } catch (e) {

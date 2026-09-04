@@ -38,6 +38,24 @@ async function runAudit() {
   const getITSMExecutiveHtml = serverModule.getITSMExecutiveHtml;
   const getLoginHtml = serverModule.getLoginHtml;
 
+  // Auto-start server if not already running on port 10000
+  let serverStartedByAudit = false;
+  const isListening = await new Promise(res => {
+    const req = http.get('http://127.0.0.1:10000/api/version', () => res(true));
+    req.on('error', () => res(false));
+    req.setTimeout(800, () => { req.destroy(); res(false); });
+  });
+
+  if (!isListening) {
+    await new Promise((res, rej) => {
+      serverModule.listen(10000, () => {
+        serverStartedByAudit = true;
+        res();
+      });
+      serverModule.on('error', rej);
+    });
+  }
+
   // ----------------------------------------------------
   // DIMENSION 1: V8 Script Compilation & Zero Syntax Errors
   // ----------------------------------------------------
@@ -506,9 +524,11 @@ async function runAudit() {
   if (failedTests > 0) {
     console.log('\n❌ FAILURES:');
     failures.forEach(f => console.log(`  - [${f.dimension}] ${f.testName}: ${f.details}`));
+    if (serverStartedByAudit) serverModule.close();
     process.exit(1);
   } else {
     console.log('\n🎉 ALL 25 SYSTEM DIMENSIONS ARE 100% OPERATIONAL, SYNTAX-ERROR FREE & FULLY FUNCTIONAL!\n');
+    if (serverStartedByAudit) serverModule.close();
     process.exit(0);
   }
 }

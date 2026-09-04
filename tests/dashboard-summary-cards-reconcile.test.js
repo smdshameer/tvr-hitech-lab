@@ -105,6 +105,7 @@ async function run() {
   console.log('\n========================================================');
   console.log('🎉 DASHBOARD SUMMARY-CARDS RECONCILIATION TEST PASSED 100%');
   console.log('========================================================\n');
+  process.exit(0);
 }
 
 run().catch(err => {

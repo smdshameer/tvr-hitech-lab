@@ -33,7 +33,27 @@ async function makeRequest(options, postData) {
 
 async function run() {
   const db = require('D:/Ai Ticket App - UPS/db.js');
+  const serverModule = require('D:/Ai Ticket App - UPS/server.js');
   const serverJs = fs.readFileSync('D:/Ai Ticket App - UPS/server.js', 'utf8');
+
+  let serverStarted = false;
+  const isListening = await new Promise(res => {
+    const req = http.get('http://localhost:10000/api/version', () => res(true));
+    req.on('error', () => res(false));
+    req.setTimeout(800, () => { req.destroy(); res(false); });
+  });
+
+  if (!isListening) {
+    await new Promise((res, rej) => {
+      serverModule.listen(10000, () => {
+        serverStarted = true;
+        res();
+      });
+      serverModule.on('error', rej);
+    });
+  }
+
+  try {
 
   // ----------------------------------------------------
   // TEST 1: Code Structure & Table Column Definition
@@ -190,6 +210,11 @@ async function run() {
   console.log('\n========================================================');
   console.log('🎉 ALL REMARKS DATA FLOW & ENGINEER DASHBOARD TESTS PASSED 100%');
   console.log('========================================================\n');
+  } finally {
+    if (serverStarted && serverModule.close) {
+      await new Promise(r => serverModule.close(r));
+    }
+  }
 }
 
 run().catch(err => {
