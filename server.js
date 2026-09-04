@@ -8676,7 +8676,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           <div class="form-group">
             <label class="form-label">Lifecycle Status:</label>
             <select id="modalStatus" class="form-control">
-              <option value="New / Under Review">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
+              <option value="New / Under Review">🟡 New / Under Review</option>
               <option value="In Progress (Remote)">🔵 In Progress (Remote Guidance)</option>
               <option value="Resolved Remotely">🟢 Resolved Remotely</option>
               <option value="Solved by Direct Visit">🔵 Solved by Direct Visit</option>
@@ -8697,7 +8697,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         <!-- Quick Notes Bar -->
         <div class="quick-notes-box">
-          <span class="quick-notes-title">⚡ விரைவுக் குறிப்புகள் (Quick Resolution Notes):</span>
+          <span class="quick-notes-title">⚡ Quick Resolution Notes:</span>
           <span class="quick-pill" onclick="applyQuickFix('Guided AI to reset backside MCB breaker; UPS started normally on load.', 'Resolved Remotely')">Remote: Backside MCB Reset</span>
           <span class="quick-pill" onclick="applyQuickFix('Switched Wall Circuit Breaker to ON; lab power active.', 'Resolved Remotely')">Remote: Circuit Breaker ON</span>
           <span class="quick-pill" onclick="applyQuickFix('Visited school on-site. Replaced 15A input fuse and tightened loose battery terminal lug.', 'Solved by Direct Visit')">Direct Visit: Fuse & Lug Fix</span>
@@ -8728,8 +8728,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         <!-- 4. Resolution Notes -->
         <div class="form-group">
-          <label class="form-label">பொறியாளர் கள ஆய்வுக் குறிப்புகள் (Engineer Inspection Notes):</label>
-          <textarea id="modalNotes" class="form-control" rows="3" placeholder="பழுது நீக்கிய முறை அல்லது தற்போதைய நிலை குறித்த விரிவான குறிப்புகளை எழுதவும்..."></textarea>
+          <label class="form-label">Engineer Inspection Notes:</label>
+          <textarea id="modalNotes" class="form-control" rows="3" placeholder="Describe the repair method, current status, or findings in detail..."></textarea>
         </div>
 
         <!-- 5. COMPLETION EVIDENCE SECTION -->
@@ -8737,9 +8737,9 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
             <div>
               <span style="font-size:13px; font-weight:800; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
-                <span>📸</span> COMPLETION EVIDENCE (பணி நிறைவு ஆதாரங்கள்) <span style="color:#dc2626;">*</span>
+                <span>📸</span> COMPLETION EVIDENCE <span style="color:#dc2626;">*</span>
               </span>
-              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" id="modalEvidenceSubText">பணியை முடித்து வைக்க இவ்விரண்டு புகைப்படங்களும் தேவை</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;" id="modalEvidenceSubText">Both photos required to close this ticket</div>
             </div>
             <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
               <span id="modalEvidenceRequestBadge" style="font-size:11px; font-weight:800; padding:4px 8px; border-radius:6px; background:#f1f5f9; color:#475569;">
