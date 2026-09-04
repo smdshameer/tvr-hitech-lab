@@ -4981,7 +4981,7 @@ function getTeacherPortalHtml() {
         const gpsLabels = { 1: 'Photo 1 (UPS Display)', 2: 'Photo 2 (Overall UPS Setup)', 3: 'Photo 3 (Battery MCB)', 4: 'Photo 4 (Isolation Transformer)' };
         const missingGps = [1, 2, 3, 4].filter(function(i) { return !(typeof photoGpsOk !== 'undefined' && photoGpsOk[i]); });
         if (missingGps.length > 0) {
-          alert('⚠️ GPS location missing on ' + missingGps.map(function(i) { return gpsLabels[i]; }).join(', ') + '.\nPlease turn ON Location/GPS and retake the photo(s) so the GPS watermark burns in.\n(GPS watermark is mandatory on all 4 photos.)');
+          alert('⚠️ GPS location missing on ' + missingGps.map(function(i) { return gpsLabels[i]; }).join(', ') + '.\\nPlease turn ON Location/GPS and retake the photo(s) so the GPS watermark burns in.\\n(GPS watermark is mandatory on all 4 photos.)');
           const firstBox = document.getElementById('photoBox' + missingGps[0]);
           if (firstBox) firstBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
