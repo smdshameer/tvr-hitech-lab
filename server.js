@@ -8467,17 +8467,6 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       </div>
     </section>
 
-    <!-- Operational Queue Status Bar -->
-    <div style="display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; margin-bottom:12px; scrollbar-width:thin;">
-      <button type="button" class="quick-pill active-status-tab" id="tabStatusAll" onclick="setOperationalTab('ALL')">📋 All Calls (<span id="countTabAll">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusNew" onclick="setOperationalTab('New / Under Review')">🟡 New / Triage (<span id="countTabNew">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusRemote" onclick="setOperationalTab('In Progress (Remote)')">🔵 Remote Work (<span id="countTabRemote">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusVisit" onclick="setOperationalTab('Field Visit Scheduled')">📅 Scheduled Visits (<span id="countTabVisit">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusVendor" onclick="setOperationalTab('Vendor Escalated')">🔴 Vendor Pending (<span id="countTabVendor">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusResolved" onclick="setOperationalTab('Resolved Remotely')">🟢 Resolved (<span id="countTabResolved">0</span>)</button>
-      <button type="button" class="quick-pill" id="tabStatusClosed" onclick="setOperationalTab('Closed / Verified')">✅ Closed (<span id="countTabClosed">0</span>)</button>
-    </div>
-
     <!-- Filter & Search Toolbar -->
     <section class="filter-card">
       <div class="search-box">
@@ -9386,27 +9375,6 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     function parseTicketTimestamp(s) {
       return parseAppDate(s);
     }
-
-    let activeOperationalTab = 'ALL';
-
-    function setOperationalTab(tab) {
-      activeOperationalTab = tab;
-      ['tabStatusAll', 'tabStatusNew', 'tabStatusRemote', 'tabStatusVisit', 'tabStatusVendor', 'tabStatusResolved', 'tabStatusClosed'].forEach(function(id) {
-        const el = document.getElementById(id);
-        if (el) el.style.background = 'var(--bg-card)';
-      });
-      const activeBtn = tab === 'ALL' ? document.getElementById('tabStatusAll') :
-        (tab === 'New / Under Review' ? document.getElementById('tabStatusNew') :
-        (tab === 'In Progress (Remote)' ? document.getElementById('tabStatusRemote') :
-        (tab === 'Field Visit Scheduled' ? document.getElementById('tabStatusVisit') :
-        (tab === 'Vendor Escalated' ? document.getElementById('tabStatusVendor') :
-        (tab === 'Resolved Remotely' ? document.getElementById('tabStatusResolved') : document.getElementById('tabStatusClosed'))))));
-      if (activeBtn) activeBtn.style.background = 'var(--primary-light)';
-      renderTable();
-    }
-    window.setOperationalTab = setOperationalTab;
-
-
 
     function renderTable() {
       try {
