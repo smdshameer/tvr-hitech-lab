@@ -7357,30 +7357,6 @@ function getTeacherPortalHtml() {
 </html>`;
 }
 
-
-
-function extractDriveFileId(url) {
-  if (!url || typeof url !== 'string') return '';
-  const u = url.trim();
-  if (!u || u === 'No Photo') return '';
-  if (u.includes('drive.google.com/file/d/')) {
-    const parts = u.split('drive.google.com/file/d/')[1];
-    return parts.split('/')[0].split('?')[0];
-  }
-  if (u.includes('googleusercontent.com/d/')) {
-    const parts = u.split('googleusercontent.com/d/')[1];
-    return parts.split('=')[0].split('?')[0].split('/')[0];
-  }
-  if (u.includes('id=')) {
-    const parts = u.split('id=')[1];
-    if (parts) return parts.split('&')[0].split('/')[0];
-  }
-  if (/^[a-zA-Z0-9_-]{25,45}$/.test(u)) {
-    return u;
-  }
-  return '';
-}
-
 function normalizeImageUrl(url) {
   if (!url || typeof url !== 'string') return '';
   const u = url.trim();
@@ -8874,7 +8850,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         .replace(/'/g, '&#039;');
     }
 
-function generateTableRowsHtml(list) {
+    function generateTableRowsHtml(list) {
     if (!list || list.length === 0) {
       return '<tr><td colspan="8" style="text-align:center; padding: 3rem 1rem; color: var(--text-muted);"><div style="font-size: 2rem; margin-bottom: 0.5rem;">📋</div>No service calls registered yet.</td></tr>';
     }
