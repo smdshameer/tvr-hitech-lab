@@ -945,8 +945,11 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       resolutionNotes: payload.resolutionNotes || ticket.resolutionNotes,
       hmReportPhotoBase64: payload.hmReportPhotoBase64 || '',
       completionPhotoBase64: payload.completionPhotoBase64 || '',
-      hmReportPhotoUrl: payload.hmReportPhotoUrl || '',
-      completionPhotoUrl: payload.completionPhotoUrl || '',
+      hmReportPhotoUrl: payload.hmReportPhotoUrl || ticket.hmReportPhotoUrl || '',
+      completionPhotoUrl: payload.completionPhotoUrl || ticket.completionPhotoUrl || '',
+      hmDriveFileId: payload.hmDriveFileId || ticket.hmDriveFileId || '',
+      compDriveFileId: payload.compDriveFileId || ticket.compDriveFileId || '',
+      completionEvidenceStatus: payload.completionEvidenceStatus || ticket.completionEvidenceStatus || '',
       gpsLatitude: payload.gpsLatitude || null,
       gpsLongitude: payload.gpsLongitude || null
     };
@@ -1903,6 +1906,8 @@ async function handleRequest(req, res) {
           ticketId: ticketId,
           hmReportPhotoUrl: hmReportPhotoUrl,
           completionPhotoUrl: completionPhotoUrl,
+          hmDriveFileId: targetTicket.hmDriveFileId || '',
+          compDriveFileId: targetTicket.compDriveFileId || '',
           hmReportPhotoBase64: persistentHmBase64,
           completionPhotoBase64: persistentCompBase64,
           gpsLatitude: gpsLat,
@@ -1965,6 +1970,9 @@ async function handleRequest(req, res) {
             completionPhotoBase64: persistentCompBase64,
             hmReportPhotoUrl: hmReportPhotoUrl,
             completionPhotoUrl: completionPhotoUrl,
+            hmDriveFileId: targetTicket.hmDriveFileId || '',
+            compDriveFileId: targetTicket.compDriveFileId || '',
+            completionEvidenceStatus: (isHmUploaded && isCompUploaded) ? 'SUBMITTED' : 'PARTIALLY_UPLOADED',
             gpsLatitude: gpsLat,
             gpsLongitude: gpsLon
           });
@@ -1979,8 +1987,8 @@ async function handleRequest(req, res) {
             await db.updateTicket(ticketId, {
               hmReportPhotoUrl: hmReportPhotoUrl,
               completionPhotoUrl: completionPhotoUrl,
-              hmDriveFileId: driveSyncResult.hmDriveFileId || '',
-              compDriveFileId: driveSyncResult.compDriveFileId || '',
+              hmDriveFileId: driveSyncResult.hmDriveFileId || targetTicket.hmDriveFileId || '',
+              compDriveFileId: driveSyncResult.compDriveFileId || targetTicket.compDriveFileId || '',
               completionEvidence: completionEvidence
             });
           }
@@ -2194,7 +2202,12 @@ async function handleRequest(req, res) {
                     udise: resolved.udise || udise,
                     status: data.status,
                     resolutionNotes: data.resolutionNotes,
-                    remarks: data.resolutionNotes
+                    remarks: data.resolutionNotes,
+                    hmReportPhotoUrl: (existingTicket && existingTicket.hmReportPhotoUrl) || data.hmReportPhotoUrl || '',
+                    completionPhotoUrl: (existingTicket && existingTicket.completionPhotoUrl) || data.completionPhotoUrl || '',
+                    hmDriveFileId: (existingTicket && existingTicket.hmDriveFileId) || data.hmDriveFileId || '',
+                    compDriveFileId: (existingTicket && existingTicket.compDriveFileId) || data.compDriveFileId || '',
+                    completionEvidenceStatus: (existingTicket && existingTicket.completionEvidenceStatus) || data.completionEvidenceStatus || ''
                   }),
                   signal: controller ? controller.signal : undefined
                 });
@@ -8681,7 +8694,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
                 <span id="modalHmUploadedBadge" style="font-size:10px; font-weight:800; color:#b91c1c;">❌ Missing</span>
               </div>
               <div class="modal-photo-preview-wrap" onclick="viewHmReportFullscreen()" style="height:110px; background:#f8fafc; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; border:1px solid #e2e8f0; margin:4px 0;">
-                <img id="editHmReportPreview" class="modal-photo-preview-img" style="width:100%; height:100%; object-fit:cover; display:none;" alt="HM Signed Completion Report">
+                <img id="editHmReportPreview" referrerpolicy="no-referrer" class="modal-photo-preview-img" style="width:100%; height:100%; object-fit:cover; display:none;" alt="HM Signed Completion Report">
                 <span id="noHmReportImg" style="font-size:11px; color:var(--text-muted); text-align:center; padding:4px;">📄 Upload HM Report<br><small style="color:#64748b;">(No Watermark)</small></span>
               </div>
               <div id="modalHmSourceText" style="font-size:10px; color:#1e40af; margin-bottom:4px; display:none;"></div>
@@ -8702,7 +8715,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
                 <span id="modalCompUploadedBadge" style="font-size:10px; font-weight:800; color:#b91c1c;">❌ Missing</span>
               </div>
               <div class="modal-photo-preview-wrap" onclick="viewCompletionPhotoFullscreen()" style="height:110px; background:#f8fafc; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; border:1px solid #e2e8f0; margin:4px 0;">
-                <img id="editCompletionPhotoPreview" class="modal-photo-preview-img" style="width:100%; height:100%; object-fit:cover; display:none;" alt="Completion Photo (GPS Watermarked)">
+                <img id="editCompletionPhotoPreview" referrerpolicy="no-referrer" class="modal-photo-preview-img" style="width:100%; height:100%; object-fit:cover; display:none;" alt="Completion Photo (GPS Watermarked)">
                 <span id="noCompletionImg" style="font-size:11px; color:var(--text-muted); text-align:center; padding:4px;">📍 Take Photo<br><small style="color:#0284c7;">(GPS Watermarked)</small></span>
               </div>
               <div id="gpsStatusPill" style="font-size:9.5px; font-weight:700; color:#0369a1; background:rgba(3, 105, 161, 0.1); padding:2px 4px; border-radius:4px; margin-bottom:4px; text-align:center; display:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -9569,6 +9582,13 @@ function getITSMWorkbenchHtml(initialTickets = []) {
       const mImg = document.getElementById('modalImg');
       mImg.setAttribute('referrerpolicy', 'no-referrer');
       mImg.src = src;
+      const fileId = extractDriveFileId(src);
+      if (fileId) {
+        mImg.onerror = function() {
+          this.onerror = null;
+          this.src = '/api/photo-proxy?id=' + encodeURIComponent(fileId);
+        };
+      }
       mImg.style.transform = 'scale(1)';
       document.getElementById('imgModal').style.display = 'flex';
     }
@@ -9733,19 +9753,18 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           norm = editHmReportPhoto;
         }
         if (norm) {
+          hmImg.setAttribute('referrerpolicy', 'no-referrer');
           hmImg.dataset.triedProxy = '';
           hmImg.dataset.triedEndpoint = '';
           hmImg.src = norm;
           hmImg.style.display = 'block';
           noHm.style.display = 'none';
           hmImg.onerror = function() {
-            if (!this.dataset.triedProxy) {
+            const fid = (curTicket && curTicket.hmDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl);
+            if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
-              const fid = (curTicket && curTicket.hmDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editHmReportPhoto) || extractDriveFileId(curTicket && curTicket.hmReportPhotoUrl);
-              if (fid) {
-                this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
-                return;
-              }
+              this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
+              return;
             }
             if (!this.dataset.triedEndpoint && currentEditingTicketId) {
               this.dataset.triedEndpoint = '1';
@@ -9782,19 +9801,18 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           norm = editCompletionPhoto;
         }
         if (norm) {
+          compImg.setAttribute('referrerpolicy', 'no-referrer');
           compImg.dataset.triedProxy = '';
           compImg.dataset.triedEndpoint = '';
           compImg.src = norm;
           compImg.style.display = 'block';
           noComp.style.display = 'none';
           compImg.onerror = function() {
-            if (!this.dataset.triedProxy) {
+            const fid = (curTicket && curTicket.compDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl);
+            if (!this.dataset.triedProxy && fid) {
               this.dataset.triedProxy = '1';
-              const fid = (curTicket && curTicket.compDriveFileId) || extractDriveFileId(this.src) || extractDriveFileId(editCompletionPhoto) || extractDriveFileId(curTicket && curTicket.completionPhotoUrl);
-              if (fid) {
-                this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
-                return;
-              }
+              this.src = '/api/photo-proxy?id=' + encodeURIComponent(fid);
+              return;
             }
             if (!this.dataset.triedEndpoint && currentEditingTicketId) {
               this.dataset.triedEndpoint = '1';

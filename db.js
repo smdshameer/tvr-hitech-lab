@@ -1850,8 +1850,8 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.p2DriveFileId !== undefined) ticket.p2DriveFileId = updateData.p2DriveFileId;
     if (updateData.p3DriveFileId !== undefined) ticket.p3DriveFileId = updateData.p3DriveFileId;
     if (updateData.p4DriveFileId !== undefined) ticket.p4DriveFileId = updateData.p4DriveFileId;
-    if (updateData.hmDriveFileId !== undefined) ticket.hmDriveFileId = updateData.hmDriveFileId;
-    if (updateData.compDriveFileId !== undefined) ticket.compDriveFileId = updateData.compDriveFileId;
+    if (updateData.hmDriveFileId !== undefined && (updateData.hmDriveFileId || !ticket.hmDriveFileId)) ticket.hmDriveFileId = updateData.hmDriveFileId;
+    if (updateData.compDriveFileId !== undefined && (updateData.compDriveFileId || !ticket.compDriveFileId)) ticket.compDriveFileId = updateData.compDriveFileId;
     if (updateData.evidencePhotos !== undefined && Array.isArray(updateData.evidencePhotos)) {
       ticket.evidencePhotos = updateData.evidencePhotos;
     }

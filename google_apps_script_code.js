@@ -293,6 +293,15 @@ function updateTicketRow(sheet, data) {
     var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
 
     if (data.hmReportPhotoBase64) {
+      // Idempotency: Clean up any legacy misplaced HM report from Evidence folder
+      try {
+        var oldEvFiles = evidenceFolder.getFilesByName(hmName);
+        while (oldEvFiles.hasNext()) {
+          var oldF = oldEvFiles.next();
+          oldF.setTrashed(true);
+        }
+      } catch(cleanErr) {}
+
       var hmRes = saveAndVerifyBase64Image(compFolder, data.hmReportPhotoBase64, hmName, meta);
       if (hmRes && hmRes.fileUrl) {
         hmUrl = hmRes.fileUrl;
@@ -301,6 +310,22 @@ function updateTicketRow(sheet, data) {
       } else {
         hmUrl = saveBase64Image(compFolder, data.hmReportPhotoBase64, hmName);
       }
+    } else {
+      // Self-healing: if an older run placed HM Signed Report in Evidence folder, move or trash
+      try {
+        var misplacedFiles = evidenceFolder.getFilesByName(hmName);
+        while (misplacedFiles.hasNext()) {
+          var mf = misplacedFiles.next();
+          var compCheck = compFolder.getFilesByName(hmName);
+          if (!compCheck.hasNext()) {
+            mf.moveTo(compFolder);
+            if (!hmFileId) hmFileId = mf.getId();
+            if (!hmUrl) hmUrl = 'https://drive.google.com/thumbnail?id=' + hmFileId + '&sz=w800';
+          } else {
+            mf.setTrashed(true);
+          }
+        }
+      } catch(moveErr) {}
     }
     if (data.completionPhotoBase64) {
       var compRes = saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64, compName, meta);
