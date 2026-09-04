@@ -786,6 +786,108 @@ function extractDriveFileId(url) {
 }
 
 // ========================================================
+// DRIVE RETRY QUEUE — guarantees no photo is ever silently lost.
+// Photos are always durable in DB (/uploads + base64). If the Apps Script
+// upload fails/times out, the ticket is queued and retried automatically
+// (5-min interval + opportunistic retry after each submission + manual endpoint).
+// Queue stores only ticketId+kind; photo bytes are re-read from the ticket.
+// ========================================================
+const DRIVE_RETRY_FILE = path.join(DATA_DIR, 'drive_retry_queue.json');
+let driveRetryRunning = false;
+function loadDriveRetryQueue() {
+  try {
+    if (!fs.existsSync(DRIVE_RETRY_FILE)) return [];
+    const q = JSON.parse(fs.readFileSync(DRIVE_RETRY_FILE, 'utf8'));
+    return Array.isArray(q) ? q : [];
+  } catch (e) { return []; }
+}
+function saveDriveRetryQueue(q) {
+  try { safeWriteFileSync(DRIVE_RETRY_FILE, JSON.stringify(q, null, 2), 'utf8'); } catch (e) {}
+}
+function enqueueDriveRetry(ticketId, kind) {
+  try {
+    const id = String(ticketId || '').trim();
+    if (!id || (kind !== 'intake' && kind !== 'completion')) return;
+    const q = loadDriveRetryQueue();
+    if (q.some(e => e && e.ticketId === id && e.kind === kind)) return; // already queued
+    q.push({ ticketId: id, kind, attempts: 0, nextRetry: Date.now(), createdAt: new Date().toISOString() });
+    saveDriveRetryQueue(q);
+    console.warn(`[DRIVE-RETRY] Queued ${kind} upload for ${id} (will auto-retry; photos safe in DB).`);
+  } catch (e) {}
+}
+function dataUrlOrEmpty(v) {
+  return (typeof v === 'string' && v.startsWith('data:image')) ? v : '';
+}
+async function processDriveRetryQueue(manual) {
+  if (driveRetryRunning) return { success: true, skipped: true };
+  driveRetryRunning = true;
+  const summary = { processed: 0, succeeded: 0, stillPending: 0 };
+  try {
+    let q = loadDriveRetryQueue();
+    const now = Date.now();
+    const due = q.filter(e => e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual));
+    const remaining = q.filter(e => !(e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual)));
+    for (const entry of due) {
+      summary.processed++;
+      try {
+        const all = await db.getAllTickets();
+        const t = all.find(x => String(x.ticketId || x.id).trim() === entry.ticketId);
+        if (!t) continue; // ticket deleted — drop
+        let res = null;
+        if (entry.kind === 'intake') {
+          const hasIds = t.p1DriveFileId && t.p2DriveFileId && t.p3DriveFileId && t.p4DriveFileId;
+          if (hasIds) { summary.succeeded++; continue; } // already uploaded — drop
+          res = await syncTicketToGoogleDrive(t, {
+            photo1Base64: dataUrlOrEmpty(t.photo1Url || t.photo1Base64),
+            photo2Base64: dataUrlOrEmpty(t.photo2Url || t.photo2Base64),
+            photo3Base64: dataUrlOrEmpty(t.photo3Url || t.photo3Base64),
+            photo4Base64: dataUrlOrEmpty(t.photo4Url || t.photo4Base64),
+            hmReportPhotoBase64: '', completionPhotoBase64: ''
+          });
+        } else {
+          const comp = (t.completionEvidence && t.completionEvidence.completionPhoto) || {};
+          const hm = (t.completionEvidence && t.completionEvidence.hmSignedReport) || {};
+          if (comp.driveFileId && hm.driveFileId) { summary.succeeded++; continue; }
+          res = await syncCompletionEvidenceToGoogleDrive(t, {
+            remarks: `Completion evidence retry (${entry.attempts + 1})`,
+            hmReportPhotoBase64: dataUrlOrEmpty(t.hmReportPhotoBase64 || hm.data),
+            completionPhotoBase64: dataUrlOrEmpty(t.completionPhotoBase64 || comp.data),
+            hmReportPhotoUrl: t.hmReportPhotoUrl || hm.fileUrl || '',
+            completionPhotoUrl: t.completionPhotoUrl || comp.fileUrl || '',
+            hmDriveFileId: t.hmDriveFileId || hm.driveFileId || '',
+            compDriveFileId: t.compDriveFileId || comp.driveFileId || '',
+            completionEvidenceStatus: t.completionEvidenceStatus || '',
+            gpsLatitude: t.gpsLatitude, gpsLongitude: t.gpsLongitude
+          });
+        }
+        if (res && res.success) {
+          summary.succeeded++;
+        } else {
+          entry.attempts = (entry.attempts || 0) + 1;
+          if (entry.attempts >= 10) {
+            console.error(`[DRIVE-RETRY] Giving up ${entry.kind} for ${entry.ticketId} after 10 attempts (photos remain in DB).`);
+          } else {
+            entry.nextRetry = Date.now() + Math.min(6 * 3600 * 1000, 5 * 60 * 1000 * Math.pow(2, entry.attempts));
+            remaining.push(entry);
+          }
+        }
+      } catch (e) {
+        entry.attempts = (entry.attempts || 0) + 1;
+        entry.nextRetry = Date.now() + Math.min(6 * 3600 * 1000, 5 * 60 * 1000 * Math.pow(2, entry.attempts));
+        if (entry.attempts < 10) remaining.push(entry);
+      }
+    }
+    summary.stillPending = remaining.length;
+    saveDriveRetryQueue(remaining);
+  } catch (e) {}
+  driveRetryRunning = false;
+  return { success: true, ...summary };
+}
+if (!process.env.VERCEL && typeof setInterval !== 'undefined') {
+  setInterval(() => { processDriveRetryQueue(false).catch(() => {}); }, 5 * 60 * 1000);
+}
+
+// ========================================================
 // ========================================================
 // GOOGLE DRIVE & GOOGLE SHEETS ASYNC WEBHOOK SYNC
 // ========================================================
@@ -840,7 +942,8 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
       let timeoutId = null;
       if (typeof AbortController !== 'undefined') {
         controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), 12000);
+        // 4 watermarked photos (1600px) routinely exceed 12s on Apps Script; 55s stays under Vercel maxDuration 60
+        timeoutId = setTimeout(() => controller.abort(), 55000);
       }
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -922,9 +1025,10 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
     }
     return { success: false, error: 'No fetch function available' };
   } catch (err) {
-    console.error(`[DRIVE] Upload Completed: FAILED Error: ${err.message}`);
+    const isTimeout = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+    console.error(`[DRIVE] Upload Completed: FAILED Error: ${err.message}${isTimeout ? ' (client timeout — Drive may still have saved; verify folder before retrying to avoid duplicates)' : ''}`);
     console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${err.message}`);
-    return { success: false, error: err.message };
+    return { success: false, error: err.message, timeout: !!isTimeout };
   }
 }
 
@@ -977,7 +1081,8 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       let timeoutId = null;
       if (typeof AbortController !== 'undefined') {
         controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), 25000);
+        // 2 watermarked evidence photos can exceed 25s on Apps Script cold start; 55s stays under Vercel maxDuration 60
+        timeoutId = setTimeout(() => controller.abort(), 55000);
       }
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -1420,6 +1525,29 @@ async function handleRequest(req, res) {
     return;
   }
 
+  // API: Drive retry queue — status (GET) & manual drain (POST, engineer session).
+  // Lets staff confirm/retry cloud backup after a timeout without re-filing.
+  if (pathname === '/api/admin/drive-retry') {
+    if (req.method === 'GET') {
+      const q = loadDriveRetryQueue();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, pending: q.length, queue: q.map(e => ({ ticketId: e.ticketId, kind: e.kind, attempts: e.attempts, nextRetry: e.nextRetry })) }));
+      return;
+    }
+    if (req.method === 'POST') {
+      const session = getAuthenticatedSession(req);
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Authentication required. Please login.' }));
+        return;
+      }
+      const result = await processDriveRetryQueue(true);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(result));
+      return;
+    }
+  }
+
   // API: Version & Health Probe
   if (pathname === '/api/version') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
@@ -1729,6 +1857,14 @@ async function handleRequest(req, res) {
         }
 
         const driveConfirmed = !!(driveSyncResult && driveSyncResult.success);
+        let drivePendingRetry = false;
+        if (!driveConfirmed) {
+          // Photos are durable in DB (/uploads + base64) — queue cloud backup instead of losing it
+          enqueueDriveRetry(ticketId, 'intake');
+          drivePendingRetry = true;
+        }
+        // Opportunistic: drain any older queued uploads now (non-blocking)
+        try { processDriveRetryQueue(false).catch(() => {}); } catch (e) {}
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -1736,6 +1872,7 @@ async function handleRequest(req, res) {
           ticketId: ticketId,
           message: 'Ticket logged successfully!',
           driveUploadConfirmed: driveConfirmed,
+          drivePendingRetry: drivePendingRetry,
           driveError: driveSyncError || null,
           driveFolderUrl: driveSyncResult?.result?.folderUrl || newTicket.googleDriveFolderUrl || '',
           uploadedCount: driveSyncResult?.evidencePhotos?.length || 0
@@ -2196,7 +2333,11 @@ async function handleRequest(req, res) {
               compDriveFileId: driveSyncResult.compDriveFileId || targetTicket.compDriveFileId || '',
               completionEvidence: completionEvidence
             });
+          } else {
+            // Evidence is durable in DB — queue cloud backup instead of losing it
+            enqueueDriveRetry(ticketId, 'completion');
           }
+          try { processDriveRetryQueue(false).catch(() => {}); } catch (e) {}
         }
 
         await db.logAudit({
@@ -2223,6 +2364,8 @@ async function handleRequest(req, res) {
           hmDriveUrl: driveSyncResult?.hmDriveUrl || hmReportPhotoUrl,
           compDriveUrl: driveSyncResult?.compDriveUrl || completionPhotoUrl,
           completionFiles: driveSyncResult?.result?.completionFiles || [],
+          driveUploadConfirmed: !!(driveSyncResult && driveSyncResult.success),
+          drivePendingRetry: !(driveSyncResult && driveSyncResult.success),
           gpsSource: gpsSource,
           gpsCoordinates: { latitude: gpsLat, longitude: gpsLon }
         }));
@@ -5082,6 +5225,9 @@ function getTeacherPortalHtml() {
           document.getElementById('dispTicketId').textContent = result.ticketId;
           document.getElementById('formContainer').style.display = 'none';
           document.getElementById('successBox').style.display = 'block';
+          if (result.driveUploadConfirmed === false) {
+            alert('✅ Complaint saved as ' + result.ticketId + '.\\n⚠️ Cloud (Drive) backup is pending and will auto-retry — please keep the original photos in your gallery until Drive confirms.');
+          }
         } else {
           alert('Error: ' + result.error);
           btn.disabled = false;
@@ -7651,6 +7797,9 @@ function getTeacherPortalHtml() {
           if (btn) {
             btn.style.background = '';
             btn.textContent = '📤 Submit Photos (சமர்ப்பிக்கவும்)';
+          }
+          if (data.drivePendingRetry) {
+            alert('✅ Evidence saved in database.\\n⚠️ Cloud (Drive) backup pending — auto-retry queued. Please keep originals until Drive confirms.');
           }
           const modal = document.getElementById('trackCompletionSuccessModal');
           if (modal) {
