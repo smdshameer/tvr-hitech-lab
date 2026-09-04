@@ -24,6 +24,7 @@ function parseAppDate(input) {
     let part1 = parseInt(dateParts[0], 10);
     let part2 = parseInt(dateParts[1], 10);
     let year = parseInt(dateParts[2], 10);
+    if (!isNaN(year) && year >= 0 && year < 100) year += (year <= 49 ? 2000 : 1900);
 
     if (!isNaN(part1) && !isNaN(part2) && !isNaN(year)) {
       let hours = 0;
@@ -125,10 +126,10 @@ const os = require('os');
 const db = require('./db.js');
 const masterSchools = db.masterSchools || [];
 const { getAllTicketsSync } = db;
-// Import DATA_DIR from db.js for consistent data path handling
+// Import DATA_DIR from db.js for consistent data path handling (unified with db.js: os.tmpdir()/tvr_data)
 const isServerless = !!process.env.VERCEL || !!process.env.VERCEL_ENV || !!process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.startsWith('/var/task') || __dirname.startsWith('/tmp');
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
-const DATA_DIR = isServerless ? path.join('/tmp', 'data') : BUNDLED_DATA_DIR;
+const DATA_DIR = isServerless ? path.join(os.tmpdir(), 'tvr_data') : BUNDLED_DATA_DIR;
 
 // ========================================================
 // 1. CREDENTIALS & SECURITY CONFIGURATION
@@ -155,6 +156,12 @@ function injectGpsExif(jpegBuffer, lat, lon, dateObj, processingMethod = 'BROWSE
   if (!jpegBuffer || jpegBuffer.length < 4 || jpegBuffer[0] !== 0xFF || jpegBuffer[1] !== 0xD8) {
     return jpegBuffer;
   }
+  // Backward-compatible guard: reject non-finite coords without crashing callers
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return jpegBuffer;
+  }
+  // Sanitize processing method to prevent TIFF overflow (callers may pass unbounded gpsSource)
+  processingMethod = String(processingMethod || 'BROWSER_DEVICE_GPS').slice(0, 64);
 
   try {
     const date = dateObj instanceof Date ? dateObj : new Date(dateObj || Date.now());
@@ -163,15 +170,20 @@ function injectGpsExif(jpegBuffer, lat, lon, dateObj, processingMethod = 'BROWSE
     const absLat = Math.abs(lat);
     const absLon = Math.abs(lon);
 
-    const latDeg = Math.floor(absLat);
+    let latDeg = Math.floor(absLat);
     const latMinFloat = (absLat - latDeg) * 60;
-    const latMin = Math.floor(latMinFloat);
-    const latSec = Math.round((latMinFloat - latMin) * 60 * 1000);
+    let latMin = Math.floor(latMinFloat);
+    let latSec = Math.round((latMinFloat - latMin) * 60 * 1000);
+    // Carry overflow: 60.000s -> +1min (strict EXIF parsers reject 60000/1000)
+    if (latSec >= 60000) { latSec -= 60000; latMin += 1; }
+    if (latMin >= 60) { latMin -= 60; latDeg += 1; }
 
-    const lonDeg = Math.floor(absLon);
+    let lonDeg = Math.floor(absLon);
     const lonMinFloat = (absLon - lonDeg) * 60;
-    const lonMin = Math.floor(lonMinFloat);
-    const lonSec = Math.round((lonMinFloat - lonMin) * 60 * 1000);
+    let lonMin = Math.floor(lonMinFloat);
+    let lonSec = Math.round((lonMinFloat - lonMin) * 60 * 1000);
+    if (lonSec >= 60000) { lonSec -= 60000; lonMin += 1; }
+    if (lonMin >= 60) { lonMin -= 60; lonDeg += 1; }
 
     const year = date.getUTCFullYear();
     const month = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -371,7 +383,7 @@ function safeWriteFileSync(filePath, data, encoding = 'utf8') {
   } catch (err) {
     try {
       const baseName = path.basename(filePath);
-      const tmpPath = path.join('/tmp', baseName);
+      const tmpPath = path.join(os.tmpdir(), baseName);
       fs.writeFileSync(tmpPath, data, encoding);
     } catch (e) {}
   }
@@ -379,7 +391,7 @@ function safeWriteFileSync(filePath, data, encoding = 'utf8') {
 
 // 2. DATA PERSISTENCE & POSTGRESQL INITIALIZATION
 // ========================================================
-const UPLOADS_DIR = isServerless ? path.join('/tmp', 'uploads') : path.join(__dirname, 'uploads');
+const UPLOADS_DIR = isServerless ? path.join(os.tmpdir(), 'tvr_uploads') : path.join(__dirname, 'uploads');
 try {
   if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 } catch (e) {}
@@ -509,10 +521,10 @@ function ensureCsrfToken(req, res) {
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
   return String(str)
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
-    .replace(/"/g, '"')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
 
@@ -1145,7 +1157,7 @@ async function handleRequest(req, res) {
   if (pathname === '/api/index.js' || pathname === '/api/index') {
     pathname = req.headers['x-matched-path'] || '/';
   }
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
+  const clientIp = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1';
 
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -1189,13 +1201,13 @@ async function handleRequest(req, res) {
   if (pathname === '/api/photo-proxy') {
     const parsedUrl = url.parse(req.url, true);
     const fileId = (parsedUrl.query.id || '').trim();
-    if (!fileId || !/^[-_a-zA-Z0-9]+$/.test(fileId)) {
+    if (!fileId || !/^[-_a-zA-Z0-9]{10,100}$/.test(fileId)) {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
       res.end('Invalid File ID');
       return;
     }
     const targetUrl = 'https://lh3.googleusercontent.com/d/' + fileId + '=w800';
-    const proxyReq = https.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, proxyRes => {
+    const proxyReq = https.get(targetUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 10000 }, proxyRes => {
       if (proxyRes.statusCode === 200) {
         res.writeHead(200, {
           'Content-Type': proxyRes.headers['content-type'] || 'image/jpeg',
@@ -1205,9 +1217,24 @@ async function handleRequest(req, res) {
         proxyRes.pipe(res);
       } else {
         const dlUrl = 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w800';
-        https.get(dlUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, dlRes => {
+        https.get(dlUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 10000 }, dlRes => {
+          // Cap proxied bytes (8MB) to prevent upstream abuse
+          let dlBytes = 0;
+          dlRes.on('data', c => { dlBytes += c.length; if (dlBytes > 8 * 1024 * 1024) { try { dlRes.destroy(); } catch (e) {} } });
           if (dlRes.statusCode === 302 && dlRes.headers.location) {
-            https.get(dlRes.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0' } }, finalRes => {
+            try {
+              const loc = new URL(dlRes.headers.location);
+              if (!(loc.protocol === 'https:' && /(^|\.)googleusercontent\.com$/.test(loc.hostname))) {
+                res.writeHead(502, { 'Content-Type': 'text/plain' });
+                res.end('Thumbnail redirect not allowed');
+                return;
+              }
+            } catch (e) {
+              res.writeHead(502, { 'Content-Type': 'text/plain' });
+              res.end('Thumbnail redirect error');
+              return;
+            }
+            https.get(dlRes.headers.location, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 10000 }, finalRes => {
               res.writeHead(finalRes.statusCode, {
                 'Content-Type': finalRes.headers['content-type'] || 'image/jpeg',
                 'Cache-Control': 'public, max-age=86400',
@@ -1373,6 +1400,17 @@ async function handleRequest(req, res) {
       return;
     }
     if (photoUrl && photoUrl.startsWith('http')) {
+      // Allowlist redirect to prevent phishing open-redirect via attacker-controlled completionPhotoUrl
+      let okDest = false;
+      try {
+        const u = new URL(photoUrl);
+        okDest = (u.protocol === 'https:' && (/(^|\.)googleusercontent\.com$/.test(u.hostname) || /(^|\.)drive\.google\.com$/.test(u.hostname) || /(^|\.)ggpht\.com$/.test(u.hostname)));
+      } catch (e) { okDest = false; }
+      if (!okDest) {
+        res.writeHead(422, { 'Content-Type': 'text/plain' });
+        res.end('External photo URL not allowed');
+        return;
+      }
       res.writeHead(302, { 'Location': photoUrl });
       res.end();
       return;
@@ -1769,9 +1807,17 @@ async function handleRequest(req, res) {
   // 3A. API: Submit / Update Completion Evidence (AI Teacher & Engineer Fallback)
   if (pathname === '/api/tickets/completion-evidence' && req.method === 'POST') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    let bodyBytes = 0;
+    let bodyTooLarge = false;
+    // Backward-compatible DoS guard: 15MB cap by bytes (normal watermarked JPEGs are 1-5MB)
+    req.on('data', chunk => { bodyBytes += Buffer.byteLength(chunk); if (bodyBytes > 15 * 1024 * 1024) { bodyTooLarge = true; } else { body += chunk; } });
     req.on('end', async () => {
       try {
+        if (bodyTooLarge || Buffer.byteLength(body || '') > 15 * 1024 * 1024) {
+          res.writeHead(413, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Payload too large (max 15MB). Please compress the photo and retry.' }));
+          return;
+        }
         const payload = JSON.parse(body || '{}');
         const ticketId = String(payload.ticketId || (payload.data && payload.data.ticketId) || '').trim();
         if (!ticketId) {
@@ -1814,10 +1860,23 @@ async function handleRequest(req, res) {
         let persistentHmBase64 = targetTicket.hmReportPhotoBase64 || targetTicket.completionEvidence?.hmSignedReport?.data || '';
 
         if (hmBase64Payload && typeof hmBase64Payload === 'string' && hmBase64Payload.startsWith('data:')) {
-          const hmFileName = `hm_report_${ticketId}_${Date.now()}.jpg`;
+          // Slot 1: images only (jpeg/png/webp). Reject html/svg to prevent stored XSS — valid camera JPEGs unaffected.
+          if (!/^data:image\/(jpeg|jpg|png|webp);base64,/.test(hmBase64Payload)) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'HM report must be an image (JPEG/PNG/WebP).' }));
+            return;
+          }
+          const safeTicketHm = String(ticketId).replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 48);
+          const hmFileName = `hm_report_${safeTicketHm}_${Date.now()}.jpg`;
           const hmFilePath = path.join(UPLOADS_DIR, hmFileName);
           const hmBase64Data = hmBase64Payload.replace(/^data:[^;]+;base64,/, '');
-          fs.writeFileSync(hmFilePath, Buffer.from(hmBase64Data, 'base64'));
+          const hmBuf = Buffer.from(hmBase64Data, 'base64');
+          if (!hmBuf || hmBuf.length === 0 || hmBuf.length > 12 * 1024 * 1024) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid HM report image data.' }));
+            return;
+          }
+          fs.writeFileSync(hmFilePath, hmBuf);
           hmReportPhotoUrl = `/uploads/${hmFileName}`;
           persistentHmBase64 = hmBase64Payload;
           hmPersistSuccess = true;
@@ -1830,8 +1889,8 @@ async function handleRequest(req, res) {
 
         // Strict GPS validation: when a new completion photo is being uploaded, genuine coordinates must be supplied
         const hasNewCompPhoto = !!(payload.completionPhotoBase64 && typeof payload.completionPhotoBase64 === 'string' && payload.completionPhotoBase64.startsWith('data:image'));
-        const hasValidGpsPayload = (payload.gpsLatitude !== undefined && payload.gpsLatitude !== null && payload.gpsLatitude !== '' && typeof payload.gpsLatitude === 'number') &&
-                                   (payload.gpsLongitude !== undefined && payload.gpsLongitude !== null && payload.gpsLongitude !== '' && typeof payload.gpsLongitude === 'number');
+        const hasValidGpsPayload = (payload.gpsLatitude !== undefined && payload.gpsLatitude !== null && payload.gpsLatitude !== '' && typeof payload.gpsLatitude === 'number' && Number.isFinite(payload.gpsLatitude)) &&
+                                   (payload.gpsLongitude !== undefined && payload.gpsLongitude !== null && payload.gpsLongitude !== '' && typeof payload.gpsLongitude === 'number' && Number.isFinite(payload.gpsLongitude));
 
         // Verify School and UDISE association if provided in payload
         if (payload.udise && targetTicket.udise && String(payload.udise).trim() !== String(targetTicket.udise).trim()) {
@@ -1853,8 +1912,16 @@ async function handleRequest(req, res) {
         }
 
         if (hasNewCompPhoto && hasValidGpsPayload) {
-          // Validate accuracy threshold (<= 50 meters)
-          if (payload.gpsAccuracy !== undefined && Number(payload.gpsAccuracy) > 50) {
+          // Accuracy required for new photos (current Web GPS Camera always sends it). Gallery-EXIF without accuracy must use live GPS.
+          if (payload.gpsAccuracy === undefined || payload.gpsAccuracy === null || payload.gpsAccuracy === '' || !Number.isFinite(Number(payload.gpsAccuracy))) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              error: 'GPS accuracy is required (live fix within 50m). Gallery photos without live GPS are not accepted.'
+            }));
+            return;
+          }
+          if (Number(payload.gpsAccuracy) > 50) {
             res.writeHead(422, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({
               success: false,
@@ -1871,8 +1938,16 @@ async function handleRequest(req, res) {
             }));
             return;
           }
-          // Validate timestamp freshness (< 10 minutes)
-          if (payload.gpsTimestamp) {
+          // Validate timestamp freshness (< 10 minutes). Required for new photos (current client always sends it).
+          if (!payload.gpsTimestamp) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: false,
+              error: 'GPS timestamp is required for the completion photo. Please retake with live GPS.'
+            }));
+            return;
+          }
+          {
             const gpsFixTime = new Date(payload.gpsTimestamp).getTime();
             const nowTime = Date.now();
             if (isNaN(gpsFixTime) || Math.abs(nowTime - gpsFixTime) > 600000) {
@@ -1891,37 +1966,68 @@ async function handleRequest(req, res) {
         let persistentCompBase64 = targetTicket.completionPhotoBase64 || targetTicket.completionEvidence?.completionPhoto?.data || '';
 
         if (payload.completionPhotoBase64 && typeof payload.completionPhotoBase64 === 'string' && payload.completionPhotoBase64.startsWith('data:image')) {
-          const compFileName = `comp_photo_${ticketId}_${Date.now()}.jpg`;
+          const safeTicket = String(ticketId).replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 48);
+          const compFileName = `comp_photo_${safeTicket}_${Date.now()}.jpg`;
           const compFilePath = path.join(UPLOADS_DIR, compFileName);
-          const compBase64Data = payload.completionPhotoBase64.replace(/^data:image\/\w+;base64,/, '');
+          const compBase64Data = payload.completionPhotoBase64.replace(/^data:image\/[\w+-]+;base64,/, '');
           let rawCompBuffer = Buffer.from(compBase64Data, 'base64');
+          if (!rawCompBuffer.length || rawCompBuffer.length > 12 * 1024 * 1024) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid completion image data (empty or >12MB).' }));
+            return;
+          }
+          // Magic-byte check: must be JPEG (FFD8) or PNG (89504E47) — SVG/text rejected
+          {
+            const isJpeg = rawCompBuffer.length >= 2 && rawCompBuffer[0] === 0xFF && rawCompBuffer[1] === 0xD8;
+            const isPng = rawCompBuffer.length >= 4 && rawCompBuffer[0] === 0x89 && rawCompBuffer[1] === 0x50 && rawCompBuffer[2] === 0x4E && rawCompBuffer[3] === 0x47;
+            if (!isJpeg && !isPng) {
+              res.writeHead(422, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Completion photo must be a real JPEG/PNG image.' }));
+              return;
+            }
+          }
+          let exifInjected = false;
           if (hasValidGpsPayload) {
             try {
+              const ALLOWED_GPS_SOURCES = new Set(['BROWSER_DEVICE_GPS', 'LIVE_BROWSER_GPS', 'web-camera', 'PHOTO_EXIF_GPS', 'PHOTO_EXIF_GPS_UNVERIFIED', 'UNKNOWN']);
+              const safeSource = ALLOWED_GPS_SOURCES.has(String(payload.gpsSource)) ? String(payload.gpsSource) : 'BROWSER_DEVICE_GPS';
+              const beforeLen = rawCompBuffer.length;
               rawCompBuffer = injectGpsExif(
                 rawCompBuffer,
                 payload.gpsLatitude,
                 payload.gpsLongitude,
                 payload.gpsTimestamp || new Date(),
-                payload.gpsSource || 'BROWSER_DEVICE_GPS'
+                safeSource
               );
+              exifInjected = !!(rawCompBuffer && rawCompBuffer.length >= 4 && rawCompBuffer[0] === 0xFF && rawCompBuffer[1] === 0xD8);
+              if (!exifInjected && beforeLen >= 4) exifInjected = false;
             } catch (exifErr) {
               console.warn('⚠️ Server EXIF injection error:', exifErr.message);
             }
+          }
+          if (!rawCompBuffer || rawCompBuffer.length === 0) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid image data.' }));
+            return;
           }
           fs.writeFileSync(compFilePath, rawCompBuffer);
           completionPhotoUrl = `/uploads/${compFileName}`;
           persistentCompBase64 = 'data:image/jpeg;base64,' + rawCompBuffer.toString('base64');
           compPersistSuccess = true;
           console.log('[COMPLETION_PHOTO]', {
-            watermarked: true,
+            exifInjected,
+            visualWatermark: 'unverified-client-canvas',
             bytes: rawCompBuffer.length,
             gps: `${payload.gpsLatitude},${payload.gpsLongitude}`,
             accuracy: payload.gpsAccuracy,
             ticket: ticketId
           });
         } else if (payload.completionPhotoUrl) {
+          // Backward-compat: grandfather pre-existing URL resubmits (old app versions) — accept but mark GPS-unverified
           completionPhotoUrl = payload.completionPhotoUrl;
           compPersistSuccess = true;
+          payload.gpsVerification = payload.gpsVerification || 'Legacy Upload — GPS Unverified';
+          console.warn('[COMPLETION_PHOTO] legacy URL without fresh GPS', { ticket: ticketId });
         } else if (completionPhotoUrl) {
           compPersistSuccess = true;
         }
@@ -1940,9 +2046,14 @@ async function handleRequest(req, res) {
 
         const gpsLat = hasValidGpsPayload ? payload.gpsLatitude : (targetTicket.gpsLatitude || null);
         const gpsLon = hasValidGpsPayload ? payload.gpsLongitude : (targetTicket.gpsLongitude || null);
-        const gpsAcc = payload.gpsAccuracy !== undefined ? payload.gpsAccuracy : (targetTicket.gpsAccuracy || 15);
-        const gpsTime = payload.gpsTimestamp || targetTicket.gpsTimestamp || new Date().toISOString();
-        const gpsSource = payload.gpsSource || (hasValidGpsPayload ? 'BROWSER_DEVICE_GPS' : (targetTicket.gpsSource || 'UNKNOWN'));
+        // Backward-compatible: missing accuracy stays null (unverified) instead of fake 15m; missing timestamp reuses stored fix
+        const gpsAcc = (payload.gpsAccuracy !== undefined && payload.gpsAccuracy !== null && payload.gpsAccuracy !== '')
+          ? Number(payload.gpsAccuracy)
+          : (targetTicket.gpsAccuracy ?? null);
+        const gpsTime = payload.gpsTimestamp || targetTicket.gpsTimestamp || null;
+        const ALLOWED_SRC = new Set(['BROWSER_DEVICE_GPS', 'LIVE_BROWSER_GPS', 'web-camera', 'PHOTO_EXIF_GPS', 'PHOTO_EXIF_GPS_UNVERIFIED', 'UNKNOWN']);
+        const gpsSource = ALLOWED_SRC.has(String(payload.gpsSource)) ? String(payload.gpsSource)
+          : (hasValidGpsPayload ? 'BROWSER_DEVICE_GPS' : (ALLOWED_SRC.has(String(targetTicket.gpsSource)) ? String(targetTicket.gpsSource) : 'UNKNOWN'));
 
         const prevEv = targetTicket.completionEvidence || {};
         const prevHm = prevEv.hmSignedReport || {};
@@ -1974,9 +2085,9 @@ async function handleRequest(req, res) {
             source: payload.completionPhotoBase64 ? source : (prevComp.source || source),
             gpsLatitude: gpsLat || null,
             gpsLongitude: gpsLon || null,
-            gpsAccuracy: gpsAcc || null,
+            gpsAccuracy: (gpsAcc === null || gpsAcc === undefined || gpsAcc === '') ? null : Number(gpsAcc),
             gpsWatermarkRequired: true,
-            gpsVerification: payload.gpsVerification || (gpsLat && gpsLon ? 'GPS Verified' : 'Manual Upload')
+            gpsVerification: payload.gpsVerification || (gpsLat && gpsLon && Number.isFinite(Number(gpsAcc)) && Number(gpsAcc) <= 50 ? 'GPS Verified' : (gpsLat && gpsLon ? 'GPS Unverified — check accuracy/freshness' : 'Manual Upload'))
           },
           status: evStatus,
           completedAt: evStatus === 'complete' ? nowStr : (targetTicket.completionDate || nowStr),
@@ -2151,10 +2262,22 @@ async function handleRequest(req, res) {
         // Save Completion Photos to local uploads if base64 (Engineer manual fallback or update)
         if (data.hmReportPhotoBase64 && typeof data.hmReportPhotoBase64 === 'string' && data.hmReportPhotoBase64.startsWith('data:image')) {
           try {
-            const hmFileName = `hm_report_${data.ticketId}_${Date.now()}.jpg`;
+            if (!/^data:image\/(jpeg|jpg|png|webp);base64,/.test(data.hmReportPhotoBase64)) {
+              res.writeHead(422, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'HM report must be an image (JPEG/PNG/WebP).' }));
+              return;
+            }
+            const safeEngHm = String(data.ticketId || 't').replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 48);
+            const hmFileName = `hm_report_${safeEngHm}_${Date.now()}.jpg`;
             const hmFilePath = path.join(UPLOADS_DIR, hmFileName);
-            const hmBase64Data = data.hmReportPhotoBase64.replace(/^data:image\/\w+;base64,/, '');
-            fs.writeFileSync(hmFilePath, Buffer.from(hmBase64Data, 'base64'));
+            const hmBase64Data = data.hmReportPhotoBase64.replace(/^data:image\/[\w+-]+;base64,/, '');
+            const hmBufEng = Buffer.from(hmBase64Data, 'base64');
+            if (!hmBufEng.length || hmBufEng.length > 12 * 1024 * 1024) {
+              res.writeHead(422, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Invalid HM report image data.' }));
+              return;
+            }
+            fs.writeFileSync(hmFilePath, hmBufEng);
             data.hmReportPhotoUrl = `/uploads/${hmFileName}`;
           } catch(e) {
             console.error('Error saving HM report photo:', e.message);
@@ -2169,11 +2292,44 @@ async function handleRequest(req, res) {
         }
 
         if (data.completionPhotoBase64 && typeof data.completionPhotoBase64 === 'string' && data.completionPhotoBase64.startsWith('data:image')) {
+          // Engineer Slot2 uploads must also carry live GPS (same 50m + TN bounds + 10min rules as teacher flow)
+          const eLat = data.gpsLatitude, eLon = data.gpsLongitude;
+          if (typeof eLat !== 'number' || !Number.isFinite(eLat) || typeof eLon !== 'number' || !Number.isFinite(eLon)) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'GPS coordinates are mandatory for the completion photo.' }));
+            return;
+          }
+          if (eLat < 8.0 || eLat > 14.0 || eLon < 76.0 || eLon > 81.0) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'GPS coordinates out of state geographic bounds.' }));
+            return;
+          }
+          if (data.gpsAccuracy === undefined || data.gpsAccuracy === null || data.gpsAccuracy === '' || !Number.isFinite(Number(data.gpsAccuracy)) || Number(data.gpsAccuracy) > 50) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'GPS accuracy must be within 50 meters for the completion photo.' }));
+            return;
+          }
+          if (!data.gpsTimestamp || isNaN(new Date(data.gpsTimestamp).getTime()) || Math.abs(Date.now() - new Date(data.gpsTimestamp).getTime()) > 600000) {
+            res.writeHead(422, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'GPS timestamp must be fresh (< 10 minutes).' }));
+            return;
+          }
           try {
-            const compFileName = `comp_photo_${data.ticketId}_${Date.now()}.jpg`;
+            const safeEng = String(data.ticketId || 't').replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 48);
+            const compFileName = `comp_photo_${safeEng}_${Date.now()}.jpg`;
             const compFilePath = path.join(UPLOADS_DIR, compFileName);
-            const compBase64Data = data.completionPhotoBase64.replace(/^data:image\/\w+;base64,/, '');
-            fs.writeFileSync(compFilePath, Buffer.from(compBase64Data, 'base64'));
+            const compBase64Data = data.completionPhotoBase64.replace(/^data:image\/[\w+-]+;base64,/, '');
+            let engBuf = Buffer.from(compBase64Data, 'base64');
+            if (!engBuf.length || engBuf.length > 12 * 1024 * 1024) {
+              res.writeHead(422, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Invalid completion image data.' }));
+              return;
+            }
+            try {
+              const ALLOWED = new Set(['BROWSER_DEVICE_GPS', 'LIVE_BROWSER_GPS', 'web-camera', 'PHOTO_EXIF_GPS', 'PHOTO_EXIF_GPS_UNVERIFIED', 'UNKNOWN']);
+              engBuf = injectGpsExif(engBuf, eLat, eLon, data.gpsTimestamp, ALLOWED.has(String(data.gpsSource)) ? String(data.gpsSource) : 'BROWSER_DEVICE_GPS');
+            } catch (e) { console.warn('Engineer EXIF inject failed:', e.message); }
+            fs.writeFileSync(compFilePath, engBuf);
             data.completionPhotoUrl = `/uploads/${compFileName}`;
           } catch(e) {
             console.error('Error saving Completion photo:', e.message);
@@ -2856,12 +3012,14 @@ const HTTPS_PORT = process.env.HTTPS_PORT || 10443;
 let httpsServer = null;
 
 if (!process.env.VERCEL && require.main === module) {
+  server.on('error', (err) => { console.error('❌ HTTP listen failed:', err.message); });
   server.listen(PORT, async () => {
     console.log(`🚀 TVR Hi-Tech Lab Service Desk (HTTP) running on port ${PORT}`);
     try {
       const tlsCreds = await ensureTlsCertificates();
       if (tlsCreds) {
         httpsServer = https.createServer(tlsCreds, handleRequest);
+        httpsServer.on('error', (err) => { console.warn('⚠️ HTTPS listen skipped (port in use?):', err.message); });
         httpsServer.listen(HTTPS_PORT, () => {
           console.log(`🔒 TVR Hi-Tech Lab Service Desk (HTTPS Secure LAN) running on port ${HTTPS_PORT}`);
         });
@@ -4356,17 +4514,17 @@ function getTeacherPortalHtml() {
       suggestBox.innerHTML = matches.slice(0, 50).map(function(s) {
         const sDist = s.district || (s.id && s.id.startsWith('NGP') ? 'Nagapattinam' : 'Thiruvarur');
         const distBadgeColor = sDist.toLowerCase() === 'nagapattinam' ? '#f59e0b' : '#3b82f6';
-        return '<div class="suggest-item" data-id="' + s.id + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
+        return '<div class="suggest-item" data-id="' + escapeHtml(s.id) + '" style="padding:12px 14px; border-bottom:1px solid #f1f5f9; cursor:pointer; transition:background 0.15s ease;">' +
           '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
-            '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + s.schoolName + (s.category ? ' <span style="font-size:11.5px; color:#64748b; font-weight:600;">[' + s.category + ']</span>' : '') + '</div>' +
-            '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + s.udise + '</span>' +
+            '<div class="suggest-title" style="color:#1e3a8a; font-size:14px; font-weight:800; line-height:1.3;">🏫 ' + escapeHtml(s.schoolName) + (s.category ? ' <span style="font-size:11.5px; color:#64748b; font-weight:600;">[' + escapeHtml(s.category) + ']</span>' : '') + '</div>' +
+            '<span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:12px; font-weight:800; padding:2px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">🔢 ' + escapeHtml(s.udise) + '</span>' +
           '</div>' +
           '<div class="suggest-meta" style="font-size:12px; color:#475569; margin-top:6px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">' +
-            '<span style="background:' + (sDist.toLowerCase() === 'nagapattinam' ? '#fef3c7' : '#dbeafe') + '; color:' + (sDist.toLowerCase() === 'nagapattinam' ? '#92400e' : '#1e40af') + '; padding:2px 8px; border-radius:6px; font-weight:800; font-size:11px;">🏛️ ' + sDist + '</span>' +
-            '<span style="background:#f1f5f9; padding:2px 8px; border-radius:6px; font-weight:700; color:#334155;">📍 ' + s.block + ' Block</span>' +
-            '<span style="color:#16a34a; font-weight:800;">👤 AI: ' + (s.aiName || "Not Assigned") + '</span>' +
-            '<span style="color:#2563eb; font-weight:700;">📞 ' + (s.aiPhone || "-") + '</span>' +
-            (s.empId ? '<span style="color:#64748b; font-size:11px;">🆔 ' + s.empId + '</span>' : '') +
+            '<span style="background:' + (sDist.toLowerCase() === 'nagapattinam' ? '#fef3c7' : '#dbeafe') + '; color:' + (sDist.toLowerCase() === 'nagapattinam' ? '#92400e' : '#1e40af') + '; padding:2px 8px; border-radius:6px; font-weight:800; font-size:11px;">🏛️ ' + escapeHtml(sDist) + '</span>' +
+            '<span style="background:#f1f5f9; padding:2px 8px; border-radius:6px; font-weight:700; color:#334155;">📍 ' + escapeHtml(s.block) + ' Block</span>' +
+            '<span style="color:#16a34a; font-weight:800;">👤 AI: ' + escapeHtml(s.aiName || "Not Assigned") + '</span>' +
+            '<span style="color:#2563eb; font-weight:700;">📞 ' + escapeHtml(s.aiPhone || "-") + '</span>' +
+            (s.empId ? '<span style="color:#64748b; font-size:11px;">🆔 ' + escapeHtml(s.empId) + '</span>' : '') +
           '</div>' +
         '</div>';
       }).join("") + otherBtn;
@@ -4947,8 +5105,8 @@ function getTeacherPortalHtml() {
 
       tl.innerHTML = timelineList.map(function(e) {
         return '<div style="background:#ffffff; border-left:3px solid #2563eb; padding:8px 12px; border-radius:6px; margin-bottom:4px; box-shadow:0 1px 3px rgba(0,0,0,0.03);">' +
-          '<div style="font-size:12px; font-weight:700; color:#1e3a8a;">' + (e.action || 'Update') + ' <span style="color:#64748b; font-size:11px; font-weight:normal;">• ' + (e.time || '') + '</span></div>' +
-          '<p style="color:#334155; font-size:11.5px; margin:3px 0 0 0;">' + (e.note || '') + '</p>' +
+          '<div style="font-size:12px; font-weight:700; color:#1e3a8a;">' + escapeHtml(e.action || 'Update') + ' <span style="color:#64748b; font-size:11px; font-weight:normal;">• ' + escapeHtml(e.time || '') + '</span></div>' +
+          '<p style="color:#334155; font-size:11.5px; margin:3px 0 0 0;">' + escapeHtml(e.note || '') + '</p>' +
         '</div>';
       }).join('');
 
@@ -5124,8 +5282,8 @@ function getTeacherPortalHtml() {
             const color = isSel ? '#ffffff' : (hasReq ? '#92400e' : '#1e40af');
             const border = isSel ? '#1d4ed8' : (hasReq ? '#f59e0b' : '#cbd5e1');
             const badgeIcon = hasReq ? '🟡 [📸 கோரப்பட்டுள்ளது]' : (t.status && (t.status.includes('Resolved') || t.status.includes('Solved')) ? '🟢' : '🔵');
-            return '<button type="button" onclick="selectTrackedTicket(&apos;' + (t.ticketId || t.id) + '&apos;)" style="background:' + bg + '; color:' + color + '; border:1.5px solid ' + border + '; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">' +
-              badgeIcon + ' #' + (t.ticketId || t.id) + ' (' + (t.status || 'Reported') + ')' +
+            return '<button type="button" data-ticket="' + escapeHtml(t.ticketId || t.id) + '" onclick="selectTrackedTicket(this.getAttribute(&quot;data-ticket&quot;))" style="background:' + bg + '; color:' + color + '; border:1.5px solid ' + border + '; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">' +
+              badgeIcon + ' #' + escapeHtml(t.ticketId || t.id) + ' (' + escapeHtml(t.status || 'Reported') + ')' +
             '</button>';
           }).join('');
         }
@@ -5206,8 +5364,8 @@ function getTeacherPortalHtml() {
               const color = isSel ? '#ffffff' : (hasReq ? '#92400e' : '#1e40af');
               const border = isSel ? '#1d4ed8' : (hasReq ? '#f59e0b' : '#cbd5e1');
               const badgeIcon = hasReq ? '🟡 [📸 கோரப்பட்டுள்ளது]' : (t.status && (t.status.includes('Resolved') || t.status.includes('Solved')) ? '🟢' : '🔵');
-              return '<button type="button" onclick="selectTrackedTicket(&apos;' + (t.ticketId || t.id) + '&apos;)" style="background:' + bg + '; color:' + color + '; border:1.5px solid ' + border + '; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">' +
-                badgeIcon + ' #' + (t.ticketId || t.id) + ' (' + (t.status || 'Reported') + ')' +
+              return '<button type="button" data-ticket="' + escapeHtml(t.ticketId || t.id) + '" onclick="selectTrackedTicket(this.getAttribute(&quot;data-ticket&quot;))" style="background:' + bg + '; color:' + color + '; border:1.5px solid ' + border + '; padding:6px 12px; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all 0.15s ease;">' +
+                badgeIcon + ' #' + escapeHtml(t.ticketId || t.id) + ' (' + escapeHtml(t.status || 'Reported') + ')' +
               '</button>';
             }).join('');
           } else {
@@ -5588,12 +5746,12 @@ function getTeacherPortalHtml() {
 
       content.innerHTML =
         '<div style="background:#1e293b; padding:6px 8px; border-radius:6px; margin-bottom:6px; border-left:3px solid ' + statusColor + ';">' +
-          '<strong style="color:' + statusColor + ';">STATUS: ' + d.summaryStatus + '</strong><br>' +
-          '<span style="color:#e2e8f0;">' + d.summaryMessage + '</span>' +
+          '<strong style="color:' + statusColor + ';">STATUS: ' + escapeHtml(d.summaryStatus) + '</strong><br>' +
+          '<span style="color:#e2e8f0;">' + escapeHtml(d.summaryMessage) + '</span>' +
         '</div>' +
-        '<div><strong>Workflow:</strong> <span style="color:#38bdf8;">' + d.workflowSource + '</span></div>' +
-        '<div><strong>File Name:</strong> ' + d.fileName + '</div>' +
-        '<div><strong>File MIME:</strong> ' + d.fileTypeMime + ' (Detected: <strong style="color:#fde047;">' + d.detectedFormat + '</strong>)</div>' +
+        '<div><strong>Workflow:</strong> <span style="color:#38bdf8;">' + escapeHtml(d.workflowSource) + '</span></div>' +
+        '<div><strong>File Name:</strong> ' + escapeHtml(d.fileName) + '</div>' +
+        '<div><strong>File MIME:</strong> ' + escapeHtml(d.fileTypeMime) + ' (Detected: <strong style="color:#fde047;">' + escapeHtml(d.detectedFormat) + '</strong>)</div>' +
         '<div><strong>File Size:</strong> ' + (d.fileSize ? (d.fileSize.toLocaleString() + ' bytes (' + (d.fileSize / 1024).toFixed(1) + ' KB)') : '0') + '</div>' +
         '<div><strong>Last Modified:</strong> ' + d.lastModified + '</div>' +
         '<div><strong>Magic Hex:</strong> <code>' + d.magicHex + '</code></div>' +
@@ -6060,6 +6218,7 @@ function getTeacherPortalHtml() {
           if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
             lastCameraDiagState = 'DENIED';
             actualCamTestResult = 'FAILED';
+            break; // Terminal: permission denied — retrying prompts Chrome throttling
           }
           // Continue to next fallback constraint
         }
@@ -6407,7 +6566,7 @@ function getTeacherPortalHtml() {
             latitude: gpsFix.latitude,
             longitude: gpsFix.longitude,
             accuracy: Math.round(gpsFix.accuracy),
-            timestamp: new Date().toISOString(),
+            timestamp: (gpsFix.timestamp ? new Date(gpsFix.timestamp).toISOString() : new Date().toISOString()),
             schoolName: curTrackTicket ? (curTrackTicket.schoolName || '') : '',
             udise: curTrackTicket ? (curTrackTicket.udise || '') : '',
             ticketId: curTrackTicket ? (curTrackTicket.ticketId || curTrackTicket.id || '') : '',
@@ -6826,6 +6985,7 @@ function getTeacherPortalHtml() {
         }
       } else {
         diagAge.innerHTML = 'AGE: <span style="color:#4ade80;">' + ageSec + 's</span>';
+        updateOverallUiState();
       }
     }
 
@@ -6834,6 +6994,14 @@ function getTeacherPortalHtml() {
         alert('GPS lock is required before capturing photo.');
         return;
       }
+      // Backward-compatible freshness gate: block stale fixes (>10min); fresh fixes unaffected
+      try {
+        const fixTs = curWebGpsFix.timestamp ? new Date(curWebGpsFix.timestamp).getTime() : Date.now();
+        if (!Number.isFinite(fixTs) || Math.abs(Date.now() - fixTs) > 600000) {
+          alert('GPS fix is stale (>10 min). Please wait for a fresh lock and retry.');
+          return;
+        }
+      } catch (e) { alert('GPS fix is stale. Please wait for a fresh lock and retry.'); return; }
 
       webGpsAppState = 'CAPTURE_PROCESSING';
       const btnCapture = document.getElementById('btnWebGpsCapture');
@@ -6847,14 +7015,14 @@ function getTeacherPortalHtml() {
 
       const video = document.getElementById('webGpsVideo');
       const canvas = document.getElementById('webGpsCanvas');
-      if (!video || !canvas) return;
+      if (!video || !canvas) { webGpsAppState = 'READY'; updateOverallUiState(); return; }
 
-      // 1. Immutable GPS evidence snapshot
+      // 1. Immutable GPS evidence snapshot (preserve satellite fix time, not wall-clock)
       const snapshot = Object.freeze({
         latitude: curWebGpsFix.latitude,
         longitude: curWebGpsFix.longitude,
         accuracy: Math.round(curWebGpsFix.accuracy),
-        timestamp: new Date().toISOString(),
+        timestamp: (curWebGpsFix.timestamp ? new Date(curWebGpsFix.timestamp).toISOString() : new Date().toISOString()),
         schoolName: curTrackTicket ? (curTrackTicket.schoolName || '') : '',
         udise: curTrackTicket ? (curTrackTicket.udise || '') : '',
         udiseCode: curTrackTicket ? (curTrackTicket.udise || '') : '',
@@ -7020,14 +7188,15 @@ function getTeacherPortalHtml() {
         if (exifGps && typeof exifGps.latitude === 'number' && typeof exifGps.longitude === 'number') {
           finalLat = exifGps.latitude;
           finalLon = exifGps.longitude;
-          finalAcc = exifGps.altitude || 10;
-          gpsSource = 'PHOTO_EXIF_GPS';
+          // EXIF has no accuracy field — altitude is elevation, not accuracy. Keep flow working but mark unverified.
+          finalAcc = null;
+          gpsSource = 'PHOTO_EXIF_GPS_UNVERIFIED';
           trackGpsLat = finalLat;
           trackGpsLon = finalLon;
           trackGpsAcc = finalAcc;
           trackGpsSource = gpsSource;
-          trackGpsTime = exifGps.timestamp || new Date().toISOString();
-          updateGpsStatusUI('FOUND', 'PHOTO_EXIF_GPS');
+          trackGpsTime = exifGps.timestamp || null;
+          updateGpsStatusUI('FOUND', 'PHOTO_EXIF_GPS_UNVERIFIED');
           processTrackCompImage(file, finalLat, finalLon, finalAcc, gpsSource);
         } else if (trackGpsLat !== null && trackGpsLon !== null) {
           finalLat = trackGpsLat;
@@ -7103,12 +7272,12 @@ function getTeacherPortalHtml() {
           const snapshot = {
             latitude: lat,
             longitude: lon,
-            accuracy: acc || 10,
-            timestamp: new Date().toISOString(),
+            accuracy: (acc !== null && acc !== undefined && acc !== '') ? acc : null,
+            timestamp: trackGpsTime || new Date().toISOString(),
             ticketId: curTrackTicket ? curTrackTicket.ticketId : '',
             udise: curTrackTicket ? curTrackTicket.udise : '',
             schoolName: curTrackTicket ? curTrackTicket.schoolName : '',
-            source: (source === 'PHOTO_EXIF_GPS') ? 'Camera EXIF' : 'Live Maps'
+            source: (source === 'PHOTO_EXIF_GPS' || source === 'PHOTO_EXIF_GPS_UNVERIFIED') ? 'Camera EXIF (Unverified — live GPS required)' : 'Live Maps'
           };
 
           trackCompBase64 = burnGpsWatermarkOnCanvas(canvas, img, snapshot);
@@ -7389,11 +7558,14 @@ function getTeacherPortalHtml() {
         return;
       }
 
-      // Mandatory GPS Camera Verification for Completion Photo
+      // Mandatory GPS Camera Verification for Completion Photo (finite coords + finite accuracy <=50m + fresh timestamp)
       if (trackCompBase64) {
-        const hasValidCoords = (trackGpsLat !== null && trackGpsLat !== undefined && typeof trackGpsLat === 'number') &&
-                               (trackGpsLon !== null && trackGpsLon !== undefined && typeof trackGpsLon === 'number');
-        if (!hasValidCoords || (trackGpsAcc && trackGpsAcc > 50)) {
+        const hasValidCoords = (trackGpsLat !== null && trackGpsLat !== undefined && typeof trackGpsLat === 'number' && Number.isFinite(trackGpsLat)) &&
+                               (trackGpsLon !== null && trackGpsLon !== undefined && typeof trackGpsLon === 'number' && Number.isFinite(trackGpsLon));
+        const accOk = (trackGpsAcc !== null && trackGpsAcc !== undefined && trackGpsAcc !== '' && Number.isFinite(Number(trackGpsAcc)) && Number(trackGpsAcc) <= 50);
+        let timeOk = false;
+        try { const ft = trackGpsTime ? new Date(trackGpsTime).getTime() : NaN; timeOk = Number.isFinite(ft) && Math.abs(Date.now() - ft) <= 600000; } catch (e) { timeOk = false; }
+        if (!hasValidCoords || !accOk || !timeOk) {
           alert('⚠️ GPS கேமரா மூலம் இருப்பிடம் (Live GPS Location) சரிபார்க்கப்பட்டு வாட்டர்மார்க் செய்யப்பட்ட புகைப்படம் மட்டுமே அனுமதிக்கப்படும்.\\n(Live GPS Camera with verified location within 50m is mandatory for the Completion Photo.)');
           return;
         }
@@ -7419,8 +7591,8 @@ function getTeacherPortalHtml() {
           completionPhotoUrl: (!trackCompBase64 && curTrackTicket.completionPhotoUrl) ? curTrackTicket.completionPhotoUrl : undefined,
           gpsLatitude: trackGpsLat !== null ? trackGpsLat : (curTrackTicket.gpsLatitude || undefined),
           gpsLongitude: trackGpsLon !== null ? trackGpsLon : (curTrackTicket.gpsLongitude || undefined),
-          gpsAccuracy: trackGpsAcc !== null ? trackGpsAcc : (curTrackTicket.gpsAccuracy || 15),
-          gpsTimestamp: trackGpsTime || new Date().toISOString(),
+          gpsAccuracy: (trackGpsAcc !== null && trackGpsAcc !== undefined && trackGpsAcc !== '') ? trackGpsAcc : (curTrackTicket.gpsAccuracy ?? undefined),
+          gpsTimestamp: trackGpsTime || curTrackTicket.gpsTimestamp || undefined,
           gpsSource: trackGpsSource || (trackGpsLat ? 'LIVE_BROWSER_GPS' : 'UNKNOWN'),
           requireBoth: true,
           isFinalSubmit: true
@@ -9625,8 +9797,8 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 35px 20px; background:#f8fafc;">' +
               '<div style="font-size:32px; margin-bottom:8px;">🏫</div>' +
-              '<strong style="font-size:16px; color:#0f172a; display:block;">' + sName + ' (' + sUdise + ')</strong>' +
-              '<div style="font-size:13px; color:#475569; margin-top:4px;">வட்டாரம்: <strong>' + sBlock + '</strong> Block • AI ஆசிரியர்: <strong>' + sTeacher + '</strong> (<a href="tel:' + cleanP + '" style="color:#2563eb; font-weight:700;">📞 ' + sPhone + '</a>)</div>' +
+              '<strong style="font-size:16px; color:#0f172a; display:block;">' + escapeHtml(sName) + ' (' + escapeHtml(sUdise) + ')</strong>' +
+              '<div style="font-size:13px; color:#475569; margin-top:4px;">வட்டாரம்: <strong>' + escapeHtml(sBlock) + '</strong> Block • AI ஆசிரியர்: <strong>' + escapeHtml(sTeacher) + '</strong> (<a href="tel:' + escapeHtml(cleanP) + '" style="color:#2563eb; font-weight:700;">📞 ' + escapeHtml(sPhone) + '</a>)</div>' +
               '<div style="margin-top:14px; display:inline-block; padding:8px 18px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:20px; font-weight:700; font-size:13px;">' +
                 '✅ இந்தப் பள்ளியிலிருந்து இதுவரை எந்தப் புகாரும் பதிவு செய்யப்படவில்லை (No Complaints Registered - Lab Normal)' +
               '</div>' +
@@ -9634,7 +9806,7 @@ function getITSMWorkbenchHtml(initialTickets = []) {
             return;
           }
 
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 "' + (search || '') + '" தொடர்பான புகார்கள் ஏதும் காணப்படவில்லை.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b; font-size:14px;">🔍 "' + escapeHtml(search || '') + '" தொடர்பான புகார்கள் ஏதும் காணப்படவில்லை.</td></tr>';
           return;
         }
 
@@ -10159,10 +10331,21 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
       showDeleteToast('📍 Acquiring device GPS location...');
       navigator.geolocation.getCurrentPosition(async function(pos) {
+        if (!Number.isFinite(pos.coords.accuracy) || pos.coords.accuracy > 50) {
+          alert('GPS accuracy must be within 50m (received ±' + Math.round(pos.coords.accuracy || 999) + 'm). Please move outdoors and retry.');
+          event.target.value = '';
+          return;
+        }
+        const fixAge = Math.abs(Date.now() - (pos.timestamp || Date.now()));
+        if (!Number.isFinite(fixAge) || fixAge > 600000) {
+          alert('GPS fix is stale (>10 min). Please retry for a fresh lock.');
+          event.target.value = '';
+          return;
+        }
         editGpsLat = pos.coords.latitude;
         editGpsLon = pos.coords.longitude;
         editGpsAccuracy = pos.coords.accuracy;
-        editGpsTimestamp = new Date().toISOString();
+        editGpsTimestamp = new Date(pos.timestamp || Date.now()).toISOString();
 
         const watermarkedBase64 = await applyGpsWatermark(file, editGpsLat, editGpsLon, editGpsTimestamp);
         editCompletionPhoto = watermarkedBase64;

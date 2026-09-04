@@ -24,6 +24,8 @@ function parseAppDate(input) {
     let part1 = parseInt(dateParts[0], 10);
     let part2 = parseInt(dateParts[1], 10);
     let year = parseInt(dateParts[2], 10);
+    // 2-digit year pivot (00-49 -> 2000s, 50-99 -> 1900s). Prevents year 26 AD.
+    if (!isNaN(year) && year >= 0 && year < 100) year += (year <= 49 ? 2000 : 1900);
 
     if (!isNaN(part1) && !isNaN(part2) && !isNaN(year)) {
       let hours = 0;
@@ -986,12 +988,11 @@ function saveTicketsToJson(list) {
     '"' + (t.partsRequired || '').replace(/"/g, '""') + '"',
     '"' + (t.resolutionNotes || '').replace(/"/g, '""') + '"',
     '"' + (t.resolvedAt || '') + '"',
-    '"' + (t.photo1 || 'No Photo') + '"',
-    '"' + (t.photo2 || 'No Photo') + '"',
-    '"' + (t.photo3 || 'No Photo') + '"',
-    '"' + (t.photo4 || 'No Photo') + '"',
-    '"' + (t.photo4 || 'No Photo') + '"',
-    '"' + (t.timeline || []).map(e => '[' + e.time + '] ' + e.action + ': ' + e.note).join(' | ').replace(/"/g, '""') + '"'
+    '"' + String(t.photo1Url || t.photo1 || 'No Photo').replace(/"/g, '""').slice(0, 500) + '"',
+    '"' + String(t.photo2Url || t.photo2 || 'No Photo').replace(/"/g, '""').slice(0, 500) + '"',
+    '"' + String(t.photo3Url || t.photo3 || 'No Photo').replace(/"/g, '""').slice(0, 500) + '"',
+    '"' + String(t.photo4Url || t.photo4 || 'No Photo').replace(/"/g, '""').slice(0, 500) + '"',
+    '"' + String((t.timeline || []).map(e => '[' + e.time + '] ' + e.action + ': ' + e.note).join(' | ')).replace(/"/g, '""').replace(/[\r\n]+/g, ' ') + '"'
   ]);
   const csvContent = '﻿' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
   safeWriteFileSync(CSV_FILE, csvContent, 'utf8');
@@ -1675,13 +1676,16 @@ async function checkOpenTicketByUdise(cleanUdise) {
 async function createTicket(ticketData) {
   if (!ticketData || !ticketData.ticketId) return;
   const cleanId = String(ticketData.ticketId).trim();
+  // Permanent tombstones must never resurrect (case-insensitive). Block re-creation instead of deleting guard.
+  if (isDeleted(cleanId)) return { success: false, error: 'Ticket ID is permanently deleted and cannot be reused.' };
   deletedTicketIds.delete(cleanId);
+  deletedTicketIds.delete(cleanId.toLowerCase());
   try {
     const delFilePath = path.join(DATA_DIR, 'htl_deleted_ids.json');
     if (fs.existsSync(delFilePath)) {
       try {
         let delArr = JSON.parse(fs.readFileSync(delFilePath, 'utf8'));
-        delArr = delArr.filter(id => id !== cleanId);
+        delArr = delArr.filter(id => id !== cleanId && String(id).toLowerCase() !== cleanId.toLowerCase());
         safeWriteFileSync(delFilePath, JSON.stringify(delArr, null, 2), 'utf8');
       } catch(e) {}
     }
@@ -1784,7 +1788,7 @@ async function updateTicket(ticketId, updateData) {
     data = ticketId;
   }
   const cleanId = String(targetId || '').trim();
-  if (deletedTicketIds.has(cleanId)) {
+  if (isDeleted(cleanId)) {
     return { success: false, error: 'Ticket has been permanently deleted.' };
   }
   updateData = data;
@@ -2734,6 +2738,14 @@ async function createBackup(reason = 'MANUAL_BACKUP', initiatedBy = 'system') {
   const ts = Date.now();
   const backupFile = path.join(BACKUPS_DIR, 'backup_' + ts + '.json');
   safeWriteFileSync(backupFile, JSON.stringify(tickets, null, 2), 'utf8');
+  // Retention: keep latest 30 JSON backups (prevents unbounded 1.3GB growth)
+  try {
+    const files = fs.readdirSync(BACKUPS_DIR).filter(f => /^backup_\d+\.json$/.test(f)).sort();
+    while (files.length > 30) {
+      const old = files.shift();
+      try { fs.unlinkSync(path.join(BACKUPS_DIR, old)); } catch (e) {}
+    }
+  } catch (e) {}
   return { success: true, count: tickets.length, file: backupFile };
 }
 

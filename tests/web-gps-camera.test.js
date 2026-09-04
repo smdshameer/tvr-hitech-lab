@@ -434,10 +434,15 @@ test('52. TASK 7.15: Master Schools Directory remains exactly 262 schools', () =
   assert(fs.existsSync(schoolsFile), 'master_schools.json must exist');
   const schools = JSON.parse(fs.readFileSync(schoolsFile, 'utf8'));
   assert.strictEqual(schools.length, 262, `MASTER_SCHOOLS must contain 262 schools, found ${schools.length}`);
+  // Runtime file must also be 262 (server loads master_schools_182.json)
+  const runtimeFile = path.join(rootDir, 'data', 'master_schools_182.json');
+  assert(fs.existsSync(runtimeFile), 'master_schools_182.json must exist');
+  const runtime = JSON.parse(fs.readFileSync(runtimeFile, 'utf8'));
+  assert.strictEqual(runtime.length, 262, `RUNTIME_SCHOOLS must contain 262 schools, found ${runtime.length}`);
 });
 
 console.log('\n========================================================');
-console.log(`📊 PHASE 40 TEST RESULTS: ${passed} Passed, ${failed} Failed`);
+console.log(`📊 PHASE 37 TEST RESULTS: ${passed} Passed, ${failed} Failed`);
 console.log('========================================================\n');
 
 if (failed > 0) {
