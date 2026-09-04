@@ -108,8 +108,8 @@ function doPost(e) {
       return deleteTicketRow(sheet, data.ticketId);
     }
 
-    // 2. ACTION: UPDATE TICKET
-    if (action === 'update') {
+    // 2. ACTION: UPDATE TICKET (Handles ticket updates and Slot 1/Slot 2 completion evidence uploads)
+    if (action === 'update' || action === 'upload_completion' || action === 'completion_evidence' || action === 'upload_hm_report') {
       return updateTicketRow(sheet, data);
     }
 
@@ -293,13 +293,13 @@ function updateTicketRow(sheet, data) {
     var meta = { district: distStr, udise: data.udise, schoolName: data.schoolName };
 
     if (data.hmReportPhotoBase64) {
-      var hmRes = saveAndVerifyBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName, meta);
+      var hmRes = saveAndVerifyBase64Image(compFolder, data.hmReportPhotoBase64, hmName, meta);
       if (hmRes && hmRes.fileUrl) {
         hmUrl = hmRes.fileUrl;
         hmFileId = hmRes.fileId;
         evidencePhotos.push(hmRes);
       } else {
-        hmUrl = saveBase64Image(evidenceFolder, data.hmReportPhotoBase64, hmName);
+        hmUrl = saveBase64Image(compFolder, data.hmReportPhotoBase64, hmName);
       }
     }
     if (data.completionPhotoBase64) {
@@ -316,21 +316,33 @@ function updateTicketRow(sheet, data) {
 
   // Structured contracts for Slot 1 and Slot 2
   var slot1 = (hmFileId || hmUrl) ? {
+    success: true,
     slot: "HM_REPORT",
     slotNumber: 1,
     fileId: hmFileId,
     fileName: hmName,
     fileUrl: hmUrl,
-    folderName: "Evidence",
+    thumbnailUrl: hmFileId ? ('https://lh3.googleusercontent.com/d/' + hmFileId + '=w800') : '',
+    district: distStr,
+    rootFolder: districtFolderName,
+    schoolFolder: schoolFolderName,
+    completionFolder: "Completion Photos",
+    folderName: "Completion Photos",
     verified: !!hmFileId
   } : null;
 
   var slot2 = (compFileId || compUrl) ? {
+    success: true,
     slot: "GPS_COMPLETION",
     slotNumber: 2,
     fileId: compFileId,
     fileName: compName,
     fileUrl: compUrl,
+    thumbnailUrl: compFileId ? ('https://lh3.googleusercontent.com/d/' + compFileId + '=w800') : '',
+    district: distStr,
+    rootFolder: districtFolderName,
+    schoolFolder: schoolFolderName,
+    completionFolder: "Completion Photos",
     folderName: "Completion Photos",
     verified: !!compFileId
   } : null;
@@ -380,6 +392,9 @@ function updateTicketRow(sheet, data) {
     sheet.appendRow(rowPayload);
   }
 
+  var isHmOnly = !!(data.hmReportPhotoBase64 && !data.completionPhotoBase64);
+  var isCompOnly = !!(data.completionPhotoBase64 && !data.hmReportPhotoBase64);
+
   return ContentService.createTextOutput(JSON.stringify({
     success: true,
     message: 'Ticket ' + tid + ' updated successfully in Google Sheets',
@@ -389,7 +404,7 @@ function updateTicketRow(sheet, data) {
     districtFolder: districtFolderName,
     schoolFolder: schoolFolderName,
     evidenceFolder: evidenceFolderName,
-    completionFolder: compFolderName,
+    completionFolder: compFolderName || 'Completion Photos',
     folderUrl: schoolFolderUrl,
     hmReportPhotoUrl: hmUrl,
     completionPhotoUrl: compUrl,
@@ -400,7 +415,12 @@ function updateTicketRow(sheet, data) {
     evidencePhotos: evidencePhotos,
     completionFiles: completionFiles,
     slot1: slot1,
-    slot2: slot2
+    slot2: slot2,
+    slot: isHmOnly ? "HM_REPORT" : (isCompOnly ? "GPS_COMPLETION" : undefined),
+    fileId: isHmOnly ? hmFileId : (isCompOnly ? compFileId : (hmFileId || compFileId)),
+    fileName: isHmOnly ? hmName : (isCompOnly ? compName : undefined),
+    fileUrl: isHmOnly ? hmUrl : (isCompOnly ? compUrl : undefined),
+    thumbnailUrl: isHmOnly ? (hmFileId ? ('https://lh3.googleusercontent.com/d/' + hmFileId + '=w800') : '') : (isCompOnly ? (compFileId ? ('https://lh3.googleusercontent.com/d/' + compFileId + '=w800') : '') : undefined)
   })).setMimeType(ContentService.MimeType.JSON);
 }
 

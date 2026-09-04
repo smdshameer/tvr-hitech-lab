@@ -45,7 +45,7 @@ async function runSuite() {
   record('7. Thiruvarur school resolves to Thiruvarur_HTL_UPS_Photos root', tvrSchool.rootFolder === 'Thiruvarur_HTL_UPS_Photos');
 
   // GAS Script structure checks
-  record('8. GAS updateTicketRow routes HM Report to Evidence subfolder', gasJs.includes('getOrCreateSubFolder(schoolFolder, "Evidence")'));
+  record('8. GAS updateTicketRow routes HM Report to Completion Photos subfolder', gasJs.includes('saveAndVerifyBase64Image(compFolder, data.hmReportPhotoBase64'));
   record('9. GAS updateTicketRow routes GPS Photo to Completion Photos subfolder', gasJs.includes('getOrCreateSubFolder(schoolFolder, "Completion Photos")'));
   record('10. GAS enforces [TicketID]_HM_Signed_Completion_Report.jpg naming', gasJs.includes('"HM_Signed_Completion_Report.jpg"'));
   record('11. GAS enforces [TicketID]_Completion_UPS_GPS.jpg naming', gasJs.includes('"Completion_UPS_GPS.jpg"'));

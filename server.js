@@ -920,14 +920,16 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
 
   try {
     const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
-    logDriveDestination(resolved, payload.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
+    logDriveDestination(resolved, 'Completion Photos');
 
     const schoolFolderDisplay = `${resolved.udise || ticket.udise} - ${resolved.schoolName || ticket.schoolName}`;
     console.log(`[DRIVE] Completion Upload Started`);
     console.log(`[DRIVE] Ticket ID: ${ticket.ticketId}`);
     console.log(`[DRIVE] District: ${resolved.district}`);
+    console.log(`[DRIVE] Root Folder: ${resolved.rootFolder}`);
     console.log(`[DRIVE] UDISE: ${resolved.udise || ticket.udise}`);
     console.log(`[DRIVE] School Folder: ${schoolFolderDisplay}`);
+    console.log(`[DRIVE] Completion Folder: Completion Photos`);
     console.log(`[DRIVE] Slot 1: HM REPORT`);
     console.log(`[DRIVE] Slot 2: GPS COMPLETION`);
 
@@ -969,8 +971,8 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       if (result && result.success) {
         console.log(`🚀 [GOOGLE DRIVE EVIDENCE SYNC SUCCESS] Ticket ${ticket.ticketId}:`, result);
 
-        const hmId = result.hmDriveFileId || (result.completionFiles && result.completionFiles.find(f => f.slot === 'HM_REPORT')?.fileId) || '';
-        const compId = result.compDriveFileId || (result.completionFiles && result.completionFiles.find(f => f.slot === 'GPS_COMPLETION')?.fileId) || '';
+        const hmId = result.hmDriveFileId || (result.slot1 && result.slot1.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'HM_REPORT')?.fileId) || (result.slot === 'HM_REPORT' ? result.fileId : '') || '';
+        const compId = result.compDriveFileId || (result.slot2 && result.slot2.fileId) || (result.completionFiles && result.completionFiles.find(f => f.slot === 'GPS_COMPLETION')?.fileId) || (result.slot === 'GPS_COMPLETION' ? result.fileId : '') || '';
         const hmUrl = (result.hmReportPhotoUrl && !result.hmReportPhotoUrl.startsWith('/uploads/')) 
           ? result.hmReportPhotoUrl 
           : (hmId ? `https://drive.google.com/thumbnail?id=${hmId}&sz=w800` : '');
@@ -983,9 +985,29 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
         console.log(`[DRIVE] Upload Verified: ${hmId || compId ? 'YES' : 'NO'}`);
 
         if (payload.hmReportPhotoBase64 || payload.hmReportPhotoUrl || hmId) {
-          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 1 File: ${ticket.ticketId}_HM_Signed_Completion_Report.jpg Folder: ${schoolFolderDisplay} / Evidence Drive File ID: ${hmId || 'Drive-Verified'} Status: SUCCESS`);
+          console.log(`[DRIVE] Completion Upload Started`);
+          console.log(`[DRIVE] Slot: HM_REPORT`);
+          console.log(`[DRIVE] District: ${resolved.district}`);
+          console.log(`[DRIVE] Root Folder: ${resolved.rootFolder}`);
+          console.log(`[DRIVE] UDISE: ${resolved.udise || ticket.udise}`);
+          console.log(`[DRIVE] School Folder: ${schoolFolderDisplay}`);
+          console.log(`[DRIVE] Completion Folder: Completion Photos`);
+          console.log(`[DRIVE] Filename: ${ticket.ticketId}_HM_Signed_Completion_Report.jpg`);
+          console.log(`[DRIVE] File ID: ${hmId || 'Drive-Verified'}`);
+          console.log(`[DRIVE] Verification: SUCCESS`);
+          console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 1 File: ${ticket.ticketId}_HM_Signed_Completion_Report.jpg Folder: ${schoolFolderDisplay} / Completion Photos Drive File ID: ${hmId || 'Drive-Verified'} Status: SUCCESS`);
         }
         if (payload.completionPhotoBase64 || payload.completionPhotoUrl || compId) {
+          console.log(`[DRIVE] Completion Upload Started`);
+          console.log(`[DRIVE] Slot: GPS_COMPLETION`);
+          console.log(`[DRIVE] District: ${resolved.district}`);
+          console.log(`[DRIVE] Root Folder: ${resolved.rootFolder}`);
+          console.log(`[DRIVE] UDISE: ${resolved.udise || ticket.udise}`);
+          console.log(`[DRIVE] School Folder: ${schoolFolderDisplay}`);
+          console.log(`[DRIVE] Completion Folder: Completion Photos`);
+          console.log(`[DRIVE] Filename: ${ticket.ticketId}_Completion_UPS_GPS.jpg`);
+          console.log(`[DRIVE] File ID: ${compId || 'Drive-Verified'}`);
+          console.log(`[DRIVE] Verification: SUCCESS`);
           console.log(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} District: ${resolved.district} UDISE: ${resolved.udise || ticket.udise} School: ${resolved.schoolName || ticket.schoolName} Slot: 2 File: ${ticket.ticketId}_Completion_UPS_GPS.jpg Folder: ${schoolFolderDisplay} / Completion Photos Drive File ID: ${compId || 'Drive-Verified'} Status: SUCCESS`);
         }
 
@@ -2116,7 +2138,7 @@ async function handleRequest(req, res) {
 
             const resolved = resolveSchoolDistrict(udise, schoolId, district, schoolName);
             if (data.hmReportPhotoBase64 || data.completionPhotoBase64) {
-              logDriveDestination(resolved, data.completionPhotoBase64 ? 'Completion Photos' : 'Evidence');
+              logDriveDestination(resolved, 'Completion Photos');
               try {
                 const driveSyncRes = await syncCompletionEvidenceToGoogleDrive(existingTicket || data, {
                   remarks: data.resolutionNotes || data.remarks || 'Updated by Field Engineer',
@@ -9621,8 +9643,13 @@ function generateTableRowsHtml(list) {
     }
 
     function updatePhotoPreviews() {
+      const curTicket = (allTickets || []).find(i => (i.ticketId || i.id) === currentEditingTicketId);
       for (let i = 1; i <= 4; i++) {
-        const val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : ((i === 3) ? editPhoto3 : editPhoto4));
+        let val = (i === 1) ? editPhoto1 : ((i === 2) ? editPhoto2 : ((i === 3) ? editPhoto3 : editPhoto4));
+        if ((!val || val === 'No Photo') && curTicket) {
+          const fid = (i === 1) ? curTicket.p1DriveFileId : ((i === 2) ? curTicket.p2DriveFileId : ((i === 3) ? curTicket.p3DriveFileId : curTicket.p4DriveFileId));
+          if (fid) val = 'https://lh3.googleusercontent.com/d/' + fid + '=w800';
+        }
         const img = document.getElementById('editPreview' + i);
         const noImg = document.getElementById('noImg' + i);
         if (img && noImg) {
@@ -10093,18 +10120,18 @@ function generateTableRowsHtml(list) {
           const vBox = document.getElementById("vendorBox");
           if (vBox) vBox.style.display = (t.status === "Vendor Escalated") ? "block" : "none";
 
-          editPhoto1 = t.photo1Url || "";
-          editPhoto2 = t.photo2Url || "";
-          editPhoto3 = t.photo3Url || "";
-          editPhoto4 = t.photo4Url || "";
+          editPhoto1 = (t.photo1Url && t.photo1Url !== 'No Photo') ? t.photo1Url : (t.p1DriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.p1DriveFileId + '=w800') : (t.p1DriveUrl || ""));
+          editPhoto2 = (t.photo2Url && t.photo2Url !== 'No Photo') ? t.photo2Url : (t.p2DriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.p2DriveFileId + '=w800') : (t.p2DriveUrl || ""));
+          editPhoto3 = (t.photo3Url && t.photo3Url !== 'No Photo') ? t.photo3Url : (t.p3DriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.p3DriveFileId + '=w800') : (t.p3DriveUrl || ""));
+          editPhoto4 = (t.photo4Url && t.photo4Url !== 'No Photo') ? t.photo4Url : (t.p4DriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.p4DriveFileId + '=w800') : (t.p4DriveUrl || ""));
           if (typeof updatePhotoPreviews === 'function') updatePhotoPreviews();
 
           // Completion Evidence metadata in modal
           const ev = t.completionEvidence || {};
           const hmEv = ev.hmSignedReport || {};
           const compEv = ev.completionPhoto || {};
-          const hmUrl = t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
-          const compUrl = t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
+          const hmUrl = (t.hmDriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.hmDriveFileId + '=w800') : '') || t.hmReportPhotoUrl || t.hmReportPhoto || hmEv.fileUrl || "";
+          const compUrl = (t.compDriveFileId ? ('https://lh3.googleusercontent.com/d/' + t.compDriveFileId + '=w800') : '') || t.completionPhotoUrl || t.completionPhoto || compEv.fileUrl || "";
           const resolvedHmDisplay = hmUrl || t.hmReportPhotoBase64 || hmEv.data || "";
           const resolvedCompDisplay = compUrl || t.completionPhotoBase64 || compEv.data || "";
 

@@ -33,7 +33,7 @@ async function run() {
     });
 
     const expectedFileName = `${testTicketId}_HM_Signed_Completion_Report.jpg`;
-    const expectedFolder = 'Evidence';
+    const expectedFolder = 'Completion Photos';
     const hmFileId = '1_HM_DRIVE_FILE_ID_' + rand;
     const hmUrl = `https://lh3.googleusercontent.com/d/${hmFileId}=w800`;
 

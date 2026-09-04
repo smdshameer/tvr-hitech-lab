@@ -74,7 +74,7 @@ async function runSuite() {
 
     // PHASE 3: GAS Architecture Guards
     record('PHASE 3.1: GAS saves AI 4 Photos into Evidence/', gasJs.includes('saveAndVerifyBase64Image(evidenceFolder, data.photo1Base64'));
-    record('PHASE 3.2: GAS saves Slot 1 HM Report into Evidence/', gasJs.includes('saveAndVerifyBase64Image(evidenceFolder, data.hmReportPhotoBase64'));
+    record('PHASE 3.2: GAS saves Slot 1 HM Report into Completion Photos/', gasJs.includes('saveAndVerifyBase64Image(compFolder, data.hmReportPhotoBase64'));
     record('PHASE 3.3: GAS saves Slot 2 GPS Photo into Completion Photos/', gasJs.includes('saveAndVerifyBase64Image(compFolder, data.completionPhotoBase64'));
     record('PHASE 3.4: GAS enforces [TicketID]_HM_Signed_Completion_Report.jpg', gasJs.includes('"HM_Signed_Completion_Report.jpg"'));
     record('PHASE 3.5: GAS enforces [TicketID]_Completion_UPS_GPS.jpg', gasJs.includes('"Completion_UPS_GPS.jpg"'));
