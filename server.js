@@ -7938,25 +7938,25 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     .stat-card.amber { border-left-color: #f59e0b; }
     .stat-card.red { border-left-color: #ef4444; }
 
-    /* Filter Card */
+    /* Filter Card — Compact Toolbar */
     .filter-card {
       background: var(--bg-card); border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg); padding: 1.1rem 1.25rem;
-      box-shadow: var(--shadow-sm); display: flex; gap: 0.85rem; flex-wrap: wrap; align-items: center;
+      border-radius: var(--radius-lg); padding: 0.5rem 0.75rem;
+      box-shadow: var(--shadow-sm); display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
     }
-    .search-box { position: relative; flex: 1.5; min-width: 280px; }
-    .search-box-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.95rem; }
+    .search-box { position: relative; flex: 1.5; min-width: 220px; }
+    .search-box-icon { position: absolute; left: 0.7rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; }
     .search-input {
-      width: 100%; padding: 0.7rem 1rem 0.7rem 2.6rem;
+      width: 100%; padding: 0.45rem 0.7rem 0.45rem 2.1rem;
       border: 1px solid var(--border-color); border-radius: var(--radius-md);
       background: var(--bg-main); color: var(--text-primary);
-      font-size: 0.88rem; font-family: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      font-size: 0.82rem; font-family: inherit; transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
     .search-input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }
     .filter-select {
-      padding: 0.65rem 1rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
-      background: var(--bg-main); color: var(--text-primary); font-size: 0.85rem;
-      font-family: inherit; font-weight: 700; cursor: pointer; min-width: 180px;
+      padding: 0.4rem 0.6rem; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+      background: var(--bg-main); color: var(--text-primary); font-size: 0.8rem;
+      font-family: inherit; font-weight: 700; cursor: pointer; flex: 0 1 auto;
     }
     .filter-select:focus { outline: none; border-color: var(--border-focus); }
 
@@ -8482,53 +8482,53 @@ function getITSMWorkbenchHtml(initialTickets = []) {
     <section class="filter-card">
       <div class="search-box">
         <span class="search-box-icon">🔍</span>
-        <input type="text" id="searchInput" class="search-input" oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" placeholder="Search by Ticket ID (HTL-...), UDISE, School Name, AI Teacher, Phone, Block, District, Serial #, Vendor #..." autocomplete="off" spellcheck="false">
-        <button type="button" id="btnClearSearch" onclick="clearSearchFilter()" style="display:none; background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:0 8px; font-size:14px;">✕</button>
+        <input type="text" id="searchInput" class="search-input" oninput="window.renderTable()" onkeyup="window.renderTable()" onchange="window.renderTable()" placeholder="Search Ticket ID, UDISE, School Name, AI Teacher, Phone" autocomplete="off" spellcheck="false">
+        <button type="button" id="btnClearSearch" onclick="clearSearchFilter()" style="display:none; background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:0 6px; font-size:13px;">✕</button>
       </div>
       <select id="districtFilter" class="filter-select" onchange="window.renderTable()">
-        <option value="">All Districts (அனைத்து மாவட்டங்கள் - 262 Labs)</option>
-        <option value="Thiruvarur">Thiruvarur (திருவாரூர் - 182 Labs)</option>
-        <option value="Nagapattinam">Nagapattinam (நாகப்பட்டினம் - 80 Labs)</option>
+        <option value="">All Districts</option>
+        <option value="Thiruvarur">Thiruvarur (182 Labs)</option>
+        <option value="Nagapattinam">Nagapattinam (80 Labs)</option>
       </select>
       <select id="blockFilter" class="filter-select" onchange="window.renderTable()">
-        <option value="">All Blocks (அனைத்து வட்டாரங்கள்)</option>
-        <optgroup label="Thiruvarur District Blocks">
-          <option value="Koradachery">Koradachery (கொரடாச்சேரி)</option>
-          <option value="Kottur">Kottur (கோட்டூர்)</option>
-          <option value="Kudavasal">Kudavasal (குடவாசல்)</option>
-          <option value="Mannargudi">Mannargudi (மன்னார்குடி)</option>
-          <option value="Muthupet">Muthupet (முத்துப்பேட்டை)</option>
-          <option value="Nannilam">Nannilam (நன்னிலம்)</option>
-          <option value="Needamangalam">Needamangalam (நீடாமங்கலம்)</option>
-          <option value="Thiruthuraipoondi">Thiruthuraipoondi (திருத்துறைப்பூண்டி)</option>
-          <option value="Thiruvarur">Thiruvarur (திருவாரூர்)</option>
-          <option value="Valangaiman">Valangaiman (வலங்கைமான்)</option>
+        <option value="">All Blocks</option>
+        <optgroup label="Thiruvarur District">
+          <option value="Koradachery">Koradachery</option>
+          <option value="Kottur">Kottur</option>
+          <option value="Kudavasal">Kudavasal</option>
+          <option value="Mannargudi">Mannargudi</option>
+          <option value="Muthupet">Muthupet</option>
+          <option value="Nannilam">Nannilam</option>
+          <option value="Needamangalam">Needamangalam</option>
+          <option value="Thiruthuraipoondi">Thiruthuraipoondi</option>
+          <option value="Thiruvarur">Thiruvarur</option>
+          <option value="Valangaiman">Valangaiman</option>
         </optgroup>
-        <optgroup label="Nagapattinam District Blocks">
-          <option value="Vedaranyam">Vedaranyam (வேதாரண்யம்)</option>
-          <option value="Nagapattinam">Nagapattinam (நாகப்பட்டினம்)</option>
-          <option value="Kilvelur">Kilvelur (கீழ்வேளூர்)</option>
-          <option value="Keezhaiyur">Keezhaiyur (கீழையூர்)</option>
-          <option value="Thirumarugal">Thirumarugal (திருமருகல்)</option>
-          <option value="Thalainayar">Thalainayar (தலைஞாயிறு)</option>
+        <optgroup label="Nagapattinam District">
+          <option value="Vedaranyam">Vedaranyam</option>
+          <option value="Nagapattinam">Nagapattinam</option>
+          <option value="Kilvelur">Kilvelur</option>
+          <option value="Keezhaiyur">Keezhaiyur</option>
+          <option value="Thirumarugal">Thirumarugal</option>
+          <option value="Thalainayar">Thalainayar</option>
         </optgroup>
       </select>
       <select id="categoryFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Resolution Categories</option>
-        <option value="Resolved Remotely">🟢 1. Resolved Remotely (Phone/WhatsApp)</option>
-        <option value="Solved by Direct Visit">🔵 2. Solved by Direct Visit (Physical Visit)</option>
-        <option value="Vendor Escalated">🔴 Vendor Escalated (Parts Needed)</option>
-        <option value="Pending">🟡 புதிய புகார் / பரிசீலனை (New / Under Review)</option>
+        <option value="Resolved Remotely">🟢 Resolved Remotely</option>
+        <option value="Solved by Direct Visit">🔵 Solved by Direct Visit</option>
+        <option value="Vendor Escalated">🔴 Vendor Escalated</option>
+        <option value="Pending">🟡 New / Under Review</option>
       </select>
       <select id="evidenceFilter" class="filter-select" onchange="window.renderTable()">
         <option value="">All Completion Evidence States</option>
-        <option value="Complete">🟢 Complete (இரு புகைப்படங்களும் உள்ளன)</option>
-        <option value="Pending">🟡 Pending (புகைப்படங்கள் நிலுவை)</option>
-        <option value="Partial">🟠 Partial (1/2 புகைப்படம் உள்ளது)</option>
-        <option value="Manual Upload">📎 Manually Uploaded by Engineer</option>
-        <option value="GPS Missing">⚠️ GPS Missing / Unverified</option>
+        <option value="Complete">🟢 Complete (2/2)</option>
+        <option value="Pending">🟡 Pending</option>
+        <option value="Partial">🟠 Partial (1/2)</option>
+        <option value="Manual Upload">📎 Manual Upload</option>
+        <option value="GPS Missing">⚠️ GPS Missing</option>
       </select>
-      <button type="button" onclick="resetFilters()" class="btn btn-outline" style="padding:0.6rem 0.9rem;">✕ Reset Filters</button>
+      <button type="button" onclick="resetFilters()" class="btn btn-outline" style="padding:0.35rem 0.7rem; font-size:0.8rem;">✕ Reset Filters</button>
     </section>
 
     <!-- Data Table Card -->
