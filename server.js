@@ -818,6 +818,34 @@ function enqueueDriveRetry(ticketId, kind) {
 function dataUrlOrEmpty(v) {
   return (typeof v === 'string' && v.startsWith('data:image')) ? v : '';
 }
+function isLocalUploadUrl(u) {
+  return typeof u === 'string' && u.startsWith('/uploads/');
+}
+function isExternalUploadUrl(u) {
+  return typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+}
+// Pure decision helpers for the completion retry branch (unit-tested; no I/O).
+// Intent is derived from the DURABLE ticket record, never from /tmp.
+function getCompletionRetryPlan(t) {
+  const comp = (t.completionEvidence && t.completionEvidence.completionPhoto) || {};
+  const hm = (t.completionEvidence && t.completionEvidence.hmSignedReport) || {};
+  const hmBytes = dataUrlOrEmpty(t.hmReportPhotoBase64 || hm.data);
+  const gpsBytes = dataUrlOrEmpty(t.completionPhotoBase64 || comp.data);
+  const hmIntended = !!(hm.uploaded || isLocalUploadUrl(t.hmReportPhotoUrl) || isLocalUploadUrl(hm.fileUrl) || hmBytes) && !(t.hmDriveFileId || hm.driveFileId);
+  const gpsIntended = !!(comp.uploaded || isLocalUploadUrl(t.completionPhotoUrl) || isLocalUploadUrl(comp.fileUrl) || gpsBytes) && !(t.compDriveFileId || comp.driveFileId);
+  // Cold-missing: intended slot whose bytes are unrecoverable from the durable record.
+  // External-https-only slots carry no bytes by design (URL already recorded) and ride on res.success.
+  const hmColdMissing = hmIntended && !hmBytes && !isExternalUploadUrl(t.hmReportPhotoUrl) && !isExternalUploadUrl(hm.fileUrl);
+  const gpsColdMissing = gpsIntended && !gpsBytes && !isExternalUploadUrl(t.completionPhotoUrl) && !isExternalUploadUrl(comp.fileUrl);
+  return { hm, comp, hmBytes, gpsBytes, hmIntended, gpsIntended, coldMissing: hmColdMissing || gpsColdMissing };
+}
+// ID-gated success: success:true with null IDs for SENT slots is NOT success.
+function isCompletionRetrySuccess(res, hmSent, gpsSent) {
+  if (!res || res.success !== true) return false;
+  if (hmSent && !res.hmDriveFileId) return false;
+  if (gpsSent && !res.compDriveFileId) return false;
+  return true;
+}
 async function processDriveRetryQueue(manual) {
   if (driveRetryRunning) return { success: true, skipped: true };
   driveRetryRunning = true;
@@ -871,13 +899,28 @@ async function processDriveRetryQueue(manual) {
             hmReportPhotoBase64: '', completionPhotoBase64: ''
           });
         } else {
-          const comp = (t.completionEvidence && t.completionEvidence.completionPhoto) || {};
-          const hm = (t.completionEvidence && t.completionEvidence.hmSignedReport) || {};
+          const plan = getCompletionRetryPlan(t);
+          const comp = plan.comp;
+          const hm = plan.hm;
           if (comp.driveFileId && hm.driveFileId) { summary.succeeded++; continue; }
+          if (plan.coldMissing) {
+            // Cold instance: intended slot with no recoverable bytes anywhere.
+            // Retryable WITHOUT burning a real attempt (a warm/Postgres read may recover).
+            entry.emptyHits = (entry.emptyHits || 0) + 1;
+            if (entry.emptyHits >= 10) {
+              console.error(`[DRIVE-RETRY] Giving up ${entry.kind} for ${entry.ticketId}: photo bytes unrecoverable after 10 empty reads (configure Postgres for durable serverless uploads).`);
+            } else {
+              entry.nextRetry = Date.now() + 5 * 60 * 1000;
+              remaining.push(entry);
+              console.warn(`[DRIVE-RETRY] No bytes for ${entry.ticketId} (cold read ${entry.emptyHits}/10) — requeued without consuming an attempt.`);
+            }
+            summary.stillPending = remaining.length;
+            continue;
+          }
           res = await syncCompletionEvidenceToGoogleDrive(t, {
             remarks: `Completion evidence retry (${entry.attempts + 1})`,
-            hmReportPhotoBase64: dataUrlOrEmpty(t.hmReportPhotoBase64 || hm.data),
-            completionPhotoBase64: dataUrlOrEmpty(t.completionPhotoBase64 || comp.data),
+            hmReportPhotoBase64: plan.hmBytes,
+            completionPhotoBase64: plan.gpsBytes,
             hmReportPhotoUrl: t.hmReportPhotoUrl || hm.fileUrl || '',
             completionPhotoUrl: t.completionPhotoUrl || comp.fileUrl || '',
             hmDriveFileId: t.hmDriveFileId || hm.driveFileId || '',
@@ -885,6 +928,9 @@ async function processDriveRetryQueue(manual) {
             completionEvidenceStatus: t.completionEvidenceStatus || '',
             gpsLatitude: t.gpsLatitude, gpsLongitude: t.gpsLongitude
           });
+          if (!isCompletionRetrySuccess(res, !!plan.hmBytes, !!plan.gpsBytes)) {
+            res = { success: false, error: (res && res.error) || 'Drive File ID missing for sent slot(s)' };
+          }
         }
         if (res && res.success) {
           summary.succeeded++;
