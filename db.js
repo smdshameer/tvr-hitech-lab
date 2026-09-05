@@ -2606,6 +2606,44 @@ function getDatabaseType() {
   return 'render-postgres';
 }
 
+// TEMPORARY DIAGNOSTIC (remove after Neon verification): read-only database
+// mode probe. SELECT-only: no INSERT/UPDATE/DELETE/TRUNCATE/migration/seed.
+// Never returns connection strings, hosts, or credentials.
+async function getDbDiagnostics() {
+  const out = {
+    databaseMode: 'unknown',
+    postgresConnected: false,
+    requiredTables: {
+      tickets: false,
+      audit_log: false,
+      tickets_backup_history: false,
+      deleted_ticket_tombstones: false
+    },
+    ticketsRowCount: null
+  };
+  try {
+    const t = getDatabaseType();
+    out.databaseMode = (t === 'local-json') ? 'json' : 'postgres';
+    if (t === 'local-json' || !usePostgres || !pool) return out;
+    await pool.query('SELECT 1');
+    out.postgresConnected = true;
+    const tr = await pool.query(
+      "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename IN ('tickets','audit_log','tickets_backup_history','deleted_ticket_tombstones')"
+    );
+    (tr.rows || []).forEach(r => {
+      const n = String(r.tablename || '').trim();
+      if (Object.prototype.hasOwnProperty.call(out.requiredTables, n)) out.requiredTables[n] = true;
+    });
+    if (out.requiredTables.tickets) {
+      const cr = await pool.query('SELECT count(*)::int AS c FROM tickets');
+      out.ticketsRowCount = (cr.rows && cr.rows[0]) ? cr.rows[0].c : null;
+    }
+  } catch (e) {
+    out.postgresConnected = false;
+  }
+  return out;
+}
+
 
 function registerOrUpdateSchool(info) {
   if (!info || !info.udise) return;
@@ -2769,6 +2807,7 @@ module.exports = {
   masterSchools,
   registerOrUpdateSchool,
   getDatabaseType,
+  getDbDiagnostics,
   isTestOrPurgedTicket,
   PERMANENT_TOMBSTONES,
   deletedTicketIds,

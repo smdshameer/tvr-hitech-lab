@@ -1646,6 +1646,22 @@ async function handleRequest(req, res) {
     }
   }
 
+  // TEMPORARY DIAGNOSTIC (remove after Neon verification): read-only database
+  // mode probe. Authenticated sessions only. SELECT-only via db.getDbDiagnostics();
+  // never returns connection strings, hosts, or credentials.
+  if (pathname === '/api/admin/db-status' && req.method === 'GET') {
+    const session = getAuthenticatedSession(req);
+    if (!session) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Authentication required. Please login.' }));
+      return;
+    }
+    const diag = await db.getDbDiagnostics();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, ...diag }));
+    return;
+  }
+
   // API: Version & Health Probe
   if (pathname === '/api/version') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
