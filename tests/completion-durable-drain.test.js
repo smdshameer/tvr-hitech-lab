@@ -173,11 +173,12 @@ function test(name, fn) {
   });
 
   // vercel.json cron present, routing fix intact.
-  test('Vercel cron scheduled every 5 min; rewrite fix intact', () => {
+  test('Vercel cron daily (Hobby-compatible); rewrite fix intact', () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '../vercel.json'), 'utf8'));
     const cron = (cfg.crons || []).find(c => c.path === '/api/admin/drive-drain');
     assert(cron, 'cron entry missing');
-    assert.strictEqual(cron.schedule, '*/5 * * * *');
+    assert.strictEqual(cron.schedule, '0 2 * * *');
+    assert(!cron.schedule.includes('*/5'), 'sub-daily cadence breaks Hobby deployment');
     const rw = (cfg.rewrites || []).find(r => r.source === '/(.*)');
     assert(rw && rw.destination.includes('__orig=/$1'), 'routing rewrite must stay intact');
   });

@@ -1659,7 +1659,9 @@ async function handleRequest(req, res) {
     }
   }
 
-  // Scheduled Drive drain (Vercel Cron, every 5 min): bounded, idempotent.
+  // Scheduled Drive drain (Vercel Cron, daily 02:00 UTC — Hobby plan allows only
+  // daily crons; sync-first inline + self-heal re-derive preserve durability
+  // between runs): bounded, idempotent.
   // Reuses processDriveRetryQueue — no second implementation.
   // Auth paths (in order):
   //  1. CRON_SECRET via Authorization Bearer, x-cron-secret header, or ?secret=
