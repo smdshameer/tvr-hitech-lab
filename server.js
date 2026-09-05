@@ -1286,6 +1286,26 @@ async function deleteCompletionEvidenceFromGoogleDrive(ticket, slot, driveFileId
 // ========================================================
 async function handleRequest(req, res) {
   let rawPath = req.headers['x-matched-path'] || req.url || '/';
+  // Vercel rewrite masking: the catch-all rewrite in vercel.json embeds the original
+  // path as ?__orig=... because the function otherwise receives only the rewritten
+  // destination (/api/index.js) and every route falls through to the Teacher fallback.
+  // Honored ONLY when the request actually arrived via the rewrite destination, so
+  // local behavior and direct /api/* calls are completely unchanged.
+  try {
+    const probeUrl = new URL(rawPath, 'http://internal');
+    const embedded = probeUrl.searchParams.get('__orig');
+    if ((probeUrl.pathname === '/api/index.js' || probeUrl.pathname === '/api/index') &&
+        embedded && embedded.startsWith('/')) {
+      // Rebuild: embedded path plus any remaining (non-__orig) query params, any order.
+      const rest = [];
+      probeUrl.searchParams.forEach((v, k) => { if (k !== '__orig') rest.push(k + '=' + v); });
+      const qIndex = embedded.indexOf('?');
+      const cleanEmbedded = qIndex === -1 ? embedded : embedded.slice(0, qIndex);
+      const embeddedQuery = qIndex === -1 ? '' : embedded.slice(qIndex + 1);
+      const tail = [embeddedQuery, rest.join('&')].filter(Boolean).join('&');
+      rawPath = cleanEmbedded + (tail ? '?' + tail : '');
+    }
+  } catch (e) {}
   if (rawPath.startsWith('/api/index.js') || rawPath === '/api/index') {
     rawPath = req.headers['x-matched-path'] || req.url || '/';
   }
