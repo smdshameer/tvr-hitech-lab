@@ -1835,6 +1835,18 @@ async function updateTicket(ticketId, updateData) {
         const newGpsLon = updateData.gpsLongitude !== undefined ? updateData.gpsLongitude : existing.gps_longitude;
         const newGpsAcc = updateData.gpsAccuracy !== undefined ? updateData.gpsAccuracy : existing.gps_accuracy;
         const newGpsTime = updateData.gpsTimestamp !== undefined ? updateData.gpsTimestamp : existing.gps_timestamp;
+        // Durable completion bytes (parity with JSON layer): non-empty provided value wins
+        // (top-level or nested evidence .data); otherwise preserve existing. Dedicated
+        // delete path (deleteCompletionEvidence) is the only clearer besides URL-clear.
+        const nestedHmData = updateData.completionEvidence && updateData.completionEvidence.hmSignedReport && updateData.completionEvidence.hmSignedReport.data;
+        const nestedCompData = updateData.completionEvidence && updateData.completionEvidence.completionPhoto && updateData.completionEvidence.completionPhoto.data;
+        let newHmB64 = (updateData.hmReportPhotoBase64 !== undefined && updateData.hmReportPhotoBase64) ? updateData.hmReportPhotoBase64
+          : (nestedHmData ? nestedHmData : existing.hm_report_photo_base64);
+        let newCompB64 = (updateData.completionPhotoBase64 !== undefined && updateData.completionPhotoBase64) ? updateData.completionPhotoBase64
+          : (nestedCompData ? nestedCompData : existing.completion_photo_base64);
+        if (updateData.completionPhotoUrl !== undefined && !updateData.completionPhotoUrl && (updateData.clearEvidence || (updateData.completionEvidence && updateData.completionEvidence.completionPhoto && updateData.completionEvidence.completionPhoto.uploaded === false))) {
+          newCompB64 = '';
+        }
         let resolvedAt = existing.resolved_at;
         if (newStatus === 'Resolved Remotely' || newStatus === 'Solved by Direct Visit' || newStatus === 'Closed / Verified') {
           resolvedAt = dateStr;
@@ -1857,7 +1869,8 @@ async function updateTicket(ticketId, updateData) {
             hm_drive_file_id = $22, comp_drive_file_id = $23,
             p1_drive_file_id = $24, p2_drive_file_id = $25, p3_drive_file_id = $26, p4_drive_file_id = $27,
             drive_folder_url = $28, completion_evidence = $29::jsonb, completion_evidence_status = $30,
-            remarks = $31, gps_latitude = $32, gps_longitude = $33, gps_accuracy = $34, gps_timestamp = $35
+            remarks = $31, gps_latitude = $32, gps_longitude = $33, gps_accuracy = $34, gps_timestamp = $35,
+            hm_report_photo_base64 = $37, completion_photo_base64 = $38
           WHERE ticket_id = $36
         `, [
           newStatus, newPriority, newResolutionCat, newVendor, newVendorTicket,
@@ -1867,7 +1880,7 @@ async function updateTicket(ticketId, updateData) {
           newP1FileId, newP2FileId, newP3FileId, newP4FileId,
           newDriveFolderUrl, newCompEvidence, newCompStatus,
           newRemarks, newGpsLat, newGpsLon, newGpsAcc, newGpsTime,
-          ticketId
+          ticketId, newHmB64, newCompB64
         ]);
       }
     } catch (e) {
@@ -2137,6 +2150,7 @@ async function deleteCompletionEvidence(ticketId, slot) {
           UPDATE tickets SET
             hm_report_photo_url = '',
             hm_drive_file_id = '',
+            hm_report_photo_base64 = '',
             completion_evidence = $1::jsonb,
             completion_evidence_status = $2
           WHERE ticket_id = $3
@@ -2146,6 +2160,7 @@ async function deleteCompletionEvidence(ticketId, slot) {
           UPDATE tickets SET
             completion_photo_url = '',
             comp_drive_file_id = '',
+            completion_photo_base64 = '',
             gps_latitude = NULL,
             gps_longitude = NULL,
             gps_accuracy = NULL,

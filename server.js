@@ -846,9 +846,13 @@ function isCompletionRetrySuccess(res, hmSent, gpsSent) {
   if (gpsSent && !res.compDriveFileId) return false;
   return true;
 }
-async function processDriveRetryQueue(manual) {
+async function processDriveRetryQueue(manual, opts) {
   if (driveRetryRunning) return { success: true, skipped: true };
   driveRetryRunning = true;
+  // Bounded execution for scheduled workers: maxEntries caps jobs, maxMs caps wall time.
+  // Untouched entries are returned to the queue without burning attempts.
+  const maxEntries = (opts && Number.isFinite(Number(opts.maxEntries)) && Number(opts.maxEntries) > 0) ? Number(opts.maxEntries) : Infinity;
+  const deadline = (opts && Number.isFinite(Number(opts.maxMs)) && Number(opts.maxMs) > 0) ? (Date.now() + Number(opts.maxMs)) : Infinity;
   const summary = { processed: 0, succeeded: 0, stillPending: 0 };
   try {
     let q = loadDriveRetryQueue();
@@ -882,6 +886,13 @@ async function processDriveRetryQueue(manual) {
     const due = q.filter(e => e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual));
     const remaining = q.filter(e => !(e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual)));
     for (const entry of due) {
+      if (summary.processed >= maxEntries || Date.now() > deadline) {
+        // Budget exhausted: return this and all later due entries untouched.
+        const idx = due.indexOf(entry);
+        for (let k = idx; k < due.length; k++) remaining.push(due[k]);
+        summary.capped = true;
+        break;
+      }
       summary.processed++;
       try {
         const all = await db.getAllTickets();
@@ -1104,9 +1115,11 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
   }
 }
 
-async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
+async function syncCompletionEvidenceToGoogleDrive(ticket, payload, timeoutMs) {
   const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
   if (!webhookUrl) return { success: false, reason: 'No webhook URL configured' };
+  // Bounded inline budget for serverless sync-first attempts (default preserves 55s local behavior).
+  const budgetMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Number(timeoutMs) : 55000;
 
   try {
     const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
@@ -1154,7 +1167,7 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload) {
       if (typeof AbortController !== 'undefined') {
         controller = new AbortController();
         // 2 watermarked evidence photos can exceed 25s on Apps Script cold start; 55s stays under Vercel maxDuration 60
-        timeoutId = setTimeout(() => controller.abort(), 55000);
+        timeoutId = setTimeout(() => controller.abort(), budgetMs);
       }
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -1644,6 +1657,58 @@ async function handleRequest(req, res) {
       res.end(JSON.stringify(result));
       return;
     }
+  }
+
+  // Scheduled Drive drain (Vercel Cron, every 5 min): bounded, idempotent.
+  // Reuses processDriveRetryQueue — no second implementation.
+  // Auth paths (in order):
+  //  1. CRON_SECRET via Authorization Bearer, x-cron-secret header, or ?secret=
+  //     query (never logged). Full manual bounds.
+  //  2. Vercel Cron user-agent (vercel-cron/*) with a 4-minute minimum interval
+  //     between UA-triggered runs. This keeps zero-secret automation working since
+  //     Vercel Cron cannot send custom headers; abuse is capped by the interval,
+  //     the 5-entry/50s bounds, idempotent uploads, and counts-only responses.
+  if (pathname === '/api/admin/drive-drain' && (req.method === 'GET' || req.method === 'POST')) {
+    const expected = String(process.env.CRON_SECRET || '');
+    let authed = false;
+    let authVia = '';
+    if (expected) {
+      let provided = '';
+      const authH = String(req.headers.authorization || '');
+      if (authH.toLowerCase().startsWith('bearer ')) provided = authH.slice(7).trim();
+      if (!provided) provided = String(req.headers['x-cron-secret'] || '').trim();
+      if (!provided) {
+        try { provided = String(parsedUrl.searchParams.get('secret') || '').trim(); } catch (e) {}
+      }
+      try {
+        const a = Buffer.from(provided);
+        const b = Buffer.from(expected);
+        if (a.length === b.length && crypto.timingSafeEqual(a, b)) { authed = true; authVia = 'secret'; }
+      } catch (e) {}
+    }
+    const ua = String(req.headers['user-agent'] || '');
+    if (!authed && /^vercel-cron\//i.test(ua)) {
+      const last = global.__driveDrainLastUaRun || 0;
+      if (Date.now() - last >= 4 * 60 * 1000) {
+        authed = true;
+        authVia = 'vercel-cron-ua';
+        global.__driveDrainLastUaRun = Date.now();
+      } else {
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Cron interval not elapsed.' }));
+        return;
+      }
+    }
+    if (!authed) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: expected ? 'Invalid cron secret.' : 'Cron drain not configured (CRON_SECRET missing); scheduler must identify as Vercel Cron.' }));
+      return;
+    }
+    const result = await processDriveRetryQueue(true, { maxEntries: 5, maxMs: 50000 });
+    console.log(`[DRIVE-DRAIN] via=${authVia} processed=${result.processed} succeeded=${result.succeeded} pending=${result.stillPending}`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, bounded: true, via: authVia, ...result }));
+    return;
   }
 
   // TEMPORARY DIAGNOSTIC (remove after Neon verification): read-only database
@@ -2426,10 +2491,32 @@ async function handleRequest(req, res) {
         }
 
         // Synchronous & resilient cloud sync to Google Drive via GAS.
-        // Serverless fast-submit: skip the awaited 2-photo upload (platform limits) — queue it.
+        // Serverless sync-first: attempt inline within the execution budget (bytes are
+        // already durable in DB); queue only when the inline attempt fails or times out.
         let driveSyncResult = null;
         if (GOOGLE_APPS_SCRIPT_ENDPOINT && isServerless) {
-          enqueueDriveRetry(ticketId, 'completion');
+          try {
+            const inline = await syncCompletionEvidenceToGoogleDrive(targetTicket, {
+              remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`,
+              hmReportPhotoBase64: persistentHmBase64,
+              completionPhotoBase64: persistentCompBase64,
+              hmReportPhotoUrl: hmReportPhotoUrl,
+              completionPhotoUrl: completionPhotoUrl,
+              hmDriveFileId: targetTicket.hmDriveFileId || '',
+              compDriveFileId: targetTicket.compDriveFileId || '',
+              completionEvidenceStatus: (isHmUploaded && isCompUploaded) ? 'SUBMITTED' : 'PARTIALLY_UPLOADED',
+              gpsLatitude: gpsLat,
+              gpsLongitude: gpsLon
+            }, 45000);
+            if (isCompletionRetrySuccess(inline, !!persistentHmBase64, !!persistentCompBase64)) {
+              driveSyncResult = inline;
+            } else {
+              enqueueDriveRetry(ticketId, 'completion');
+            }
+          } catch (inlineErr) {
+            console.warn('[DRIVE] Serverless inline completion sync failed, queued:', inlineErr.message);
+            enqueueDriveRetry(ticketId, 'completion');
+          }
         }
         if (GOOGLE_APPS_SCRIPT_ENDPOINT && !isServerless) {
           driveSyncResult = await syncCompletionEvidenceToGoogleDrive(targetTicket, {

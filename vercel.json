@@ -11,5 +11,11 @@
       "source": "/(.*)",
       "destination": "/api/index.js?__orig=/$1"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/admin/drive-drain",
+      "schedule": "*/5 * * * *"
+    }
   ]
 }
