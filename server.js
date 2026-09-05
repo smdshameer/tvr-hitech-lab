@@ -824,6 +824,32 @@ async function processDriveRetryQueue(manual) {
   const summary = { processed: 0, succeeded: 0, stillPending: 0 };
   try {
     let q = loadDriveRetryQueue();
+    // Self-healing: the queue file is ephemeral on serverless — re-derive candidates from
+    // tickets that hold photo bytes but no Drive IDs (cap 20, oldest first).
+    try {
+      const all = await db.getAllTickets();
+      const have = new Set(q.map(e => e && (e.ticketId + '|' + e.kind)));
+      let added = 0;
+      for (const t of all) {
+        if (added >= 20) break;
+        const id = String(t.ticketId || t.id || '').trim();
+        if (!id || db.isDeleted(id)) continue;
+        const needsIntake = (dataUrlOrEmpty(t.photo1Url) || dataUrlOrEmpty(t.photo2Url) || dataUrlOrEmpty(t.photo3Url) || dataUrlOrEmpty(t.photo4Url))
+          && !(t.p1DriveFileId && t.p2DriveFileId && t.p3DriveFileId && t.p4DriveFileId);
+        if (needsIntake && !have.has(id + '|intake')) {
+          q.push({ ticketId: id, kind: 'intake', attempts: 0, nextRetry: Date.now(), createdAt: new Date().toISOString() });
+          have.add(id + '|intake'); added++;
+        }
+        const comp = (t.completionEvidence && t.completionEvidence.completionPhoto) || {};
+        const hm = (t.completionEvidence && t.completionEvidence.hmSignedReport) || {};
+        const needsComp = ((comp.uploaded && !comp.driveFileId && dataUrlOrEmpty(comp.data)) || (hm.uploaded && !hm.driveFileId && dataUrlOrEmpty(hm.data)));
+        if (needsComp && !have.has(id + '|completion')) {
+          q.push({ ticketId: id, kind: 'completion', attempts: 0, nextRetry: Date.now(), createdAt: new Date().toISOString() });
+          have.add(id + '|completion'); added++;
+        }
+      }
+      if (added > 0) saveDriveRetryQueue(q);
+    } catch (e) {}
     const now = Date.now();
     const due = q.filter(e => e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual));
     const remaining = q.filter(e => !(e && e.ticketId && (!e.nextRetry || e.nextRetry <= now || manual)));
@@ -1213,6 +1239,7 @@ async function deleteCompletionEvidenceFromGoogleDrive(ticket, slot, driveFileId
 
   try {
     const resolved = resolveSchoolDistrict(ticket.udise, ticket.schoolId, ticket.district, ticket.schoolName);
+    // Slot-specific IDs are authoritative for GAS; legacy driveFileId kept for compatibility.
     const gasBody = {
       action: 'delete_completion_photo',
       ticketId: ticket.ticketId,
@@ -1222,6 +1249,11 @@ async function deleteCompletionEvidenceFromGoogleDrive(ticket, slot, driveFileId
       schoolName: resolved.schoolName || ticket.schoolName,
       udise: resolved.udise || ticket.udise
     };
+    if (slot === 'HM_REPORT') {
+      gasBody.hmDriveFileId = driveFileId || '';
+    } else {
+      gasBody.compDriveFileId = driveFileId || '';
+    }
 
     const fetch = globalThis.fetch;
     if (typeof fetch === 'function') {
@@ -1841,18 +1873,26 @@ async function handleRequest(req, res) {
         db.registerOrUpdateSchool({ udise: data.udise, schoolName: data.schoolName, block: data.block, aiName: data.aiName, phone: data.phone, district: data.district || 'Thiruvarur' });
         await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
 
-        // Authoritatively sync photos to Google Drive before completing request
+        // Authoritatively sync photos to Google Drive before completing request.
+        // Serverless (Vercel) fast-submit: awaiting multi-photo Apps Script uploads inside the
+        // request breaches platform body/time limits (413/504 HTML -> client "check internet").
+        // So on serverless we persist + queue cloud backup; local keeps the awaited sync.
         let driveSyncResult = null;
         let driveSyncError = null;
         if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
-          try {
-            driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
-            if (!driveSyncResult || !driveSyncResult.success) {
-              driveSyncError = (driveSyncResult && driveSyncResult.error) || 'Google Drive upload failed';
+          if (isServerless) {
+            enqueueDriveRetry(ticketId, 'intake');
+            driveSyncError = 'Cloud backup queued (serverless fast-submit).';
+          } else {
+            try {
+              driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
+              if (!driveSyncResult || !driveSyncResult.success) {
+                driveSyncError = (driveSyncResult && driveSyncResult.error) || 'Google Drive upload failed';
+              }
+            } catch (syncErr) {
+              driveSyncError = syncErr.message;
+              console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticketId} Error: ${syncErr.message}`);
             }
-          } catch (syncErr) {
-            driveSyncError = syncErr.message;
-            console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticketId} Error: ${syncErr.message}`);
           }
         }
 
@@ -2303,9 +2343,13 @@ async function handleRequest(req, res) {
           return;
         }
 
-        // Synchronous & resilient cloud sync to Google Drive via GAS
+        // Synchronous & resilient cloud sync to Google Drive via GAS.
+        // Serverless fast-submit: skip the awaited 2-photo upload (platform limits) — queue it.
         let driveSyncResult = null;
-        if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+        if (GOOGLE_APPS_SCRIPT_ENDPOINT && isServerless) {
+          enqueueDriveRetry(ticketId, 'completion');
+        }
+        if (GOOGLE_APPS_SCRIPT_ENDPOINT && !isServerless) {
           driveSyncResult = await syncCompletionEvidenceToGoogleDrive(targetTicket, {
             remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`,
             hmReportPhotoBase64: persistentHmBase64,
@@ -2714,24 +2758,86 @@ async function handleRequest(req, res) {
         ? (targetTicket.hmDriveFileId || (targetTicket.completionEvidence && targetTicket.completionEvidence.hmSignedReport && targetTicket.completionEvidence.hmSignedReport.driveFileId) || extractDriveFileId(targetTicket.hmReportPhotoUrl))
         : (targetTicket.compDriveFileId || (targetTicket.completionEvidence && targetTicket.completionEvidence.completionPhoto && targetTicket.completionEvidence.completionPhoto.driveFileId) || extractDriveFileId(targetTicket.completionPhotoUrl))) || '';
 
-      // 1. Delete/trash from Google Drive & Sheets via GAS
+      // 1. Delete/trash from Google Drive & Sheets via GAS — must succeed first.
+      // Silent Drive failure previously caused UI success + later resurrection: fail closed.
       let driveResult = null;
       try {
         driveResult = await deleteCompletionEvidenceFromGoogleDrive(targetTicket, slot, driveFileId);
       } catch(driveErr) {
         console.warn('Google Drive completion photo delete error:', driveErr.message);
+        driveResult = { success: false, error: driveErr.message, trashedFilesCount: 0 };
+      }
+      if (!driveResult || driveResult.success !== true || !(driveResult.trashedFilesCount > 0)) {
+        await db.logAudit({
+          action: 'COMPLETION_EVIDENCE_DELETE_FAILED',
+          ip: clientIp,
+          user: session.displayName || 'engineer',
+          ticketId: ticketId,
+          details: `Slot: ${slot}, DriveFileId: ${driveFileId || 'none'}, DriveError: ${(driveResult && (driveResult.error || driveResult.message)) || 'unknown'}`
+        });
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: 'Google Drive deletion failed: ' + ((driveResult && (driveResult.error || driveResult.message)) || 'Drive file not found or could not be trashed') + '. Photo was NOT deleted.',
+          slot: slot,
+          ticketId: ticketId,
+          driveResult: driveResult
+        }));
+        return;
       }
 
-      // 2. Delete/clear from database
+      // 2. Delete/clear from database (dedicated delete path only — update path still preserves)
       const dbResult = await db.deleteCompletionEvidence(ticketId, slot);
+      if (!dbResult || !dbResult.success) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: 'Drive file trashed but database clear failed: ' + ((dbResult && dbResult.error) || 'unknown') + '. Contact support before retrying.',
+          slot: slot,
+          ticketId: ticketId,
+          driveResult: driveResult
+        }));
+        return;
+      }
 
-      // 3. Log audit
+      // 3. Post-delete verification read: deleted slot must be fully clear, other slot intact.
+      const verifyList = db.getAllTicketsSync();
+      const verifyTicket = verifyList.find(t => String(t.ticketId || t.id).trim().toLowerCase() === ticketId.toLowerCase());
+      const vEv = (verifyTicket && verifyTicket.completionEvidence) || {};
+      const vHm = vEv.hmSignedReport || {};
+      const vComp = vEv.completionPhoto || {};
+      const slotCleared = slot === 'HM_REPORT'
+        ? (!verifyTicket.hmDriveFileId && !verifyTicket.hmReportPhotoUrl && !vHm.driveFileId && !vHm.fileUrl && vHm.uploaded !== true)
+        : (!verifyTicket.compDriveFileId && !verifyTicket.completionPhotoUrl && !vComp.driveFileId && !vComp.fileUrl && vComp.uploaded !== true);
+      const otherSlot = slot === 'HM_REPORT'
+        ? { driveFileId: targetTicket.compDriveFileId || '', uploaded: !!((targetTicket.completionEvidence && targetTicket.completionEvidence.completionPhoto && targetTicket.completionEvidence.completionPhoto.uploaded)) }
+        : { driveFileId: targetTicket.hmDriveFileId || '', uploaded: !!((targetTicket.completionEvidence && targetTicket.completionEvidence.hmSignedReport && targetTicket.completionEvidence.hmSignedReport.uploaded)) };
+      const otherIntact = (!otherSlot.driveFileId && !otherSlot.uploaded) || (
+        (slot === 'HM_REPORT'
+          ? (verifyTicket.compDriveFileId === targetTicket.compDriveFileId)
+          : (verifyTicket.hmDriveFileId === targetTicket.hmDriveFileId))
+      );
+      const verification = { slotCleared: !!slotCleared, otherSlotIntact: !!otherIntact };
+      if (!verification.slotCleared || !verification.otherSlotIntact) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: false,
+          error: 'Post-delete verification failed: database state inconsistent. Drive file was trashed; contact support.',
+          slot: slot,
+          ticketId: ticketId,
+          driveResult: driveResult,
+          verification: verification
+        }));
+        return;
+      }
+
+      // 4. Log audit
       await db.logAudit({
         action: 'COMPLETION_EVIDENCE_DELETED',
         ip: clientIp,
         user: session.displayName || 'engineer',
         ticketId: ticketId,
-        details: `Slot: ${slot}, DriveFileId: ${driveFileId || 'none'}`
+        details: `Slot: ${slot}, DriveFileId: ${driveFileId || 'none'}, Trashed: ${driveResult.trashedFilesCount}`
       });
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2741,6 +2847,7 @@ async function handleRequest(req, res) {
         slot: slot,
         ticketId: ticketId,
         driveResult: driveResult,
+        verification: verification,
         updatedTicket: dbResult.ticket
       }));
     } catch(e) {
@@ -10756,6 +10863,17 @@ function getITSMWorkbenchHtml(initialTickets = []) {
           const csrfMatch = document.cookie.match(/(^|;\s*)csrf_token=([^;]+)/);
           if (csrfMatch) csrfHeaders['X-CSRF-Token'] = csrfMatch[2];
 
+          // Resolve Drive ID from every known source (top-level, nested evidence, photo URL).
+          // Server double-checks the same way, but a fully-specified request avoids ambiguity.
+          const nestedId = (slot === 'HM_REPORT'
+            ? (curTicket.completionEvidence && curTicket.completionEvidence.hmSignedReport && curTicket.completionEvidence.hmSignedReport.driveFileId)
+            : (curTicket.completionEvidence && curTicket.completionEvidence.completionPhoto && curTicket.completionEvidence.completionPhoto.driveFileId)) || '';
+          let urlId = '';
+          try {
+            urlId = extractDriveFileId(slot === 'HM_REPORT' ? curTicket.hmReportPhotoUrl : curTicket.completionPhotoUrl) || '';
+          } catch (e) { urlId = ''; }
+          const topId = slot === 'HM_REPORT' ? (curTicket.hmDriveFileId || '') : (curTicket.compDriveFileId || '');
+
           const res = await fetch('/api/tickets/delete-completion-evidence', {
             method: 'POST',
             credentials: 'same-origin',
@@ -10763,12 +10881,23 @@ function getITSMWorkbenchHtml(initialTickets = []) {
             body: JSON.stringify({
               ticketId: tid,
               slot: slot,
-              driveFileId: slot === 'HM_REPORT' ? (curTicket.hmDriveFileId || '') : (curTicket.compDriveFileId || '')
+              driveFileId: topId || nestedId || urlId || ''
             })
           });
           const resData = await res.json();
           if (!resData || !resData.success) {
             throw new Error((resData && resData.error) || 'Failed to delete photo from server');
+          }
+          // Server verified Drive trash + DB clear. Refetch authoritative state and confirm
+          // the deleted slot is absent before touching any UI (prevents false-success display).
+          await loadData();
+          const refreshed = (allTickets || []).find(i => String(i.ticketId || i.id || '').trim().toLowerCase() === cleanEditId);
+          const rEv = (refreshed && refreshed.completionEvidence) || {};
+          const rSlot = slot === 'HM_REPORT' ? (rEv.hmSignedReport || {}) : (rEv.completionPhoto || {});
+          const stillThere = refreshed && (rSlot.uploaded === true || !!rSlot.driveFileId || !!rSlot.fileUrl ||
+            (slot === 'HM_REPORT' ? (!!refreshed.hmDriveFileId || !!refreshed.hmReportPhotoUrl) : (!!refreshed.compDriveFileId || !!refreshed.completionPhotoUrl)));
+          if (!refreshed || stillThere) {
+            throw new Error('Server deleted the file but refetched data still shows it. Please reload the page.');
           }
         }
 
@@ -10864,11 +10993,19 @@ function getITSMWorkbenchHtml(initialTickets = []) {
 
         updateCompletionEvidenceBadges(curTicket);
         renderTable();
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Delete';
+        }
         closeDeleteCompletionModal();
         showDeleteToast(slot === 'HM_REPORT' ? 'HM Signed Report deleted successfully.' : 'GPS Completion Photo deleted successfully.');
       } catch(err) {
-        alert('Error deleting photo: ' + err.message);
-        closeDeleteCompletionModal();
+        // Failure: keep the existing photo visible, report clearly, restore the button.
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = 'Delete';
+        }
+        alert('Delete failed: ' + err.message + '\\nThe photo was kept. Please retry — if it persists, check Drive/Sheets connectivity.');
       }
     }
 

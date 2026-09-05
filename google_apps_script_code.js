@@ -301,7 +301,8 @@ function deleteCompletionPhoto(sheet, data) {
 
   ensureHeader(sheet);
 
-  var fileId = String((isSlot1 ? (data.hmDriveFileId || data.fileId) : (data.compDriveFileId || data.fileId)) || '').trim();
+  // Priority: slot-specific ID -> fileId -> legacy driveFileId. Slot still decides the target field.
+  var fileId = String((isSlot1 ? (data.hmDriveFileId || data.fileId || data.driveFileId) : (data.compDriveFileId || data.fileId || data.driveFileId)) || '').trim();
   var targetFilename = (tid ? tid + '_' : '') + (isSlot1 ? 'HM_Signed_Completion_Report.jpg' : 'Completion_UPS_GPS.jpg');
   var trashedFilesCount = 0;
   var trashedFileIds = [];
@@ -358,10 +359,11 @@ function deleteCompletionPhoto(sheet, data) {
     } catch(folderErr) {}
   }
 
-  // 3. Clear from Google Sheets row
+  // 3. Clear from Google Sheets row — ONLY after a Drive file was actually trashed.
+  // A missing Drive file means failure (see return below); Sheet must stay untouched.
   var lastRow = sheet.getLastRow();
   var rowFound = false;
-  if (lastRow > 1) {
+  if (trashedFilesCount > 0 && lastRow > 1) {
     var colA = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
     for (var i = 0; i < colA.length; i++) {
       if (String(colA[i][0]).trim() === tid) {
@@ -387,6 +389,22 @@ function deleteCompletionPhoto(sheet, data) {
     }
   }
 
+  // Structured result: success ONLY when a Drive file was actually trashed.
+  // Sheet clearing is part of a successful delete (same slot only) — never on failure.
+  if (trashedFilesCount <= 0) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Drive file not found for ' + tid + ' slot ' + (isSlot1 ? 'HM_REPORT' : 'GPS_COMPLETION') + ' (expected ' + targetFilename + ')',
+      ticketId: tid,
+      slot: isSlot1 ? 'HM_REPORT' : 'GPS_COMPLETION',
+      trashedFilesCount: 0,
+      trashedFileIds: [],
+      fileId: fileId,
+      fileName: targetFilename,
+      sheetRowUpdated: false
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   return ContentService.createTextOutput(JSON.stringify({
     success: true,
     message: (isSlot1 ? 'HM Signed Report' : 'GPS Completion Photo') + ' deleted successfully for ticket ' + tid,
@@ -394,6 +412,8 @@ function deleteCompletionPhoto(sheet, data) {
     slot: isSlot1 ? 'HM_REPORT' : 'GPS_COMPLETION',
     trashedFilesCount: trashedFilesCount,
     trashedFileIds: trashedFileIds,
+    fileId: trashedFileIds[0] || fileId,
+    fileName: targetFilename,
     sheetRowUpdated: rowFound
   })).setMimeType(ContentService.MimeType.JSON);
 }
