@@ -8,7 +8,7 @@ Review the implemented intake reliability fix (uncommitted, undeployed) — auth
 
 ## EXACT NEXT ACTION
 
-Review the intake diff (server.js intake helpers + sync gate/verify; new suite 27/27).
+Review the intake guard+backfill diff (server.js +27/-1, suite 36/36).
 Then either authorize commit/deploy or request changes. Do NOT run test:live.
 Do NOT touch HTL-TVR-05301-11 / HTL-TVR-05303 (no manual repair). KI-001 stays UNPROVEN.
 

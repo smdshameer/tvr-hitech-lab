@@ -916,6 +916,14 @@ function isIntakeVerifySuccess(inspect, spec) {
   const names = Array.isArray(spec.fileNames) ? spec.fileNames : [];
   const ids = Array.isArray(spec.ids) ? spec.ids : [];
   const need = Array.isArray(spec.needsVerify) ? spec.needsVerify : [];
+  // Nothing-to-confirm guard (mirrors completion path): no sent bytes and no
+  // IDs must NEVER classify as verified.
+  let anyNeed = false, anyId = false;
+  for (let i = 0; i < 4; i++) {
+    if (need[i]) anyNeed = true;
+    if (ids[i]) anyId = true;
+  }
+  if (!anyNeed && !anyId) { reasons.push('nothing-to-confirm'); return out; }
   for (let i = 0; i < 4; i++) {
     if (!need[i]) continue;
     const want = names[i] || '';
@@ -927,6 +935,15 @@ function isIntakeVerifySuccess(inspect, spec) {
   }
   out.verified = reasons.length === 0;
   return out;
+}
+// Backfill helper: recover a Drive file ID from an already-stored https URL
+// (server record only — data: URLs and non-URLs yield ''). Used strictly as an
+// ID-recovery source for read-back matching; never trusted without verification.
+function backfillDriveIdFromUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const u = url.trim();
+  if (!/^https?:\/\//i.test(u)) return '';
+  try { return extractDriveFileId(u); } catch (e) { return ''; }
 }
 // Hintless read-back for intake Evidence files (pure list; creates nothing,
 // deletes nothing, trashes nothing). opts.endpoint override is test-only.
@@ -1271,6 +1288,12 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
 
         const sentFlags = [!!rawData.photo1Base64, !!rawData.photo2Base64, !!rawData.photo3Base64, !!rawData.photo4Base64];
         const preIds = [ticket.p1DriveFileId || '', ticket.p2DriveFileId || '', ticket.p3DriveFileId || '', ticket.p4DriveFileId || ''];
+        // Backfill (server record ONLY, never client payload): recover IDs from
+        // already-stored Drive URLs so ID-less records can confirm via read-back
+        // without re-upload. Data URLs and malformed URLs yield '' (safe no-op).
+        const recoveredIds = [1, 2, 3, 4].map(i => backfillDriveIdFromUrl(ticket['photo' + i + 'Url'] || ''));
+        const effIds = [p1Id || recoveredIds[0], p2Id || recoveredIds[1], p3Id || recoveredIds[2], p4Id || recoveredIds[3]];
+        const verifyNeed = sentFlags.map((s, i) => !!(s || effIds[i]));
         const baseUpdate = {
           googleDriveFolderUrl: result.folderUrl || '',
           p1DriveUrl: result.p1Url || '',
@@ -1288,6 +1311,8 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
         // fail honestly so the retry entry is kept, never dropped.
         const idGate = intakeUploadComplete(result, sentFlags, [p1Id, p2Id, p3Id, p4Id]);
         if (!idGate.complete) {
+          // Persist reported IDs only (never recovered/unverified ones) so no
+          // phantom IDs enter the record; the retry entry is kept.
           await db.updateTicket(ticket.ticketId, { ...baseUpdate,
             p1DriveFileId: p1Id, p2DriveFileId: p2Id, p3DriveFileId: p3Id, p4DriveFileId: p4Id });
           console.warn(`[DRIVE] Intake IDs incomplete for ${ticket.ticketId}: missing=${idGate.missing} — kept for retry`);
@@ -1299,7 +1324,7 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
         const vIntake = await verifyIntakeDriveFiles({
           ticketId: ticket.ticketId, district: resolved.district,
           udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName,
-          fileNames: canonNames, ids: [p1Id, p2Id, p3Id, p4Id], needsVerify: sentFlags,
+          fileNames: canonNames, ids: effIds, needsVerify: verifyNeed,
         });
         if (!vIntake.verified) {
           await db.updateTicket(ticket.ticketId, { ...baseUpdate,
@@ -12568,3 +12593,4 @@ module.exports.isCompletionRetrySuccess = isCompletionRetrySuccess;
 module.exports.intakeUploadComplete = intakeUploadComplete;
 module.exports.isIntakeVerifySuccess = isIntakeVerifySuccess;
 module.exports.verifyIntakeDriveFiles = verifyIntakeDriveFiles;
+module.exports.backfillDriveIdFromUrl = backfillDriveIdFromUrl;

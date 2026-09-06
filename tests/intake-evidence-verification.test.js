@@ -151,6 +151,47 @@ async function main() {
   record('W2. response reports verifiedDB-safe pending (no false confirm)',
     intakeRegion.includes('driveUploadConfirmed'));
 
+  // A. Byte-less + ID-less must NEVER verify (nothing-to-confirm guard).
+  r = server.isIntakeVerifySuccess(inspectOk({ evidenceFiles: [] }),
+    spec({ ids: ['', '', '', ''], needsVerify: [false, false, false, false] }));
+  record('A. byte-less/no-ID retry -> verified=false', r.verified === false
+    && r.reasons.join(' ').includes('nothing-to-confirm'));
+  // A2. IDs present (no new bytes) + files match -> legitimate re-confirm.
+  r = server.isIntakeVerifySuccess(inspectOk(), spec({ needsVerify: [false, false, false, false] }));
+  record('A2. IDs present + files match -> VERIFIED (no over-blocking)', r.verified === true);
+
+  // B. Backfill: valid thumbnail -> ID; data/non/empty URLs -> ''.
+  record('B. backfill valid thumbnail URL -> ID',
+    server.backfillDriveIdFromUrl('https://drive.google.com/thumbnail?id=ABC123xyz&sz=w800') === 'ABC123xyz');
+  record('B2. backfill ignores data URLs',
+    server.backfillDriveIdFromUrl('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD') === '');
+  record('B3. backfill ignores non URLs', server.backfillDriveIdFromUrl('No Photo') === ''
+    && server.backfillDriveIdFromUrl('') === '' && server.backfillDriveIdFromUrl(null) === '');
+
+  // C. Recovered-as-expected IDs + files -> VERIFIED with adoption.
+  r = server.isIntakeVerifySuccess(inspectOk(), spec({ ids: ['ev-id-1', 'ev-id-2', 'ev-id-3', 'ev-id-4'] }));
+  record('C. recovered IDs + files -> VERIFIED + adopted', r.verified === true
+    && r.adoptedIds[0] === 'ev-id-1' && r.adoptedIds[3] === 'ev-id-4');
+
+  // D. Malformed URLs -> safe ''.
+  record('D. malformed URLs -> safe empty',
+    server.backfillDriveIdFromUrl('https://drive.google.com/thumbnail') === ''
+    && server.backfillDriveIdFromUrl('not a url at all') === ''
+    && server.backfillDriveIdFromUrl('ftp://x/y') === '');
+
+  // E. Recovered ID present but file missing -> NOT VERIFIED.
+  r = server.isIntakeVerifySuccess(inspectOk({ evidenceFiles: [] }), spec({ ids: ['ev-id-1', '', '', ''] }));
+  record('E. URL ID exists but file missing -> NOT VERIFIED', r.verified === false);
+
+  // F. Client cannot supply IDs to bypass: intake sync/handler never read client Drive IDs.
+  const syncSrcF = serverJs.slice(serverJs.indexOf('async function syncTicketToGoogleDrive'),
+    serverJs.indexOf('async function syncTicketToGoogleDrive') + 9500);
+  const intakeHF = serverJs.slice(
+    serverJs.indexOf("if (pathname === '/api/tickets' && req.method === 'POST')"),
+    serverJs.indexOf('// 3. API: Engineer Ask Completion Photos'));
+  const clientIdRead = /data\.p[1-4]DriveFileId|payload\.p[1-4]DriveFileId/;
+  record('F. no client-supplied IDs in intake sync/handler', !clientIdRead.test(syncSrcF) && !clientIdRead.test(intakeHF));
+
   console.log('\n========================================================');
   console.log(`📊 INTAKE-VERIFICATION RESULTS: ${passed} Passed, ${failed} Failed`);
   console.log('========================================================');

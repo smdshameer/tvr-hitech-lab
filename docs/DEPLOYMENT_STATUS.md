@@ -6,6 +6,9 @@
 - Cron: `/api/admin/drive-drain` on `0 2 * * *` (commit `2c17f72`)
 - Last known deployment: commit `2c17f72`, READY (last reported; live status UNKNOWN — re-verify read-only)
 - Pending deployment: `f442c8b` pushed to `origin/main` 2026-09-06 (forensic-safe uploads + gated tests + continuity).
+- Deployed 2026-09-06: `c2c5f9d` pushed to `origin/main` (intake ID-gate + verify/adopt).
+  Post-push routing checks PASS (`/`, `/api/version`, `/api/diag` 200). Running-commit identity
+  needs dashboard/token confirm (no safe endpoint exposes it; deltas are write-path-only by design).
   Vercel auto-build expected via Git integration. Post-push routing checks PASS (`/`, `/api/version`,
   `/api/diag` 200). Running-commit identity unproven without dashboard/token (no safe endpoint
   exposes it; the code delta is write-path-only by design). Confirm in Vercel Dashboard

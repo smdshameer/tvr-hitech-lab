@@ -7,8 +7,9 @@
 - HTL-TVR-05303 (Sep 5): folderUrl recorded but all photo URLs/IDs empty — `success:true`
   with empty per-file results accepted, retry dropped (intake had no ID gate).
 - Photos safe in PG + Drive in both cases; retry/self-heal recovers. Fix implemented
-  2026-09-06 (ID gate + hintless verify/adopt + no phantom IDs), suite 27/27.
-  NOT deployed. No manual repair performed on either ticket.
+  2026-09-06 (ID gate + hintless verify/adopt + no phantom IDs), suite 27/27 → extended
+  36/36 with nothing-to-confirm guard + URL backfill. NOT deployed. No manual repair
+  performed on either ticket.
 
 ## KI-001 — GAS completion durability: files absent despite success claim (OPEN, UNPROVEN)
 

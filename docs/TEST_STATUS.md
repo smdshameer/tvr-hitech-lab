@@ -50,7 +50,7 @@ guarded by `assertSyntheticSafe`. No secrets in any test (no cookies/tokens/URLs
 - `gas-forensics --self-test`: PASS 8/8 (no cookie/storage APIs, arg parsing, redaction, profile-destroy proof)
 - `gas-processes --self-test`: PASS 7/7 (arg parsing, Sep-5 IST→UTC window math, redaction, fail-closed refusal); live `--query` correctly BLOCKED without token (exit 2, zero network).
 - `tests/completion-drive-verification.test.js`: PASS 30/30 (A–J mocked: verify classifier, opId, folder-ID parse, timeout→false, GPS guards intact, track/manage paths, DB passthrough).
-- `tests/intake-evidence-verification.test.js`: PASS 27/27 (A–O mocked: ID gate, verify/adopt classifier, timeout→false, no-dupe/no-delete guards, bytes-durable, GPS/auth intact).
+- `tests/intake-evidence-verification.test.js`: PASS 36/36 (A–O + guard/backfill: nothing-to-confirm, URL backfill, adopt, no client IDs).
 - Cloud Logging capability test (read-only Project Settings): BLOCKED — default GCP project only, no accessible project to query.
 - `npm test` re-verified 2026-09-05 SAFE (52/52 + 30 pass / 0 fail / 1 SKIPPED); local `data/*.json` residue restored.
 - `verify-project-state`: PASS (incl. new gate checks)

@@ -1,5 +1,12 @@
 # CHANGELOG — meaningful milestones (see `git log` for full history)
 
+- 2026-09-06 — INTAKE GUARD+BACKFILL (approved): nothing-to-confirm guard + server-side
+  URL ID backfill in intake sync; suite 36/36; full SAFE PASS. No GAS/schema/UI change.
+  NOT deployed/committed.
+
+- 2026-09-06 — DEPLOYED `c2c5f9d` to `origin/main` (intake ID-gate + verify/adopt).
+  Post-push routing PASS. Running-commit needs dashboard confirm. No test:live, no probes.
+
 - 2026-09-06 — INTAKE RELIABILITY (approved): ID-gate + verify/adopt in intake sync
   (05301-11 response-loss class, 05303 empty-ID pseudo-success class); suite 27/27;
   npm test SAFE PASS. No GAS/schema/UI change. NOT deployed/committed.
