@@ -2,6 +2,7 @@ const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const gate = require('./production-gate.js');
 
 console.log('========================================================');
 console.log('🚀 TWO-SLOT COMPLETION EVIDENCE & PIXEL WATERMARK TEST');
@@ -192,6 +193,18 @@ function runLiveDualSlotTest() {
         isFinalSubmit: true
       });
 
+      // PRODUCTION-MUTATING: live completion POST forwards to the production
+      // GAS endpoint (Drive + Sheets writes). Fail-closed: SKIP unless
+      // PRODUCTION_TESTS=1 (see `npm run test:live`).
+      if (!gate.productionTestsEnabled()) {
+        console.log(gate.skipMessage('Live Dual-Slot Submission (PRODUCTION-MUTATING)'));
+        if (testTicketId) await db.deleteTicket(testTicketId).catch(() => {});
+        if (localServer && serverStartedByTest) localServer.close();
+        resolve();
+        return;
+      }
+      gate.assertLiveAllowed('twoslot-live-submit');
+      gate.assertSyntheticSafe(testTicketId, 'GOVERNMENT HIGHER SECONDARY SCHOOL NANNILAM');
       const postReq = http.request('http://localhost:10000/api/tickets/completion-evidence', {
         method: 'POST',
         headers: {

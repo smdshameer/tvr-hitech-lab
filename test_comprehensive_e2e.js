@@ -9,10 +9,12 @@ const vm = require('vm');
 const fs = require('fs');
 const path = require('path');
 const db = require('D:/Ai Ticket App - UPS/db.js');
+const gate = require('./tests/production-gate.js');
 
 let totalTests = 0;
 let passedTests = 0;
 let failedTests = 0;
+let skippedTests = 0;
 const failures = [];
 
 function recordTest(dimension, testName, isPassed, details = '') {
@@ -25,6 +27,12 @@ function recordTest(dimension, testName, isPassed, details = '') {
     failures.push({ dimension, testName, details });
     console.error(`❌ [${dimension}] ${testName} ${details ? '(' + details + ')' : ''}`);
   }
+}
+
+function recordSkip(dimension, testName, details = '') {
+  totalTests++;
+  skippedTests++;
+  console.log(`⏭️ [${dimension}] ${testName} SKIPPED ${details ? '(' + details + ')' : ''}`);
 }
 
 async function runAudit() {
@@ -446,9 +454,17 @@ async function runAudit() {
 
   // ----------------------------------------------------
   // DIMENSION 23: Safe Form Submission Ingestion & Validation
-  // ----------------------------------------------------
+  // PRODUCTION-MUTATING: the live POST below forwards to the production GAS
+  // endpoint (Drive + Sheets writes). Fail-closed gate: SKIP unless
+  // PRODUCTION_TESTS=1 (see `npm run test:live`). Never enable by default.
   console.log('\n--- DIMENSION 23: Safe Form Submission Ingestion & Validation ---');
+  if (!gate.productionTestsEnabled()) {
+    recordSkip('Dim 23: Form Submit', 'POST /api/tickets live ingestion (PRODUCTION-MUTATING)',
+      'PRODUCTION_TESTS not set to 1 — no Drive/Sheets writes made');
+  } else {
   try {
+    gate.assertLiveAllowed('Dim23-live-submit');
+    gate.assertSyntheticSafe('HTL-TVR-99999-42', 'AUTOMATED AUDIT LAB');
     const formPayload = JSON.stringify({
       schoolId: 'TVR-TEST-999',
       schoolName: 'AUTOMATED AUDIT LAB',
@@ -492,6 +508,7 @@ async function runAudit() {
   } catch (err) {
     recordTest('Dim 23: Form Submit', 'Form Submission Ingestion', false, err.message);
   }
+  } // end PRODUCTION_TESTS gate (else-branch: live ingestion enabled)
 
   // ----------------------------------------------------
   // DIMENSION 24: Headless Browser Visual Rendering
@@ -520,6 +537,10 @@ async function runAudit() {
   console.log(`Total Tests Run: ${totalTests}`);
   console.log(`Passed: ${passedTests} ✅`);
   console.log(`Failed: ${failedTests} ${failedTests > 0 ? '❌' : ''}`);
+  console.log(`Skipped (production-mutating, opt-in via PRODUCTION_TESTS=1): ${skippedTests} ⏭️`);
+  if (failedTests === 0) {
+    console.log('SAFE TESTS: PASS' + (skippedTests > 0 ? ' / PRODUCTION MUTATION TESTS: SKIPPED' : ''));
+  }
 
   if (failedTests > 0) {
     console.log('\n❌ FAILURES:');

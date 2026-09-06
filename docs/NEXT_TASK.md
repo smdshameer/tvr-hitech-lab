@@ -1,0 +1,41 @@
+# NEXT TASK — actionable continuation point (keep compact; history lives in CHANGELOG/KNOWN_ISSUES)
+
+> New session: run `npm run agent:start`, do EXACT NEXT ACTION, nothing else.
+
+## CURRENT OBJECTIVE
+
+Review the implemented forensic-safe upload fix (uncommitted, undeployed) — authorize commit/deploy or request changes.
+
+## EXACT NEXT ACTION
+
+Review the implemented fix (diff: server.js +219/-10, new test suite 30/30, docs).
+Then either authorize commit/deploy or request changes. Do NOT run test:live.
+Do NOT create a probe. KI-001 historical mechanism stays UNPROVEN regardless.
+
+## ACCEPTANCE
+
+Report at `docs/forensics/KI-001-report.md` with timestamps, counts, IDs, statuses, overlap, classification + confidence + supporting evidence — or documented UNPROVEN with precise unknowns.
+
+## SAFETY RESTRICTIONS
+
+Read-only forensics. No probes, deletes, Drive/Sheets/DB/GAS/production changes, no commit/push/deploy, no secret collection. See `docs/REQUIREMENTS.md` §4.
+
+## DO NOT REPEAT
+
+DATABASE_URL setup · verifier hardening · passed suites (re-run, don't rebuild) · completed Phase-H probe · forensics login attempts (rerun runner, don't re-litigate).
+
+## DO NOT CHANGE
+
+Protected areas in `docs/PROJECT_STATE.md`. No UI, workflow, API, GPS, deletion, Drive/Sheets/DB/GAS, or deployment changes.
+
+## COMPLETED (do not redo)
+
+- PHASE 0 continuity system + TEST SAFETY HARDENING (`PRODUCTION_TESTS` gate; `npm test` safe) — see `docs/CHANGELOG.md`.
+- DATABASE GATE: PASS — do not reconfigure `DATABASE_URL` without new evidence.
+- KI-001 forensics runner built (`npm run gas:forensics`); auth diagnosis complete
+  (Google serves automation contexts marketing/404 — see KI-001); persistent-profile
+  sweep ran authed; time-filter un-automatable; API + Logging routes gated/closed.
+  Report UNPROVEN at `docs/forensics/KI-001-report.md`.
+- Forensic-safe upload fix IMPLEMENTED 2026-09-06 (opId + verify-after-create + op record;
+  suite `tests/completion-drive-verification.test.js` 30/30; npm test SAFE PASS).
+  Awaiting review/authorization. NOT committed, NOT deployed.

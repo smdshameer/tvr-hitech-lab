@@ -1,6 +1,7 @@
 const assert = require('assert');
 const http = require('http');
 const fs = require('fs');
+const gate = require('./production-gate.js');
 
 console.log('========================================================');
 console.log('🧪 REMARKS DATA FLOW & ENGINEER DASHBOARD VERIFICATION');
@@ -91,6 +92,32 @@ async function run() {
     remarks: uniqueTestRemarks
   });
 
+  // PRODUCTION-MUTATING: live POST forwards to the production GAS endpoint
+  // (Drive + Sheets writes). Fail-closed: local create + SKIP unless
+  // PRODUCTION_TESTS=1 (see `npm run test:live`).
+  let createdTicketId;
+  if (!gate.productionTestsEnabled()) {
+    console.log(gate.skipMessage('TEST 2 live POST /api/tickets (PRODUCTION-MUTATING)'));
+    createdTicketId = 'HTL-TVR-99801';
+    gate.assertSyntheticSafe(createdTicketId, 'GHSS ADICHAPURAM');
+    await db.createTicket({
+      ticketId: createdTicketId,
+      schoolName: 'GHSS ADICHAPURAM',
+      udise: testUdise,
+      block: 'Kottur',
+      district: 'Thiruvarur',
+      aiName: 'Karthik AI',
+      phone: '9876543210',
+      issue: 'UPS Not Turning ON',
+      duration: 'Today',
+      serialNo: 'UPS-SN-998811',
+      priority: 'High',
+      status: 'New / Under Review',
+      remarks: uniqueTestRemarks
+    });
+    console.log(`✅ Service Call registered LOCALLY (no production writes). Ticket ID: #${createdTicketId}`);
+  } else {
+  gate.assertLiveAllowed('remarks-live-submit');
   const postRes = await makeRequest({
     hostname: 'localhost',
     port: 10000,
@@ -105,8 +132,9 @@ async function run() {
   assert.strictEqual(postRes.statusCode, 200, 'Ticket submission must return HTTP 200');
   const postJson = JSON.parse(postRes.body);
   assert(postJson.success, 'Ticket submission must be success: true');
-  const createdTicketId = postJson.ticketId;
+  createdTicketId = postJson.ticketId;
   console.log(`✅ Service Call successfully registered! Ticket ID: #${createdTicketId}`);
+  } // end PRODUCTION_TESTS gate (else-branch: live POST enabled)
 
   // ----------------------------------------------------
   // TEST 3 & 4: API & Database Record Persistence

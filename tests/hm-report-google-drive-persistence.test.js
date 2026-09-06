@@ -13,12 +13,14 @@ console.log('===================================================================
 
 const db = require('../db.js');
 const serverModule = require('../server.js');
+const gate = require('./production-gate.js');
 const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 const gasJs = fs.readFileSync(path.join(__dirname, '../google_apps_script_code.js'), 'utf8');
 
 async function runSuite() {
   let passed = 0;
   let failed = 0;
+  let skipped = 0;
 
   function record(desc, ok, details = '') {
     if (ok) {
@@ -29,6 +31,17 @@ async function runSuite() {
       console.error(`❌ [FAIL] ${desc} ${details ? '(' + details + ')' : ''}`);
     }
   }
+
+  function recordSkip(desc, details = '') {
+    skipped++;
+    console.log(`⏭️ [SKIP] ${desc} ${details ? '(' + details + ')' : ''}`);
+  }
+
+  // PRODUCTION-MUTATING paths below (live completion POST) are fail-closed:
+  // SKIP unless PRODUCTION_TESTS=1 (see `npm run test:live`).
+  const liveEnabled = gate.productionTestsEnabled();
+  if (!liveEnabled) console.log(gate.skipMessage('TEST 3 live completion-evidence submission (PRODUCTION-MUTATING)'));
+  else { gate.assertLiveAllowed('hmreport-live-submit'); }
 
   // TEST 1: Syntax & Code Structural Integrity
   record('1. Server.js syntax and V8 compilation', true, 'node --check server.js clean');
@@ -55,6 +68,7 @@ async function runSuite() {
   const randNum = Math.floor(10000 + Math.random() * 89999);
   const testTid = 'HTL-NGP-' + randNum;
   const testUdise = '331901' + randNum;
+  if (liveEnabled) { gate.assertSyntheticSafe(testTid, 'MGHSS NAGAPPATTIANAM'); }
 
   // Auto-start server if not already running on port 10000
   let serverStarted = false;
@@ -117,7 +131,16 @@ async function runSuite() {
       isFinalSubmit: true
     });
 
-    const submitRes = await new Promise((resolve, reject) => {
+    let submitRes = { statusCode: 0, data: {} };
+    if (!liveEnabled) {
+      ['13. POST /api/tickets/completion-evidence returns HTTP 200',
+       '14. Response indicates persistenceStatus: PERSISTED',
+       '15. Response contains evidenceCount: 2',
+       '16. Slot 1 HM Report URL returned',
+       '17. Slot 2 Completion Photo URL returned'
+      ].forEach(d => recordSkip(d, 'gate off — no production writes'));
+    } else {
+    submitRes = await new Promise((resolve, reject) => {
       const req = http.request('http://localhost:10000/api/tickets/completion-evidence', {
         method: 'POST',
         headers: {
@@ -145,15 +168,25 @@ async function runSuite() {
     record('15. Response contains evidenceCount: 2', submitRes.data.evidenceCount === 2);
     record('16. Slot 1 HM Report URL returned', !!submitRes.data.hmReportPhotoUrl);
     record('17. Slot 2 Completion Photo URL returned', !!submitRes.data.completionPhotoUrl);
+    } // end liveEnabled (else-branch: live submission enabled)
 
     // Verify DB record
     const allT = await db.getAllTickets();
     const saved = allT.find(x => x.ticketId === testTid);
+    if (!liveEnabled) {
+      recordSkip('18. Ticket in database reflects SUBMITTED status', 'needs live submission');
+      recordSkip('19. Ticket completionEvidence has both hmSignedReport and completionPhoto', 'needs live submission');
+    } else {
     record('18. Ticket in database reflects SUBMITTED status', saved && saved.completionEvidenceStatus === 'SUBMITTED');
     record('19. Ticket completionEvidence has both hmSignedReport and completionPhoto', 
       saved && saved.completionEvidence?.hmSignedReport?.uploaded && saved.completionEvidence?.completionPhoto?.uploaded);
+    }
 
     // Verify disk backup files exist
+    if (!liveEnabled) {
+      recordSkip('20. Local backup file exists for Slot 1', 'needs live submission');
+      recordSkip('21. Local backup file exists for Slot 2 with GPS EXIF', 'needs live submission');
+    } else {
     const projectRoot = path.resolve(__dirname, '..');
     const hmDiskPath = submitRes.data.hmReportPhotoUrl.startsWith('/uploads/') 
       ? path.join(projectRoot, submitRes.data.hmReportPhotoUrl)
@@ -163,6 +196,7 @@ async function runSuite() {
       : path.join(projectRoot, 'uploads', path.basename(submitRes.data.completionPhotoUrl));
     record('20. Local backup file exists for Slot 1', fs.existsSync(hmDiskPath) || submitRes.data.hmReportPhotoUrl.startsWith('http'));
     record('21. Local backup file exists for Slot 2 with GPS EXIF', fs.existsSync(compDiskPath) || submitRes.data.completionPhotoUrl.startsWith('http'));
+    }
 
     // Verify authentic ticket HTL-NGP-03130 is untouched
     const authT = allT.find(x => x.ticketId === 'HTL-NGP-03130');
@@ -179,7 +213,8 @@ async function runSuite() {
   }
 
   console.log('\n====================================================================================');
-  console.log(`📊 HM REPORT DRIVE PERSISTENCE SUITE: ${passed}/${passed + failed} PASSED (${Math.round((passed / (passed + failed)) * 100)}%)`);
+  console.log(`📊 HM REPORT DRIVE PERSISTENCE SUITE: ${passed}/${passed + failed} PASSED (${Math.round((passed / (passed + failed)) * 100)}%)${skipped > 0 ? `, ${skipped} SKIPPED (production-mutating, opt-in via PRODUCTION_TESTS=1)` : ''}`);
+  console.log('SAFE TESTS: ' + (failed === 0 ? 'PASS' : 'FAIL') + (skipped > 0 ? ' / PRODUCTION MUTATION TESTS: SKIPPED' : ''));
   console.log('====================================================================================');
 
   if (failed > 0) {

@@ -12,6 +12,7 @@ const http = require('http');
 
 const db = require('../db.js');
 const serverModule = require('../server.js');
+const gate = require('./production-gate.js');
 const serverJs = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 const gasJs = fs.readFileSync(path.join(__dirname, '../google_apps_script_code.js'), 'utf8');
 
@@ -22,6 +23,7 @@ console.log('===================================================================
 async function runSuite() {
   let passed = 0;
   let failed = 0;
+  let skipped = 0;
 
   function record(desc, ok, details = '') {
     if (ok) {
@@ -31,6 +33,11 @@ async function runSuite() {
       failed++;
       console.error(`❌ [FAIL] ${desc} ${details ? '(' + details + ')' : ''}`);
     }
+  }
+
+  function recordSkip(desc, details = '') {
+    skipped++;
+    console.log(`⏭️ [SKIP] ${desc} ${details ? '(' + details + ')' : ''}`);
   }
 
   // Ensure server is running on port 10000
@@ -54,6 +61,11 @@ async function runSuite() {
   const randNum = Math.floor(10000 + Math.random() * 89999);
   const testTid = 'HTL-NGP-' + randNum;
   const testUdise = '331901' + randNum;
+  // PRODUCTION-MUTATING paths below (live completion POST) are fail-closed:
+  // SKIP unless PRODUCTION_TESTS=1 (see `npm run test:live`).
+  const liveEnabled = gate.productionTestsEnabled();
+  if (!liveEnabled) console.log(gate.skipMessage('PHASE 4 live completion-evidence submission (PRODUCTION-MUTATING)'));
+  else { gate.assertLiveAllowed('lifecycle-live-submit'); gate.assertSyntheticSafe(testTid, 'MGHSS NAGAPPATTIANAM'); }
 
   try {
     // PHASE 1: Structure & Routing Rules
@@ -131,7 +143,13 @@ async function runSuite() {
       isFinalSubmit: true
     });
 
-    const submitRes = await new Promise((resolve, reject) => {
+    let submitRes = { statusCode: 0, data: {} };
+    if (!liveEnabled) {
+      recordSkip('PHASE 4.1: POST /api/tickets/completion-evidence returns HTTP 200', 'gate off — no production writes');
+      recordSkip('PHASE 4.2: Response indicates persistenceStatus: PERSISTED', 'gate off');
+      recordSkip('PHASE 4.3: Response contains evidenceCount: 2', 'gate off');
+    } else {
+    submitRes = await new Promise((resolve, reject) => {
       const req = http.request('http://localhost:10000/api/tickets/completion-evidence', {
         method: 'POST',
         headers: {
@@ -154,13 +172,20 @@ async function runSuite() {
     record('PHASE 4.1: POST /api/tickets/completion-evidence returns HTTP 200', submitRes.statusCode === 200);
     record('PHASE 4.2: Response indicates persistenceStatus: PERSISTED', submitRes.data.persistenceStatus === 'PERSISTED');
     record('PHASE 4.3: Response contains evidenceCount: 2', submitRes.data.evidenceCount === 2);
+    } // end liveEnabled (else-branch: live submission enabled)
 
     // PHASE 5: Database Persistence
     const allT = await db.getAllTickets();
     const saved = allT.find(x => x.ticketId === testTid);
+    if (!liveEnabled) {
+      recordSkip('PHASE 5.1: Database preserves ticket status: SUBMITTED', 'needs live submission');
+      recordSkip('PHASE 5.2: Database contains Slot 1 HM Report URL', 'needs live submission');
+      recordSkip('PHASE 5.3: Database contains Slot 2 Completion Photo URL', 'needs live submission');
+    } else {
     record('PHASE 5.1: Database preserves ticket status: SUBMITTED', saved && saved.completionEvidenceStatus === 'SUBMITTED');
     record('PHASE 5.2: Database contains Slot 1 HM Report URL', !!(saved && saved.hmReportPhotoUrl));
     record('PHASE 5.3: Database contains Slot 2 Completion Photo URL', !!(saved && saved.completionPhotoUrl));
+    }
     record('PHASE 5.4: Database preserves all 4 AI Drive File IDs', 
       saved && saved.p1DriveFileId && saved.p2DriveFileId && saved.p3DriveFileId && saved.p4DriveFileId);
 
@@ -178,16 +203,25 @@ async function runSuite() {
 
     const apiTicket = apiDataRes.tickets && apiDataRes.tickets.find(x => x.ticketId === testTid);
     record('PHASE 6.1: /api/data returns ticket for public track query', !!apiTicket);
+    if (!liveEnabled) {
+      recordSkip('PHASE 6.2: /api/data delivers valid Slot 1 URL', 'needs live submission');
+      recordSkip('PHASE 6.3: /api/data delivers valid Slot 2 URL', 'needs live submission');
+    } else {
     record('PHASE 6.2: /api/data delivers valid Slot 1 URL', !!(apiTicket && apiTicket.hmReportPhotoUrl));
     record('PHASE 6.3: /api/data delivers valid Slot 2 URL', !!(apiTicket && apiTicket.completionPhotoUrl));
+    }
 
     // PHASE 7: Direct Evidence Photo Endpoint Fallback
+    if (!liveEnabled) {
+      recordSkip('PHASE 7.1: /api/tickets/evidence-photo responds with HTTP 200 or 302', 'needs live submission');
+    } else {
     const epRes = await new Promise(resolve => {
       http.get('http://localhost:10000/api/tickets/evidence-photo?ticketId=' + testTid + '&slot=hmReport', res => {
         resolve(res.statusCode);
       });
     });
     record('PHASE 7.1: /api/tickets/evidence-photo responds with HTTP 200 or 302', epRes === 200 || epRes === 302);
+    }
 
     // PHASE 8: Modal Preview & View Logic Guards in Client Script
     record('PHASE 8.1: updateCompletionPhotoPreviews prioritizes Google Drive URLs', 
@@ -216,7 +250,8 @@ async function runSuite() {
   }
 
   console.log('\n====================================================================================');
-  console.log(`📊 COMPLETE 9-PHASE AUDIT: ${passed}/${passed + failed} PASSED (${Math.round((passed / (passed + failed)) * 100)}%)`);
+  console.log(`📊 COMPLETE 9-PHASE AUDIT: ${passed}/${passed + failed} PASSED (${Math.round((passed / (passed + failed)) * 100)}%)${skipped > 0 ? `, ${skipped} SKIPPED (production-mutating, opt-in via PRODUCTION_TESTS=1)` : ''}`);
+  console.log('SAFE TESTS: ' + (failed === 0 ? 'PASS' : 'FAIL') + (skipped > 0 ? ' / PRODUCTION MUTATION TESTS: SKIPPED' : ''));
   console.log('====================================================================================');
 
   if (failed > 0) process.exit(1);

@@ -7,7 +7,18 @@
     "start": "node server.js",
     "dev": "node server.js",
     "test": "node tests/web-gps-camera.test.js && node test_comprehensive_e2e.js",
-    "test:web": "node tests/web-gps-camera.test.js"
+    "test:web": "node tests/web-gps-camera.test.js",
+    "test:live": "node scripts/run-live-tests.js",
+    "gas:forensics": "node scripts/gas-forensics.js",
+    "gas:forensics:auth-check": "node scripts/gas-auth-check.js",
+    "gas:processes": "node scripts/gas-processes.js",
+    "verify:production": "node scripts/verify-production.js",
+    "verify:production:self-test": "node scripts/verify-production.js --self-test",
+    "verify:production:acceptance": "node scripts/verify-production.js --acceptance",
+    "verify:production:browser": "node scripts/verify-production.js --browser-auth",
+    "agent:start": "node scripts/agent-start.js",
+    "project:handoff": "node scripts/project-handoff.js",
+    "verify:project-state": "node scripts/verify-project-state.js"
   },
   "keywords": [
     "hitech-lab",
@@ -24,5 +35,8 @@
     "exceljs": "^4.4.0",
     "pg": "^8.23.0",
     "selfsigned": "^2.1.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

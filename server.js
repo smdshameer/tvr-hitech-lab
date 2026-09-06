@@ -785,6 +785,107 @@ function extractDriveFileId(url) {
   return '';
 }
 
+// Forensic-safe completion uploads: every completion-upload attempt carries a
+// unique operation ID end-to-end (server log, GAS payload, DB record, response)
+// so a future failure can be diagnosed without Apps Script history.
+function generateCompletionOpId(ticketId) {
+  const safe = String(ticketId || 't').replace(/[^A-Za-z0-9-_]/g, '_').slice(0, 48);
+  return `op_${safe}_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 6)}`;
+}
+// Derive a Drive folder ID from a folder URL (schoolFolderUrl). Additive only;
+// extractDriveFileId behavior is unchanged.
+function extractDriveFolderId(url) {
+  if (!url || typeof url !== 'string') return '';
+  const m = url.match(/drive\.google\.com\/drive\/folders\/([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : '';
+}
+// Read-back verdict over an inspect_drive_structure response. Pure function.
+// verified=true ONLY when: inspect succeeded, district/school/completion folders
+// match, and every slot requiring verification has its EXACT canonical filename
+// present with a non-empty, non-trashed Drive file ID belonging to this ticket.
+// Returned IDs must equal the IDs GAS reported (when GAS reported any).
+function isDriveVerifySuccess(inspect, spec) {
+  const reasons = [];
+  const out = { verified: false, reasons, hmFoundId: '', compFoundId: '' };
+  const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  if (!inspect || inspect.success !== true) { reasons.push('inspect-failed'); return out; }
+  if (!eq(inspect.district, spec.district)) reasons.push('district-mismatch');
+  if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
+  if (!eq(inspect.completionFolder, spec.completionFolder || 'Completion Photos')) reasons.push('completion-folder-mismatch');
+  const files = Array.isArray(inspect.completionFiles) ? inspect.completionFiles : [];
+  const checkSlot = (label, fileName, expectedId, needsVerify) => {
+    if (!needsVerify) return '';
+    const f = files.find(x => x && x.fileName === fileName && x.fileId && !x.isTrashed
+      && String(x.fileName).includes(String(spec.ticketId)));
+    if (!f) { reasons.push(label + '-file-missing'); return ''; }
+    if (expectedId && f.fileId !== expectedId) { reasons.push(label + '-id-mismatch'); return ''; }
+    return f.fileId;
+  };
+  out.hmFoundId = checkSlot('hm', spec.hmFileName, spec.hmId, spec.hmNeedsVerify);
+  out.compFoundId = checkSlot('gps', spec.compFileName, spec.compId, spec.compNeedsVerify);
+  out.verified = reasons.length === 0;
+  return out;
+}
+// Backward-compatible operation record (plain object; additive keys only).
+function buildCompletionOpRecord(o) {
+  const r = o || {};
+  return {
+    opId: String(r.opId || ''),
+    attemptAt: new Date().toISOString(),
+    stages: Array.isArray(r.stages) ? r.stages.slice(0, 12) : [],
+    status: String(r.status || ''),
+    folderUrl: String(r.folderUrl || ''),
+    folderId: String(r.folderId || ''),
+    hmFileId: String(r.hmFileId || ''),
+    compFileId: String(r.compFileId || ''),
+    verified: r.verified === true,
+    verifiedAt: r.verified === true ? String(r.verifiedAt || new Date().toISOString()) : null,
+  };
+}
+// Read-back verification via the existing inspect_drive_structure capability.
+// Called with NO ID hints (pure list; creates nothing, deletes nothing).
+// opts.endpoint override exists ONLY for hermetic tests. Never throws.
+async function verifyCompletionDriveFiles(args, opts) {
+  const a = args || {};
+  const endpoint = (opts && opts.endpoint)
+    || process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  const timeoutMs = (opts && Number.isFinite(Number(opts.timeoutMs)) && Number(opts.timeoutMs) > 0) ? Number(opts.timeoutMs) : 25000;
+  const fail = (reason) => ({ verified: false, reasons: [reason], hmFoundId: '', compFoundId: '', folderUrl: '', folderId: '', verifiedAt: null });
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let data = null;
+    try {
+      const res = await globalThis.fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'inspect_drive_structure',
+          district: a.district || '',
+          udise: a.udise || '',
+          schoolName: a.schoolName || '',
+          ticketId: a.ticketId || '',
+        }),
+        signal: controller.signal,
+      });
+      data = await res.json();
+    } finally { clearTimeout(timer); }
+    const verdict = isDriveVerifySuccess(data, a);
+    const folderUrl = (data && (data.schoolFolderUrl || data.folderUrl)) || '';
+    return {
+      verified: verdict.verified,
+      reasons: verdict.reasons,
+      hmFoundId: verdict.hmFoundId,
+      compFoundId: verdict.compFoundId,
+      folderUrl,
+      folderId: extractDriveFolderId(folderUrl),
+      verifiedAt: verdict.verified ? new Date().toISOString() : null,
+    };
+  } catch (e) {
+    return fail('verify-unavailable: ' + String((e && e.message) || e).slice(0, 120));
+  }
+}
+
 // ========================================================
 // DRIVE RETRY QUEUE — guarantees no photo is ever silently lost.
 // Photos are always durable in DB (/uploads + base64). If the Apps Script
@@ -1142,6 +1243,7 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload, timeoutMs) {
     const gasBody = {
       action: 'update',
       ticketId: ticket.ticketId,
+      operationId: payload.operationId || '',
       district: resolved.district,
       targetDistrictRoot: resolved.rootFolder,
       schoolName: resolved.schoolName || ticket.schoolName,
@@ -2492,6 +2594,67 @@ async function handleRequest(req, res) {
           return;
         }
 
+        // Forensic-safe upload operation: unique ID per attempt + read-back
+        // verification before any Drive success is reported. DB durability above
+        // is unaffected by anything below (never gated on Drive).
+        const completionOpId = generateCompletionOpId(ticketId);
+        const hmSentNow = !!(payload.hmReportPhotoBase64 && typeof payload.hmReportPhotoBase64 === 'string' && payload.hmReportPhotoBase64.startsWith('data:'));
+        const gpsSentNow = !!(payload.completionPhotoBase64 && typeof payload.completionPhotoBase64 === 'string' && payload.completionPhotoBase64.startsWith('data:image'));
+        const hmKnownId = targetTicket.hmDriveFileId || prevHm.driveFileId || '';
+        const compKnownId = targetTicket.compDriveFileId || prevComp.driveFileId || '';
+        const hmNeedsVerify = hmSentNow || !!hmKnownId || !!dataUrlOrEmpty(persistentHmBase64);
+        const compNeedsVerify = gpsSentNow || !!compKnownId || !!dataUrlOrEmpty(persistentCompBase64);
+        const hmCanonName = `${ticketId}_HM_Signed_Completion_Report.jpg`;
+        const compCanonName = `${ticketId}_Completion_UPS_GPS.jpg`;
+        let driveVerified = false;
+        let verifiedAt = null;
+        let verifyReasons = ['not-attempted'];
+        let opFolderUrl = '';
+        let opFolderId = '';
+        let queuedForRetry = false;
+        const queueCompletionRetry = () => { enqueueDriveRetry(ticketId, 'completion'); queuedForRetry = true; };
+        const runDriveVerification = async (hmId, compId) => {
+          if (!hmNeedsVerify && !compNeedsVerify && !hmId && !compId) {
+            return { verified: false, reasons: ['nothing-to-confirm'], hmFoundId: '', compFoundId: '', folderUrl: '', folderId: '', verifiedAt: null };
+          }
+          const v = await verifyCompletionDriveFiles({
+            ticketId, district: targetTicket.district, udise: targetTicket.udise, schoolName: targetTicket.schoolName,
+            hmFileName: hmCanonName, compFileName: compCanonName,
+            hmId: hmId || '', compId: compId || '',
+            hmNeedsVerify, compNeedsVerify,
+          }, { timeoutMs: isServerless ? 15000 : 25000 });
+          opFolderUrl = v.folderUrl || '';
+          opFolderId = v.folderId || '';
+          verifyReasons = v.reasons && v.reasons.length ? v.reasons : (v.verified ? ['files-confirmed'] : ['unknown']);
+          if (v.verified) { driveVerified = true; verifiedAt = v.verifiedAt; }
+          return v;
+        };
+        const persistOpRecord = async (rec) => {
+          try {
+            const cur = await db.getAllTickets();
+            const curT = cur.find(t => String(t.ticketId || t.id).trim() === ticketId);
+            const curEv = (curT && curT.completionEvidence) || completionEvidence;
+            const prevOps = Array.isArray(curEv.uploadOperations) ? curEv.uploadOperations : [];
+            await db.updateTicket(ticketId, {
+              completionEvidence: {
+                ...curEv,
+                hmSignedReport: { ...(curEv.hmSignedReport || {}), ...(rec.hmFileId ? { driveFileId: rec.hmFileId } : {}) },
+                completionPhoto: { ...(curEv.completionPhoto || {}), ...(rec.compFileId ? { driveFileId: rec.compFileId } : {}) },
+                uploadOperations: [...prevOps, rec].slice(-10),
+                lastDriveVerification: { opId: rec.opId, verified: rec.verified, verifiedAt: rec.verifiedAt, hmFileId: rec.hmFileId, compFileId: rec.compFileId, folderId: rec.folderId },
+              },
+            });
+          } catch (e) { console.warn('[DRIVE-VERIFY] op record persist failed:', e.message); }
+        };
+        const recordOp = async (stages, status, hmId, compId, verified) => {
+          await persistOpRecord(buildCompletionOpRecord({
+            opId: completionOpId, ticketId, stages, status,
+            folderUrl: opFolderUrl, folderId: opFolderId,
+            hmFileId: hmId || '', compFileId: compId || '',
+            verified, verifiedAt,
+          }));
+        };
+
         // Synchronous & resilient cloud sync to Google Drive via GAS.
         // Serverless sync-first: attempt inline within the execution budget (bytes are
         // already durable in DB); queue only when the inline attempt fails or times out.
@@ -2499,6 +2662,7 @@ async function handleRequest(req, res) {
         if (GOOGLE_APPS_SCRIPT_ENDPOINT && isServerless) {
           try {
             const inline = await syncCompletionEvidenceToGoogleDrive(targetTicket, {
+              operationId: completionOpId,
               remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`,
               hmReportPhotoBase64: persistentHmBase64,
               completionPhotoBase64: persistentCompBase64,
@@ -2511,17 +2675,29 @@ async function handleRequest(req, res) {
               gpsLongitude: gpsLon
             }, 45000);
             if (isCompletionRetrySuccess(inline, !!persistentHmBase64, !!persistentCompBase64)) {
-              driveSyncResult = inline;
+              const vInline = await runDriveVerification(inline.hmDriveFileId || '', inline.compDriveFileId || '');
+              if (vInline.verified) {
+                driveSyncResult = inline;
+                await recordOp(['bytes-durable', 'gas-ok', 'verified'], 'verified',
+                  vInline.hmFoundId || inline.hmDriveFileId || '', vInline.compFoundId || inline.compDriveFileId || '', true);
+              } else {
+                queueCompletionRetry();
+                await recordOp(['bytes-durable', 'gas-ok', 'verify-failed'], 'pending-verification',
+                  inline.hmDriveFileId || '', inline.compDriveFileId || '', false);
+              }
             } else {
-              enqueueDriveRetry(ticketId, 'completion');
+              queueCompletionRetry();
+              await recordOp(['bytes-durable', 'gas-failed'], 'pending-retry', '', '', false);
             }
           } catch (inlineErr) {
             console.warn('[DRIVE] Serverless inline completion sync failed, queued:', inlineErr.message);
-            enqueueDriveRetry(ticketId, 'completion');
+            queueCompletionRetry();
+            await recordOp(['bytes-durable', 'gas-error'], 'pending-retry', '', '', false);
           }
         }
         if (GOOGLE_APPS_SCRIPT_ENDPOINT && !isServerless) {
           driveSyncResult = await syncCompletionEvidenceToGoogleDrive(targetTicket, {
+            operationId: completionOpId,
             remarks: `Completion evidence updated (${evStatus}) by ${source} (${submittedBy})`,
             hmReportPhotoBase64: persistentHmBase64,
             completionPhotoBase64: persistentCompBase64,
@@ -2535,22 +2711,35 @@ async function handleRequest(req, res) {
           });
 
           if (driveSyncResult && driveSyncResult.success) {
+            const vDirect = await runDriveVerification(driveSyncResult.hmDriveFileId || '', driveSyncResult.compDriveFileId || '');
+            const adoptHm = vDirect.hmFoundId || driveSyncResult.hmDriveFileId || '';
+            const adoptComp = vDirect.compFoundId || driveSyncResult.compDriveFileId || '';
             if (driveSyncResult.hmReportPhotoUrl) hmReportPhotoUrl = driveSyncResult.hmReportPhotoUrl;
             if (driveSyncResult.completionPhotoUrl) completionPhotoUrl = driveSyncResult.completionPhotoUrl;
-            if (driveSyncResult.hmDriveFileId) completionEvidence.hmSignedReport.driveFileId = driveSyncResult.hmDriveFileId;
-            if (driveSyncResult.compDriveFileId) completionEvidence.completionPhoto.driveFileId = driveSyncResult.compDriveFileId;
+            if (adoptHm) completionEvidence.hmSignedReport.driveFileId = adoptHm;
+            if (adoptComp) completionEvidence.completionPhoto.driveFileId = adoptComp;
             completionEvidence.hmSignedReport.fileUrl = hmReportPhotoUrl;
             completionEvidence.completionPhoto.fileUrl = completionPhotoUrl;
+            const prevOpsDirect = Array.isArray(completionEvidence.uploadOperations) ? completionEvidence.uploadOperations : [];
+            const opRecDirect = buildCompletionOpRecord({ opId: completionOpId, ticketId,
+              stages: vDirect.verified ? ['bytes-durable', 'gas-ok', 'verified'] : ['bytes-durable', 'gas-ok', 'verify-failed'],
+              status: vDirect.verified ? 'verified' : 'pending-verification',
+              folderUrl: opFolderUrl, folderId: opFolderId, hmFileId: adoptHm, compFileId: adoptComp,
+              verified: vDirect.verified, verifiedAt });
+            completionEvidence.uploadOperations = [...prevOpsDirect, opRecDirect].slice(-10);
+            completionEvidence.lastDriveVerification = { opId: completionOpId, verified: vDirect.verified, verifiedAt, hmFileId: adoptHm, compFileId: adoptComp, folderId: opFolderId };
             await db.updateTicket(ticketId, {
               hmReportPhotoUrl: hmReportPhotoUrl,
               completionPhotoUrl: completionPhotoUrl,
-              hmDriveFileId: driveSyncResult.hmDriveFileId || targetTicket.hmDriveFileId || '',
-              compDriveFileId: driveSyncResult.compDriveFileId || targetTicket.compDriveFileId || '',
+              hmDriveFileId: adoptHm || targetTicket.hmDriveFileId || '',
+              compDriveFileId: adoptComp || targetTicket.compDriveFileId || '',
               completionEvidence: completionEvidence
             });
+            if (!vDirect.verified) queueCompletionRetry();
           } else {
             // Evidence is durable in DB — queue cloud backup instead of losing it
-            enqueueDriveRetry(ticketId, 'completion');
+            queueCompletionRetry();
+            await recordOp(['bytes-durable', 'gas-failed'], 'pending-retry', '', '', false);
           }
           try { processDriveRetryQueue(false).catch(() => {}); } catch (e) {}
         }
@@ -2579,8 +2768,12 @@ async function handleRequest(req, res) {
           hmDriveUrl: driveSyncResult?.hmDriveUrl || hmReportPhotoUrl,
           compDriveUrl: driveSyncResult?.compDriveUrl || completionPhotoUrl,
           completionFiles: driveSyncResult?.result?.completionFiles || [],
-          driveUploadConfirmed: !!(driveSyncResult && driveSyncResult.success),
-          drivePendingRetry: !(driveSyncResult && driveSyncResult.success),
+          driveUploadConfirmed: !!(driveSyncResult && driveSyncResult.success && driveVerified),
+          drivePendingRetry: !driveVerified && (hmSentNow || gpsSentNow || queuedForRetry),
+          driveVerified: driveVerified,
+          verifiedAt: verifiedAt,
+          driveVerifyReasons: verifyReasons,
+          opId: completionOpId,
           gpsSource: gpsSource,
           gpsCoordinates: { latitude: gpsLat, longitude: gpsLon }
         }));
@@ -12254,3 +12447,9 @@ module.exports.parseAppDate = parseAppDate;
 module.exports.formatAppDate = formatAppDate;
 module.exports.formatRelativeTime = formatRelativeTime;
 module.exports.extractDriveFileId = extractDriveFileId;
+module.exports.generateCompletionOpId = generateCompletionOpId;
+module.exports.extractDriveFolderId = extractDriveFolderId;
+module.exports.isDriveVerifySuccess = isDriveVerifySuccess;
+module.exports.buildCompletionOpRecord = buildCompletionOpRecord;
+module.exports.verifyCompletionDriveFiles = verifyCompletionDriveFiles;
+module.exports.isCompletionRetrySuccess = isCompletionRetrySuccess;

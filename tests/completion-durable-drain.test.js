@@ -73,6 +73,7 @@ function callHandle({ method = 'GET', url = '/', headers = {}, body = null }) {
 
 let passed = 0;
 let failed = 0;
+let skipped = 0;
 const pending = [];
 function test(name, fn) {
   try {
@@ -88,6 +89,20 @@ function test(name, fn) {
     console.error(`   Error: ${e.message}`);
     failed++;
   }
+}
+function skipTest(name, reason) {
+  skipped++;
+  console.log(`⏭️ [SKIP] ${name} (${reason})`);
+}
+// Fail-closed: executing the real drain with a non-empty retry queue would
+// upload to production Drive. Safe only while the queue file is absent/empty.
+function retryQueueDepth() {
+  try {
+    const f = path.join(__dirname, '..', 'data', 'drive_retry_queue.json');
+    if (!fs.existsSync(f)) return 0;
+    const q = JSON.parse(fs.readFileSync(f, 'utf8'));
+    return Array.isArray(q) ? q.length : 0;
+  } catch (e) { return -1; }
 }
 
 (async () => {
@@ -134,6 +149,7 @@ function test(name, fn) {
     assert.strictEqual(res.statusCode, 401, 'expected 401, got ' + res.statusCode);
   });
   test('Cron auth: Vercel-Cron UA drains bounded (idempotent, empty queue)', async () => {
+    if (retryQueueDepth() !== 0) { skipTest('Cron auth: Vercel-Cron UA drains bounded', 'retry queue non-empty — live drain would touch production'); return; }
     const res = await callHandle({ url: '/api/admin/drive-drain', headers: { 'user-agent': 'vercel-cron/1.0' } });
     assert.strictEqual(res.statusCode, 200, 'expected 200, got ' + res.statusCode + ' ' + res.body.slice(0, 120));
     const d = JSON.parse(res.body);
@@ -145,6 +161,7 @@ function test(name, fn) {
     assert.strictEqual(res.statusCode, 429, 'expected 429, got ' + res.statusCode);
   });
   test('Cron auth: Bearer secret works when CRON_SECRET set', async () => {
+    if (retryQueueDepth() !== 0) { skipTest('Cron auth: Bearer secret works when CRON_SECRET set', 'retry queue non-empty — live drain would touch production'); return; }
     process.env.CRON_SECRET = 'test-secret-123';
     try {
       const res = await callHandle({ url: '/api/admin/drive-drain', headers: { authorization: 'Bearer test-secret-123' } });
@@ -204,7 +221,8 @@ function test(name, fn) {
 
   await Promise.all(pending);
   console.log('\n======================================================================');
-  console.log(`📊 DURABLE-DRAIN RESULTS: ${passed} Passed, ${failed} Failed`);
+  console.log(`📊 DURABLE-DRAIN RESULTS: ${passed} Passed, ${failed} Failed${skipped > 0 ? `, ${skipped} Skipped (non-empty retry queue — live drain refused)` : ''}`);
+  console.log('SAFE TESTS: ' + (failed === 0 ? 'PASS' : 'FAIL') + (skipped > 0 ? ' / LIVE DRAIN: SKIPPED' : ''));
   console.log('======================================================================\n');
   process.exit(failed > 0 ? 1 : 0);
 })().catch((e) => { console.error('SUITE ERROR: ' + (e && e.message)); process.exit(2); });
