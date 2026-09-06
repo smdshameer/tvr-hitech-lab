@@ -885,6 +885,91 @@ async function verifyCompletionDriveFiles(args, opts) {
     return fail('verify-unavailable: ' + String((e && e.message) || e).slice(0, 120));
   }
 }
+// Intake pseudo-success gate: GAS success:true is NOT success unless every sent
+// Evidence slot came back with a non-empty Drive file ID. Pure function.
+function intakeUploadComplete(res, sentFlags, ids) {
+  if (!res || res.success !== true) return { complete: false, missing: 0 };
+  const s = Array.isArray(sentFlags) ? sentFlags : [];
+  const d = Array.isArray(ids) ? ids : [];
+  let missing = 0;
+  for (let i = 0; i < 4; i++) {
+    if (s[i] && !d[i]) missing++;
+  }
+  return { complete: missing === 0, missing };
+}
+// Read-back verdict over an inspect_drive_structure response for INTAKE Evidence
+// files. Pure function. verified=true ONLY when folders match and every slot
+// requiring verification has its EXACT canonical Evidence filename present with
+// a non-empty, non-trashed Drive file ID belonging to this ticket. When GAS
+// reported IDs, the observed IDs must equal them; otherwise observed IDs are
+// adopted for recovery. Never throws.
+function isIntakeVerifySuccess(inspect, spec) {
+  const reasons = [];
+  const adoptedIds = ['', '', '', ''];
+  const out = { verified: false, reasons, adoptedIds };
+  const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  if (!inspect || inspect.success !== true) { reasons.push('inspect-failed'); return out; }
+  if (!eq(inspect.district, spec.district)) reasons.push('district-mismatch');
+  if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
+  if (!eq(inspect.evidenceFolder, spec.evidenceFolder || 'Evidence')) reasons.push('evidence-folder-mismatch');
+  const files = Array.isArray(inspect.evidenceFiles) ? inspect.evidenceFiles : [];
+  const names = Array.isArray(spec.fileNames) ? spec.fileNames : [];
+  const ids = Array.isArray(spec.ids) ? spec.ids : [];
+  const need = Array.isArray(spec.needsVerify) ? spec.needsVerify : [];
+  for (let i = 0; i < 4; i++) {
+    if (!need[i]) continue;
+    const want = names[i] || '';
+    const f = files.find(x => x && x.fileName === want && x.fileId && !x.isTrashed
+      && String(x.fileName).includes(String(spec.ticketId)));
+    if (!f) { reasons.push(`Evidence_${i + 1}-file-missing`); continue; }
+    if (ids[i] && f.fileId !== ids[i]) { reasons.push(`Evidence_${i + 1}-id-mismatch`); continue; }
+    adoptedIds[i] = f.fileId;
+  }
+  out.verified = reasons.length === 0;
+  return out;
+}
+// Hintless read-back for intake Evidence files (pure list; creates nothing,
+// deletes nothing, trashes nothing). opts.endpoint override is test-only.
+// Never throws: timeout/transport failure returns verified:false for retry.
+async function verifyIntakeDriveFiles(args, opts) {
+  const a = args || {};
+  const endpoint = (opts && opts.endpoint)
+    || process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  const timeoutMs = (opts && Number.isFinite(Number(opts.timeoutMs)) && Number(opts.timeoutMs) > 0) ? Number(opts.timeoutMs) : 15000;
+  const fail = (reason) => ({ verified: false, reasons: [reason], adoptedIds: ['', '', '', ''], folderUrl: '', folderId: '', verifiedAt: null });
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let data = null;
+    try {
+      const res = await globalThis.fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'inspect_drive_structure',
+          district: a.district || '',
+          udise: a.udise || '',
+          schoolName: a.schoolName || '',
+          ticketId: a.ticketId || '',
+        }),
+        signal: controller.signal,
+      });
+      data = await res.json();
+    } finally { clearTimeout(timer); }
+    const verdict = isIntakeVerifySuccess(data, a);
+    const folderUrl = (data && (data.schoolFolderUrl || data.folderUrl)) || '';
+    return {
+      verified: verdict.verified,
+      reasons: verdict.reasons,
+      adoptedIds: verdict.adoptedIds,
+      folderUrl,
+      folderId: extractDriveFolderId(folderUrl),
+      verifiedAt: verdict.verified ? new Date().toISOString() : null,
+    };
+  } catch (e) {
+    return fail('verify-unavailable: ' + String((e && e.message) || e).slice(0, 120));
+  }
+}
 
 // ========================================================
 // DRIVE RETRY QUEUE — guarantees no photo is ever silently lost.
@@ -1184,7 +1269,9 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
           }
         }
 
-        await db.updateTicket(ticket.ticketId, {
+        const sentFlags = [!!rawData.photo1Base64, !!rawData.photo2Base64, !!rawData.photo3Base64, !!rawData.photo4Base64];
+        const preIds = [ticket.p1DriveFileId || '', ticket.p2DriveFileId || '', ticket.p3DriveFileId || '', ticket.p4DriveFileId || ''];
+        const baseUpdate = {
           googleDriveFolderUrl: result.folderUrl || '',
           p1DriveUrl: result.p1Url || '',
           p2DriveUrl: result.p2Url || '',
@@ -1194,13 +1281,38 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
           photo2Url: result.p2Url || ticket.photo2Url,
           photo3Url: result.p3Url || ticket.photo3Url,
           photo4Url: result.p4Url || ticket.photo4Url,
-          p1DriveFileId: p1Id,
-          p2DriveFileId: p2Id,
-          p3DriveFileId: p3Id,
-          p4DriveFileId: p4Id,
           evidencePhotos: evidencePhotos
+        };
+        // Intake pseudo-success gate (HTL-TVR-05303 class): GAS success:true
+        // without per-file IDs is NOT success — persist partial genuine data and
+        // fail honestly so the retry entry is kept, never dropped.
+        const idGate = intakeUploadComplete(result, sentFlags, [p1Id, p2Id, p3Id, p4Id]);
+        if (!idGate.complete) {
+          await db.updateTicket(ticket.ticketId, { ...baseUpdate,
+            p1DriveFileId: p1Id, p2DriveFileId: p2Id, p3DriveFileId: p3Id, p4DriveFileId: p4Id });
+          console.warn(`[DRIVE] Intake IDs incomplete for ${ticket.ticketId}: missing=${idGate.missing} — kept for retry`);
+          return { success: false, error: `Google Drive did not return file IDs for ${idGate.missing} Evidence photo(s)`, result };
+        }
+        // Read-back verification (hintless list): confirm sent canonical files
+        // before anything is reported confirmed. No phantom IDs are persisted.
+        const canonNames = [1, 2, 3, 4].map(i => `${ticket.ticketId}_Evidence_${i}.jpg`);
+        const vIntake = await verifyIntakeDriveFiles({
+          ticketId: ticket.ticketId, district: resolved.district,
+          udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName,
+          fileNames: canonNames, ids: [p1Id, p2Id, p3Id, p4Id], needsVerify: sentFlags,
         });
-        return { success: true, result, evidencePhotos };
+        if (!vIntake.verified) {
+          await db.updateTicket(ticket.ticketId, { ...baseUpdate,
+            p1DriveFileId: preIds[0], p2DriveFileId: preIds[1], p3DriveFileId: preIds[2], p4DriveFileId: preIds[3] });
+          console.warn(`[DRIVE] Intake verification failed for ${ticket.ticketId}: ${vIntake.reasons.join('; ')} — kept for retry`);
+          return { success: false, error: 'Drive verification failed: ' + vIntake.reasons.join('; '), verify: vIntake, result };
+        }
+        await db.updateTicket(ticket.ticketId, { ...baseUpdate,
+          p1DriveFileId: vIntake.adoptedIds[0] || p1Id,
+          p2DriveFileId: vIntake.adoptedIds[1] || p2Id,
+          p3DriveFileId: vIntake.adoptedIds[2] || p3Id,
+          p4DriveFileId: vIntake.adoptedIds[3] || p4Id });
+        return { success: true, result, evidencePhotos, verify: vIntake, adoptedIds: vIntake.adoptedIds };
       } else {
         console.warn(`[DRIVE] Upload Completed: FAILED Error: ${result ? result.error : 'Unknown response'}`);
         console.warn(`[EVIDENCE_UPLOAD] Ticket: ${ticket.ticketId} Slot: 1 Status: FAILED Error: ${result ? result.error : 'Unknown response'}`);
@@ -12453,3 +12565,6 @@ module.exports.isDriveVerifySuccess = isDriveVerifySuccess;
 module.exports.buildCompletionOpRecord = buildCompletionOpRecord;
 module.exports.verifyCompletionDriveFiles = verifyCompletionDriveFiles;
 module.exports.isCompletionRetrySuccess = isCompletionRetrySuccess;
+module.exports.intakeUploadComplete = intakeUploadComplete;
+module.exports.isIntakeVerifySuccess = isIntakeVerifySuccess;
+module.exports.verifyIntakeDriveFiles = verifyIntakeDriveFiles;

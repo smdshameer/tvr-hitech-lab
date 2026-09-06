@@ -12,8 +12,9 @@
 
 ## Objective / tasks
 
-- Current task: KI-001 GAS durability forensics → `docs/NEXT_TASK.md`.
-- Current blocker: KI-001 PARKED UNPROVEN — UI filter, API route, and Cloud Logging all gated/closed; close track by authorization.
+- Current task: review intake reliability fix (implemented, uncommitted) → `docs/NEXT_TASK.md`.
+- Last completed: INTAKE FIX (approved scope) — ID-gate + verify/adopt in intake sync; suite 27/27; full SAFE PASS; NOT deployed.
+- Current blocker: none on deployment (push done, routing healthy); Vercel dashboard confirmation of running commit pending; KI-001 stays UNPROVEN.
 - Current risk: acting on Drive-state assumptions without execution evidence.
 - Protected areas: UI/workflow/behavior · DB · Drive/Sheets · GPS · deletion · APIs · GAS · 262 schools + lifecycles · prod data · deployments.
 

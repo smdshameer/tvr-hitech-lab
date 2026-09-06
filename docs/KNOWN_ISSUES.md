@@ -1,5 +1,15 @@
 # KNOWN ISSUES
 
+## KI-005 — intake Evidence IDs lost after Drive creation (CONFIRMED, FIX IMPLEMENTED UNDEPLOYED)
+
+- HTL-TVR-05301-11 (real, Sep 6): 4/4 files in Drive, zero IDs persisted — GAS success
+  response never processed (transport/timeout loss inside 55s budget vs 1.4MB payload).
+- HTL-TVR-05303 (Sep 5): folderUrl recorded but all photo URLs/IDs empty — `success:true`
+  with empty per-file results accepted, retry dropped (intake had no ID gate).
+- Photos safe in PG + Drive in both cases; retry/self-heal recovers. Fix implemented
+  2026-09-06 (ID gate + hintless verify/adopt + no phantom IDs), suite 27/27.
+  NOT deployed. No manual repair performed on either ticket.
+
 ## KI-001 — GAS completion durability: files absent despite success claim (OPEN, UNPROVEN)
 
 - Observed: acceptance probe `HTL-TVR-43172 / 33209843172 / PROBE AUTOMATION MTOBQMR4` — intake PASS; evidence 4/4 present; completion GAS response claimed success but 0 HM + 0 GPS files in Completion Photos; Sheets row held returned IDs; retry/drain recovered nothing; later the probe's Evidence files also disappeared (0/0). No known app path auto-deletes Evidence.

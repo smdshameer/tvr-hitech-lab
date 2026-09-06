@@ -4,13 +4,13 @@
 
 ## CURRENT OBJECTIVE
 
-Review the implemented forensic-safe upload fix (uncommitted, undeployed) — authorize commit/deploy or request changes.
+Review the implemented intake reliability fix (uncommitted, undeployed) — authorize commit/deploy or request changes. (f442c8b deployment: Vercel Ready, routing healthy.)
 
 ## EXACT NEXT ACTION
 
-Review the implemented fix (diff: server.js +219/-10, new test suite 30/30, docs).
+Review the intake diff (server.js intake helpers + sync gate/verify; new suite 27/27).
 Then either authorize commit/deploy or request changes. Do NOT run test:live.
-Do NOT create a probe. KI-001 historical mechanism stays UNPROVEN regardless.
+Do NOT touch HTL-TVR-05301-11 / HTL-TVR-05303 (no manual repair). KI-001 stays UNPROVEN.
 
 ## ACCEPTANCE
 
@@ -36,6 +36,7 @@ Protected areas in `docs/PROJECT_STATE.md`. No UI, workflow, API, GPS, deletion,
   (Google serves automation contexts marketing/404 — see KI-001); persistent-profile
   sweep ran authed; time-filter un-automatable; API + Logging routes gated/closed.
   Report UNPROVEN at `docs/forensics/KI-001-report.md`.
-- Forensic-safe upload fix IMPLEMENTED 2026-09-06 (opId + verify-after-create + op record;
-  suite `tests/completion-drive-verification.test.js` 30/30; npm test SAFE PASS).
+- Forensic-safe completion fix IMPLEMENTED + DEPLOYED (`f442c8b`, Vercel Ready).
+- Intake reliability fix IMPLEMENTED 2026-09-06 (ID-gate + verify/adopt;
+  suite `tests/intake-evidence-verification.test.js` 27/27; npm test SAFE PASS).
   Awaiting review/authorization. NOT committed, NOT deployed.

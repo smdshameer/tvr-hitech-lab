@@ -1,5 +1,13 @@
 # CHANGELOG — meaningful milestones (see `git log` for full history)
 
+- 2026-09-06 — INTAKE RELIABILITY (approved): ID-gate + verify/adopt in intake sync
+  (05301-11 response-loss class, 05303 empty-ID pseudo-success class); suite 27/27;
+  npm test SAFE PASS. No GAS/schema/UI change. NOT deployed/committed.
+
+- 2026-09-06 — DEPLOYED (pending dashboard confirm): committed + pushed `f442c8b` to `origin/main`
+  (forensic-safe uploads, gated tests, continuity). Post-push routing checks PASS
+  (`/`, `/api/version`, `/api/diag`). Running-commit identity needs dashboard/token confirm.
+
 - 2026-09-06 — FORENSIC-SAFE UPLOADS (approved): per-attempt opId, verify-after-create via
   existing inspect action, `driveUploadConfirmed`/`driveVerified` gated on read-back, op record
   persisted (capped), adopted IDs. GPS/auth/lifecycle/UI untouched. Suite 30/30, npm test SAFE
