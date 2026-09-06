@@ -47,7 +47,7 @@ function inspectOk(over = {}) {
 }
 function spec(over = {}) {
   return Object.assign({
-    ticketId: TID, district: 'Thiruvarur',
+    ticketId: TID, district: 'Thiruvarur', udise: '33200109992',
     schoolFolder: '33200109992 - GHSS NANNILAM', evidenceFolder: 'Evidence',
     fileNames: [EV(1), EV(2), EV(3), EV(4)],
     ids: ['ev-id-1', 'ev-id-2', 'ev-id-3', 'ev-id-4'],
@@ -93,6 +93,8 @@ async function main() {
   record('F. one file missing -> NOT VERIFIED + reasons', r.verified === false && r.reasons.join(' ').includes('Evidence_4'));
   r = server.isIntakeVerifySuccess(inspectOk({ schoolFolder: 'OTHER - SCHOOL' }), spec());
   record('G. wrong folder -> NOT VERIFIED', r.verified === false);
+  record('G2. wrong folder -> nothing adopted (no cross-folder IDs)',
+    JSON.stringify(r.adoptedIds) === JSON.stringify(['', '', '', '']));
   r = server.isIntakeVerifySuccess(inspectOk({
     evidenceFiles: [1, 2, 3, 4].map((i) => ({ fileId: `ev-id-${i}`, fileName: `WRONG_${i}.jpg`, fileSize: 100, isTrashed: false })),
   }), spec());

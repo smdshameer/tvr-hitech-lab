@@ -49,7 +49,7 @@ function inspectOk(over = {}) {
 }
 function spec(over = {}) {
   return Object.assign({
-    ticketId: TID, district: 'Thiruvarur',
+    ticketId: TID, district: 'Thiruvarur', udise: '33200109991',
     schoolFolder: '33200109991 - GHSS NANNILAM', completionFolder: 'Completion Photos',
     hmFileName: HM_NAME, compFileName: COMP_NAME,
     hmId: 'hm-id-1', compId: 'comp-id-1',
@@ -99,6 +99,7 @@ async function main() {
   // Wrong folder / wrong district / trashed file -> NOT VERIFIED.
   r = server.isDriveVerifySuccess(inspectOk({ schoolFolder: 'OTHER - SCHOOL' }), spec());
   record('C2. wrong school folder -> NOT VERIFIED', r.verified === false);
+  record('C2b. wrong folder -> nothing adopted', r.hmFoundId === '' && r.compFoundId === '');
   r = server.isDriveVerifySuccess(inspectOk({
     completionFiles: [
       { fileId: 'hm-id-1', fileName: HM_NAME, fileSize: 100, isTrashed: true },

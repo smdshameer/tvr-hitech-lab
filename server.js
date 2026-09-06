@@ -810,8 +810,15 @@ function isDriveVerifySuccess(inspect, spec) {
   const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   if (!inspect || inspect.success !== true) { reasons.push('inspect-failed'); return out; }
   if (!eq(inspect.district, spec.district)) reasons.push('district-mismatch');
-  if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
+  // Same UDISE-containment rule as intake (see isIntakeVerifySuccess): legacy
+  // Completion Photos parents may carry ticket-prefixed names.
+  const specUdiseC = String(spec.udise || '').trim();
+  if (specUdiseC.length >= 6) {
+    if (!String(inspect.schoolFolder || '').includes(specUdiseC)) reasons.push('school-folder-mismatch');
+  } else if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
   if (!eq(inspect.completionFolder, spec.completionFolder || 'Completion Photos')) reasons.push('completion-folder-mismatch');
+  // Found IDs are only trustworthy when the container itself verified.
+  const folderOkC = !reasons.includes('district-mismatch') && !reasons.includes('school-folder-mismatch') && !reasons.includes('completion-folder-mismatch');
   const files = Array.isArray(inspect.completionFiles) ? inspect.completionFiles : [];
   const checkSlot = (label, fileName, expectedId, needsVerify) => {
     if (!needsVerify) return '';
@@ -819,7 +826,7 @@ function isDriveVerifySuccess(inspect, spec) {
       && String(x.fileName).includes(String(spec.ticketId)));
     if (!f) { reasons.push(label + '-file-missing'); return ''; }
     if (expectedId && f.fileId !== expectedId) { reasons.push(label + '-id-mismatch'); return ''; }
-    return f.fileId;
+    return folderOkC ? f.fileId : '';
   };
   out.hmFoundId = checkSlot('hm', spec.hmFileName, spec.hmId, spec.hmNeedsVerify);
   out.compFoundId = checkSlot('gps', spec.compFileName, spec.compId, spec.compNeedsVerify);
@@ -910,7 +917,14 @@ function isIntakeVerifySuccess(inspect, spec) {
   const eq = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
   if (!inspect || inspect.success !== true) { reasons.push('inspect-failed'); return out; }
   if (!eq(inspect.district, spec.district)) reasons.push('district-mismatch');
-  if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
+  // School identity mirrors GAS getOrCreateSchoolFolder step-1 resolution: the
+  // folder is authoritative when its name contains the UDISE. Legacy folders
+  // carry ticket-prefixed names that never equal "UDISE - School", so exact
+  // equality would wrongly reject them. UDISEs are fixed-length numeric codes.
+  const specUdise = String(spec.udise || '').trim();
+  if (specUdise.length >= 6) {
+    if (!String(inspect.schoolFolder || '').includes(specUdise)) reasons.push('school-folder-mismatch');
+  } else if (!eq(inspect.schoolFolder, spec.schoolFolder)) reasons.push('school-folder-mismatch');
   if (!eq(inspect.evidenceFolder, spec.evidenceFolder || 'Evidence')) reasons.push('evidence-folder-mismatch');
   const files = Array.isArray(inspect.evidenceFiles) ? inspect.evidenceFiles : [];
   const names = Array.isArray(spec.fileNames) ? spec.fileNames : [];
@@ -924,6 +938,9 @@ function isIntakeVerifySuccess(inspect, spec) {
     if (ids[i]) anyId = true;
   }
   if (!anyNeed && !anyId) { reasons.push('nothing-to-confirm'); return out; }
+  // Adopted IDs are only trustworthy when the container itself verified: a
+  // folder mismatch means the listed files came from the wrong hierarchy.
+  const folderOk = !reasons.includes('district-mismatch') && !reasons.includes('school-folder-mismatch') && !reasons.includes('evidence-folder-mismatch');
   for (let i = 0; i < 4; i++) {
     if (!need[i]) continue;
     const want = names[i] || '';
@@ -931,7 +948,7 @@ function isIntakeVerifySuccess(inspect, spec) {
       && String(x.fileName).includes(String(spec.ticketId)));
     if (!f) { reasons.push(`Evidence_${i + 1}-file-missing`); continue; }
     if (ids[i] && f.fileId !== ids[i]) { reasons.push(`Evidence_${i + 1}-id-mismatch`); continue; }
-    adoptedIds[i] = f.fileId;
+    if (folderOk) adoptedIds[i] = f.fileId;
   }
   out.verified = reasons.length === 0;
   return out;
@@ -1324,11 +1341,14 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
         const vIntake = await verifyIntakeDriveFiles({
           ticketId: ticket.ticketId, district: resolved.district,
           udise: resolved.udise || ticket.udise, schoolName: resolved.schoolName || ticket.schoolName,
+          schoolFolder: schoolFolderDisplay,
           fileNames: canonNames, ids: effIds, needsVerify: verifyNeed,
         });
         if (!vIntake.verified) {
+          // Preserve already-confirmed slots: adopt observed IDs for passing
+          // slots so one slot's failure never invalidates another's confirmation.
           await db.updateTicket(ticket.ticketId, { ...baseUpdate,
-            p1DriveFileId: preIds[0], p2DriveFileId: preIds[1], p3DriveFileId: preIds[2], p4DriveFileId: preIds[3] });
+            p1DriveFileId: vIntake.adoptedIds[0] || preIds[0], p2DriveFileId: vIntake.adoptedIds[1] || preIds[1], p3DriveFileId: vIntake.adoptedIds[2] || preIds[2], p4DriveFileId: vIntake.adoptedIds[3] || preIds[3] });
           console.warn(`[DRIVE] Intake verification failed for ${ticket.ticketId}: ${vIntake.reasons.join('; ')} — kept for retry`);
           return { success: false, error: 'Drive verification failed: ' + vIntake.reasons.join('; '), verify: vIntake, result };
         }
@@ -2754,8 +2774,12 @@ async function handleRequest(req, res) {
           if (!hmNeedsVerify && !compNeedsVerify && !hmId && !compId) {
             return { verified: false, reasons: ['nothing-to-confirm'], hmFoundId: '', compFoundId: '', folderUrl: '', folderId: '', verifiedAt: null };
           }
+          const compSchoolFolder = String(targetTicket.udise || '').trim()
+            ? (String(targetTicket.udise).trim() + ' - ' + String(targetTicket.schoolName || '').trim())
+            : String(targetTicket.schoolName || '').trim();
           const v = await verifyCompletionDriveFiles({
             ticketId, district: targetTicket.district, udise: targetTicket.udise, schoolName: targetTicket.schoolName,
+            schoolFolder: compSchoolFolder,
             hmFileName: hmCanonName, compFileName: compCanonName,
             hmId: hmId || '', compId: compId || '',
             hmNeedsVerify, compNeedsVerify,
@@ -12594,3 +12618,4 @@ module.exports.intakeUploadComplete = intakeUploadComplete;
 module.exports.isIntakeVerifySuccess = isIntakeVerifySuccess;
 module.exports.verifyIntakeDriveFiles = verifyIntakeDriveFiles;
 module.exports.backfillDriveIdFromUrl = backfillDriveIdFromUrl;
+module.exports.syncTicketToGoogleDrive = syncTicketToGoogleDrive;

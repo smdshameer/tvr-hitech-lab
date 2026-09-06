@@ -1,5 +1,12 @@
 # CHANGELOG — meaningful milestones (see `git log` for full history)
 
+- 2026-09-06 — EMERGENCY VERIFY FIX: call sites pass resolved schoolFolder; UDISE-containment
+  rule (legacy folders pass, wrong folders fail, adoption gated on folder match); call-site
+  suite 11/11. Fixed a live regression where every read-back failed. No GAS/schema change.
+
+- 2026-09-06 — DEPLOYED `057080d` to `origin/main` (guard+backfill). Routing PASS.
+  Running-commit needs dashboard confirm. No test:live, no probes.
+
 - 2026-09-06 — INTAKE GUARD+BACKFILL (approved): nothing-to-confirm guard + server-side
   URL ID backfill in intake sync; suite 36/36; full SAFE PASS. No GAS/schema/UI change.
   NOT deployed/committed.

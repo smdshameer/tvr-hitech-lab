@@ -42,6 +42,10 @@
   opId/op-record in `server.js` completion flow. This does NOT retro-explain the historical
   probe (mechanism stays UNPROVEN) — it closes the hole prospectively, and any future
   failure will carry its own forensic record instead of needing GAS history.
+- 2026-09-06 emergency fix (live regression): verify call sites omitted schoolFolder, so
+  every read-back failed with school-folder-mismatch (uploads looped pending, intake IDs
+  cleared). Fixed via resolved folder at both call sites + UDISE-containment rule
+  (legacy folders pass) + adoption gated on folder match. Suites 37/37, 31/31, 11/11.
 - 2026-09-06 API track: `processes.list` confirmed (scope `script.processes`; filters incl.
   startTime/functionName; fields = timing/status only — NO ticket/file IDs/logs, so C/D/E
   unprovable via this API; logs need Cloud Logging + linked GCP project, linkage UNKNOWN).

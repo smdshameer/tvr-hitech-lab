@@ -13,7 +13,7 @@
 ## Objective / tasks
 
 - Current task: review intake reliability fix (implemented, uncommitted) → `docs/NEXT_TASK.md`.
-- Last completed: INTAKE GUARD+BACKFILL (approved scope) — nothing-to-confirm guard + URL backfill; suite 36/36; full SAFE PASS; NOT deployed.
+- Last completed: EMERGENCY VERIFY FIX (approved scope) — resolved schoolFolder at both call sites, UDISE-containment rule, adoption gated on folder match; suites 37/37, 31/31, 11/11; npm test SAFE PASS.
 - Current blocker: none on deployment (push done, routing healthy); Vercel dashboard confirmation of running commit pending; KI-001 stays UNPROVEN.
 - Current risk: acting on Drive-state assumptions without execution evidence.
 - Protected areas: UI/workflow/behavior · DB · Drive/Sheets · GPS · deletion · APIs · GAS · 262 schools + lifecycles · prod data · deployments.

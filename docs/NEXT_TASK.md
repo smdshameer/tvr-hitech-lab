@@ -4,13 +4,12 @@
 
 ## CURRENT OBJECTIVE
 
-Review the implemented intake reliability fix (uncommitted, undeployed) — authorize commit/deploy or request changes. (f442c8b deployment: Vercel Ready, routing healthy.)
+Deploy the emergency verify fix (pending commit below) — then monitor pending→confirmed conversion on real uploads.
 
 ## EXACT NEXT ACTION
 
-Review the intake guard+backfill diff (server.js +27/-1, suite 36/36).
-Then either authorize commit/deploy or request changes. Do NOT run test:live.
-Do NOT touch HTL-TVR-05301-11 / HTL-TVR-05303 (no manual repair). KI-001 stays UNPROVEN.
+Commit + push the emergency fix, confirm Vercel Ready on the new commit. Then observe only.
+Do NOT run test:live. Do NOT touch HTL-TVR-05301-11/-05303/-02401. KI-001 stays UNPROVEN.
 
 ## ACCEPTANCE
 
