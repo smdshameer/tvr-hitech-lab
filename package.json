@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/web-gps-camera.test.js && node test_comprehensive_e2e.js",
+    "test": "node tests/web-gps-camera.test.js && node tests/intake-evidence-verification.test.js && node tests/completion-drive-verification.test.js && node tests/drive-verify-callsite.test.js && node tests/completion-durable-drain.test.js && node tests/intake-id-preservation.test.js && node tests/drive-pump.test.js && node tests/dashboard-projection.test.js && node tests/scalability-concurrency.test.js && node tests/drive-photo-queue.test.js && node test_comprehensive_e2e.js",
     "test:web": "node tests/web-gps-camera.test.js",
     "test:live": "node scripts/run-live-tests.js",
     "gas:forensics": "node scripts/gas-forensics.js",

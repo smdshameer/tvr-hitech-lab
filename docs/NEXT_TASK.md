@@ -4,11 +4,11 @@
 
 ## CURRENT OBJECTIVE
 
-Deploy the emergency verify fix (pending commit below) — then monitor pending→confirmed conversion on real uploads.
+Monitor production (`dd2fa9d` live pending dashboard confirm) — pending→confirmed conversion on real uploads. Decide fate of parked scalability work (db.js + server.js hunks + suite, uncommitted).
 
 ## EXACT NEXT ACTION
 
-Commit + push the emergency fix, confirm Vercel Ready on the new commit. Then observe only.
+Confirm Vercel Dashboard shows production on `dd2fa9d`. Then observe only.
 Do NOT run test:live. Do NOT touch HTL-TVR-05301-11/-05303/-02401. KI-001 stays UNPROVEN.
 
 ## ACCEPTANCE

@@ -133,8 +133,9 @@ async function main() {
   const intakeRegion = serverJs.slice(
     serverJs.indexOf("if (pathname === '/api/tickets' && req.method === 'POST')"),
     serverJs.indexOf('// 3. API: Engineer Ask Completion Photos'));
-  record('L1. db.createTicket precedes Drive sync',
-    intakeRegion.indexOf('await db.createTicket(newTicket)') < intakeRegion.indexOf('syncTicketToGoogleDrive(newTicket'));
+  record('L1. race-safe persist precedes Drive sync',
+    intakeRegion.includes('await db.createTicketIfNotExists(newTicket)')
+    && intakeRegion.indexOf('await db.createTicketIfNotExists(newTicket)') < intakeRegion.indexOf('syncTicketToGoogleDrive(newTicket'));
   record('L2. failure paths never blank photo bytes',
     !/photo1Url:\s*['"]{2}/.test(intakeRegion) && intakeRegion.includes('Photos are durable in DB'));
 

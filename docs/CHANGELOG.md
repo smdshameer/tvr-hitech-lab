@@ -1,5 +1,8 @@
 # CHANGELOG — meaningful milestones (see `git log` for full history)
 
+- 2026-09-06 — DEPLOYED `dd2fa9d` to `origin/main` (emergency verify fix).
+  Post-push routing PASS. Running-commit needs dashboard confirm. No test:live, no probes.
+
 - 2026-09-06 — EMERGENCY VERIFY FIX: call sites pass resolved schoolFolder; UDISE-containment
   rule (legacy folders pass, wrong folders fail, adoption gated on folder match); call-site
   suite 11/11. Fixed a live regression where every read-back failed. No GAS/schema change.

@@ -1058,6 +1058,7 @@ function mapRowToTicket(r) {
     gpsAccuracy: r.gps_accuracy || null,
     gpsTimestamp: r.gps_timestamp || '',
     googleDriveFolderUrl: r.drive_folder_url || '',
+    clientRequestId: r.client_request_id || '',
     remarks: r.remarks || '',
     timeline: r.activity_log || []
   };
@@ -1131,6 +1132,28 @@ async function initDatabase() {
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p3_drive_url TEXT;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS p4_drive_url TEXT;
       ALTER TABLE tickets ADD COLUMN IF NOT EXISTS drive_folder_url TEXT;
+      ALTER TABLE tickets ADD COLUMN IF NOT EXISTS client_request_id TEXT;
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_client_request_id ON tickets(client_request_id);
+      -- Durable per-photo Drive job queue (additive; photo bytes NEVER stored here —
+      -- ticket photo columns remain the durable byte source). One row per
+      -- (ticket, kind, slot); requeue is a state UPDATE, never a second row.
+      CREATE TABLE IF NOT EXISTS drive_photo_jobs (
+        job_id SERIAL PRIMARY KEY,
+        ticket_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('intake', 'completion')),
+        slot TEXT NOT NULL CHECK (slot IN ('1', '2', '3', '4', 'hm', 'gps')),
+        state TEXT NOT NULL DEFAULT 'PENDING' CHECK (state IN ('PENDING', 'CLAIMED', 'CONFIRMED', 'FAILED_PERMANENT')),
+        attempts INT NOT NULL DEFAULT 0,
+        next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        lease_owner TEXT,
+        lease_expires_at TIMESTAMPTZ,
+        last_error TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (ticket_id, kind, slot)
+      );
+      CREATE INDEX IF NOT EXISTS idx_photo_jobs_eligible ON drive_photo_jobs (state, next_attempt_at, lease_expires_at) WHERE state IN ('PENDING', 'CLAIMED');
+      CREATE INDEX IF NOT EXISTS idx_photo_jobs_ticket ON drive_photo_jobs (ticket_id, kind);
       DELETE FROM tickets WHERE reported_issue ILIKE '%simulation%' OR remarks ILIKE '%simulation%';
       CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
@@ -1223,6 +1246,11 @@ async function initDatabase() {
       }
       console.log(`🎉 Successfully migrated ${migratedCount} tickets into PostgreSQL!`);
     }
+    // Business rule (corrected): a -2/-3/-4 suffixed ticket is a NEW complaint
+    // from the same school, NOT a duplicate. Multiple open tickets per UDISE
+    // are legitimate, so NO open-UDISE uniqueness is enforced here — now or
+    // ever. Same-request protection lives in the ticket PK + client_request_id
+    // unique index (see createTicketIfNotExists), never in UDISE convergence.
   } catch (err) {
     console.error('❌ Database initialization error:', err.message);
   }
@@ -1649,16 +1677,25 @@ async function getCanonicalActiveTickets() {
   return canonical;
 }
 
+// Canonical OPEN lifecycle states: the exact set treated as "open" by the
+// pre-existing checkOpenTicketByUdise() business rule. Single source of truth
+// so the checker cannot drift. NOTE: this list is descriptive only — it does
+// NOT imply one-open-per-UDISE (suffixed tickets are separate complaints).
+// CLOSED/terminal states ('Resolved Remotely', 'Solved by Direct Visit',
+// 'Closed / Verified') are intentionally absent.
+const OPEN_TICKET_STATUSES = ['New / Under Review', 'Open / Triage', 'In Progress (Remote)', 'Field Visit Scheduled'];
+
 async function checkOpenTicketByUdise(cleanUdise) {
   if (!cleanUdise || cleanUdise.length < 6) return null;
   if (usePostgres && pool) {
     try {
-      const res = await pool.query(`
-        SELECT * FROM tickets 
-        WHERE udise_code = $1 
-          AND status IN ('New / Under Review', 'Open / Triage', 'In Progress (Remote)', 'Field Visit Scheduled')
-        LIMIT 1
-      `, [cleanUdise]);
+      const res = await pool.query(
+        `SELECT * FROM tickets
+         WHERE udise_code = $1
+           AND status IN (${OPEN_TICKET_STATUSES.map((_, i) => '$' + (i + 2)).join(', ')})
+         LIMIT 1`,
+        [cleanUdise, ...OPEN_TICKET_STATUSES]
+      );
       if (res.rows.length > 0) return mapRowToTicket(res.rows[0]);
       return null;
     } catch (e) {
@@ -1668,9 +1705,35 @@ async function checkOpenTicketByUdise(cleanUdise) {
   const list = loadTicketsFromJson();
   return list.find(t => {
     const tUdise = String(t.udise || '').replace(/\D/g, '');
-    const isOpen = t.status === 'New / Under Review' || t.status === 'Open / Triage' || t.status === 'In Progress (Remote)' || t.status === 'Field Visit Scheduled';
+    const isOpen = OPEN_TICKET_STATUSES.includes(t.status);
     return tUdise === cleanUdise && isOpen;
   }) || null;
+}
+
+// Targeted existence probe (no photo bytes, no Sheets sync). Used by intake ID
+// allocation so ticket creation never loads every ticket plus all photo bytes.
+async function ticketIdExists(ticketId) {
+  const cleanId = String(ticketId || '').trim();
+  if (!cleanId) return false;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT 1 FROM tickets WHERE ticket_id = $1 LIMIT 1', [cleanId]);
+      return res.rows.length > 0;
+    } catch (e) { return false; }
+  }
+  const list = loadTicketsFromJson();
+  return list.some(t => String(t.ticketId || '').trim() === cleanId);
+}
+
+// Lightweight row count for ID fallback allocation (no bytes loaded).
+async function ticketCount() {
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT count(*)::int AS c FROM tickets');
+      return res.rows[0] ? res.rows[0].c : 0;
+    } catch (e) { return 0; }
+  }
+  return loadTicketsFromJson().length;
 }
 
 async function createTicket(ticketData) {
@@ -1700,12 +1763,14 @@ async function createTicket(ticketData) {
           ai_instructor_name, ai_instructor_mobile, reported_issue,
           duration, ups_serial_number, resolution_type, vendor_name,
           vendor_ticket_no, parts_required, resolution_notes,
-          resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log,
+          resolved_at,           photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log,
           p1_drive_file_id, p2_drive_file_id, p3_drive_file_id, p4_drive_file_id,
-          hm_drive_file_id, comp_drive_file_id, hm_report_photo_url, completion_photo_url, drive_folder_url
+          hm_drive_file_id, comp_drive_file_id, hm_report_photo_url, completion_photo_url, drive_folder_url,
+          client_request_id
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb,
-          $28, $29, $30, $31, $32, $33, $34, $35, $36
+          $28, $29, $30, $31, $32, $33, $34, $35, $36,
+          NULLIF($37, '')
         )
         ON CONFLICT (ticket_id) DO UPDATE SET
           created_date = EXCLUDED.created_date,
@@ -1726,6 +1791,7 @@ async function createTicket(ticketData) {
           hm_report_photo_url = COALESCE(NULLIF(EXCLUDED.hm_report_photo_url, ''), tickets.hm_report_photo_url),
           completion_photo_url = COALESCE(NULLIF(EXCLUDED.completion_photo_url, ''), tickets.completion_photo_url),
           drive_folder_url = COALESCE(NULLIF(EXCLUDED.drive_folder_url, ''), tickets.drive_folder_url),
+          client_request_id = COALESCE(tickets.client_request_id, NULLIF(EXCLUDED.client_request_id, '')),
           status = 'New / Under Review'
       `, [
         ticketData.ticketId,
@@ -1763,7 +1829,8 @@ async function createTicket(ticketData) {
         ticketData.compDriveFileId || null,
         ticketData.hmReportPhotoUrl || null,
         ticketData.completionPhotoUrl || null,
-        ticketData.googleDriveFolderUrl || null
+        ticketData.googleDriveFolderUrl || null,
+        (ticketData.clientRequestId && String(ticketData.clientRequestId).trim()) ? String(ticketData.clientRequestId).trim() : null
       ]);
     } catch (e) {
       console.error('Postgres insert ticket error:', e.message);
@@ -1828,7 +1895,27 @@ async function updateTicket(ticketId, updateData) {
         const newP3FileId = updateData.p3DriveFileId !== undefined ? updateData.p3DriveFileId : existing.p3_drive_file_id;
         const newP4FileId = updateData.p4DriveFileId !== undefined ? updateData.p4DriveFileId : existing.p4_drive_file_id;
         const newDriveFolderUrl = updateData.googleDriveFolderUrl !== undefined ? updateData.googleDriveFolderUrl : existing.drive_folder_url;
-        const newCompEvidence = updateData.completionEvidence !== undefined ? JSON.stringify(updateData.completionEvidence) : (existing.completion_evidence ? JSON.stringify(existing.completion_evidence) : null);
+        let newCompEvidence = updateData.completionEvidence !== undefined ? JSON.stringify(updateData.completionEvidence) : (existing.completion_evidence ? JSON.stringify(existing.completion_evidence) : null);
+        // Explicit byte cleanup after verified Drive persistence (never implicit):
+        // strips nested evidence .data so confirmed records stop serving bulk bytes.
+        if (updateData.clearDurableBytes === true && newCompEvidence) {
+          try {
+            const evObj = JSON.parse(newCompEvidence);
+            if (evObj.hmSignedReport) evObj.hmSignedReport.data = '';
+            if (evObj.completionPhoto) evObj.completionPhoto.data = '';
+            newCompEvidence = JSON.stringify(evObj);
+          } catch (e) {}
+        }
+        // Per-slot byte cleanup (photo-job worker confirms one slot at a time):
+        // clearHmBytes / clearCompBytes blank only the confirmed slot's bytes.
+        if ((updateData.clearHmBytes === true || updateData.clearCompBytes === true) && newCompEvidence) {
+          try {
+            const evObj = JSON.parse(newCompEvidence);
+            if (updateData.clearHmBytes === true && evObj.hmSignedReport) evObj.hmSignedReport.data = '';
+            if (updateData.clearCompBytes === true && evObj.completionPhoto) evObj.completionPhoto.data = '';
+            newCompEvidence = JSON.stringify(evObj);
+          } catch (e) {}
+        }
         const newCompStatus = updateData.completionEvidenceStatus !== undefined ? updateData.completionEvidenceStatus : existing.completion_evidence_status;
         const newRemarks = updateData.remarks !== undefined ? updateData.remarks : existing.remarks;
         const newGpsLat = updateData.gpsLatitude !== undefined ? updateData.gpsLatitude : existing.gps_latitude;
@@ -1844,6 +1931,9 @@ async function updateTicket(ticketId, updateData) {
           : (nestedHmData ? nestedHmData : existing.hm_report_photo_base64);
         let newCompB64 = (updateData.completionPhotoBase64 !== undefined && updateData.completionPhotoBase64) ? updateData.completionPhotoBase64
           : (nestedCompData ? nestedCompData : existing.completion_photo_base64);
+        if (updateData.clearDurableBytes === true) { newHmB64 = ''; newCompB64 = ''; }
+        if (updateData.clearHmBytes === true) { newHmB64 = ''; }
+        if (updateData.clearCompBytes === true) { newCompB64 = ''; }
         if (updateData.completionPhotoUrl !== undefined && !updateData.completionPhotoUrl && (updateData.clearEvidence || (updateData.completionEvidence && updateData.completionEvidence.completionPhoto && updateData.completionEvidence.completionPhoto.uploaded === false))) {
           newCompB64 = '';
         }
@@ -1882,9 +1972,15 @@ async function updateTicket(ticketId, updateData) {
           newRemarks, newGpsLat, newGpsLon, newGpsAcc, newGpsTime,
           ticketId, newHmB64, newCompB64
         ]);
+      } else {
+        return { success: false, error: 'Ticket not found in PostgreSQL.' };
       }
     } catch (e) {
       console.error('Postgres update error:', e.message);
+      // Phase 4: a failed PostgreSQL update must be explicitly reported. It
+      // must NEVER fall through to the JSON-mirror tail below — that would
+      // make a rejected PG operation look successful to the caller.
+      return { success: false, error: e.message };
     }
   }
   const list = loadTicketsFromJson();
@@ -1937,6 +2033,12 @@ async function updateTicket(ticketId, updateData) {
     if (updateData.completionPhotoBase64 !== undefined && updateData.completionPhotoBase64) {
       ticket.completionPhotoBase64 = updateData.completionPhotoBase64;
     }
+    if (updateData.clearDurableBytes === true) {
+      ticket.hmReportPhotoBase64 = '';
+      ticket.completionPhotoBase64 = '';
+    }
+    if (updateData.clearHmBytes === true) { ticket.hmReportPhotoBase64 = ''; }
+    if (updateData.clearCompBytes === true) { ticket.completionPhotoBase64 = ''; }
     if (updateData.gpsLatitude !== undefined) ticket.gpsLatitude = updateData.gpsLatitude;
     if (updateData.gpsLongitude !== undefined) ticket.gpsLongitude = updateData.gpsLongitude;
     if (updateData.gpsAccuracy !== undefined) ticket.gpsAccuracy = updateData.gpsAccuracy;
@@ -2018,6 +2120,7 @@ async function updateTicket(ticketId, updateData) {
       const activeCompFid = prevComp.driveFileId || ticket.compDriveFileId || '';
 
       ticket.completionEvidence = {
+        ...(ticket.completionEvidence || {}),
         hmSignedReport: {
           uploaded: !!(activeHmFid || ticket.hmReportPhotoUrl || ticket.hmReportPhotoBase64),
           fileUrl: (activeHmFid && (!ticket.hmReportPhotoUrl || ticket.hmReportPhotoUrl.startsWith('/uploads/'))) ? ('https://drive.google.com/thumbnail?id=' + activeHmFid + '&sz=w800') : (ticket.hmReportPhotoUrl || ''),
@@ -2044,6 +2147,17 @@ async function updateTicket(ticketId, updateData) {
         completedAt: ticket.completionDate || dateStr,
         completedBy: ticket.completedBy || (updateData.source === 'AI Teacher' ? (ticket.aiName || 'AI Teacher') : 'Mohamed Shameer')
       };
+    }
+    // Explicit byte cleanup (see flag above): blank nested evidence bytes after
+    // verified Drive persistence so confirmed records stop serving bulk bytes.
+    if (updateData.clearDurableBytes === true && ticket.completionEvidence) {
+      if (ticket.completionEvidence.hmSignedReport) ticket.completionEvidence.hmSignedReport.data = '';
+      if (ticket.completionEvidence.completionPhoto) ticket.completionEvidence.completionPhoto.data = '';
+    }
+    // Per-slot variant (photo-job worker): blank only the confirmed slot.
+    if ((updateData.clearHmBytes === true || updateData.clearCompBytes === true) && ticket.completionEvidence) {
+      if (updateData.clearHmBytes === true && ticket.completionEvidence.hmSignedReport) ticket.completionEvidence.hmSignedReport.data = '';
+      if (updateData.clearCompBytes === true && ticket.completionEvidence.completionPhoto) ticket.completionEvidence.completionPhoto.data = '';
     }
     if (ticket.status === 'Resolved Remotely' || ticket.status === 'Solved by Direct Visit' || ticket.status === 'Closed / Verified') {
       ticket.resolvedAt = dateStr;
@@ -2802,13 +2916,668 @@ async function createBackup(reason = 'MANUAL_BACKUP', initiatedBy = 'system') {
   return { success: true, count: tickets.length, file: backupFile };
 }
 
+// ========================================================
+// DURABLE PER-PHOTO DRIVE JOB QUEUE (drive_photo_jobs)
+//
+// Dual backend with identical state-machine semantics:
+//  - PostgreSQL (production): drive_photo_jobs table; atomic claiming via
+//    SELECT ... FOR UPDATE SKIP LOCKED inside a single transaction.
+//  - Local JSON (dev / hermetic tests): DATA_DIR/drive_photo_jobs.json with
+//    synchronous read-modify-write claiming (atomic in Node's single thread).
+//
+// Photo bytes are NEVER stored here. Ticket photo columns remain the single
+// durable byte source; jobs reference (ticket_id, kind, slot) only.
+//
+// States: PENDING -> CLAIMED -> CONFIRMED | FAILED_PERMANENT.
+// A failed attempt returns to PENDING with backoff; a dead worker's expired
+// lease makes the job reclaimable. attempts increments once per claim.
+// ========================================================
+const PHOTO_JOBS_FILE = path.join(DATA_DIR, 'drive_photo_jobs.json');
+const PHOTO_JOB_MAX_ATTEMPTS = 10;
+const PHOTO_JOB_BACKOFF_BASE_MS = 5 * 60 * 1000;
+const PHOTO_JOB_BACKOFF_MAX_MS = 6 * 3600 * 1000;
+
+function normalizePhotoJobKind(kind) {
+  const k = String(kind || '').trim().toLowerCase();
+  return (k === 'intake' || k === 'completion') ? k : '';
+}
+function normalizePhotoJobSlot(kind, slot) {
+  const s = String(slot || '').trim().toLowerCase();
+  if (kind === 'intake' && (s === '1' || s === '2' || s === '3' || s === '4')) return s;
+  if (kind === 'completion' && (s === 'hm' || s === 'gps')) return s;
+  return '';
+}
+function photoJobBackoffMs(attempts) {
+  const a = Math.max(0, Number(attempts) || 0);
+  return Math.min(PHOTO_JOB_BACKOFF_MAX_MS, PHOTO_JOB_BACKOFF_BASE_MS * Math.pow(2, a));
+}
+function mapPhotoJobRow(r) {
+  if (!r) return null;
+  const ts = (v) => {
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date) return v.toISOString();
+    return String(v);
+  };
+  return {
+    jobId: (r.job_id !== undefined && r.job_id !== null) ? r.job_id : (r.jobId !== undefined ? r.jobId : null),
+    ticketId: String(r.ticket_id !== undefined ? r.ticket_id : (r.ticketId || '')).trim(),
+    kind: r.kind,
+    slot: r.slot !== undefined && r.slot !== null ? String(r.slot) : '',
+    state: r.state,
+    attempts: Number(r.attempts) || 0,
+    nextAttemptAt: ts(r.next_attempt_at !== undefined ? r.next_attempt_at : r.nextAttemptAt),
+    leaseOwner: (r.lease_owner !== undefined ? r.lease_owner : r.leaseOwner) || null,
+    leaseExpiresAt: ts(r.lease_expires_at !== undefined ? r.lease_expires_at : r.leaseExpiresAt),
+    lastError: String(r.last_error !== undefined ? (r.last_error || '') : (r.lastError || '')),
+    createdAt: ts(r.created_at !== undefined ? r.created_at : r.createdAt),
+    updatedAt: ts(r.updated_at !== undefined ? r.updated_at : r.updatedAt),
+  };
+}
+function loadPhotoJobsFromJson() {
+  try {
+    if (!fs.existsSync(PHOTO_JOBS_FILE)) return [];
+    const arr = JSON.parse(fs.readFileSync(PHOTO_JOBS_FILE, 'utf8'));
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function savePhotoJobsToJson(jobs) {
+  try { safeWriteFileSync(PHOTO_JOBS_FILE, JSON.stringify(jobs, null, 2), 'utf8'); } catch (e) {}
+}
+function photoJobDueTimestamp(job, nowMs) {
+  if (!job || !job.ticketId) return -1;
+  if (job.state !== 'PENDING' && job.state !== 'CLAIMED') return -1;
+  if (job.nextAttemptAt) {
+    const t = new Date(job.nextAttemptAt).getTime();
+    if (Number.isFinite(t) && t > nowMs) return -1;
+  }
+  if (job.state === 'CLAIMED') {
+    if (!job.leaseExpiresAt) return nowMs; // malformed lease: reclaimable now
+    const l = new Date(job.leaseExpiresAt).getTime();
+    if (Number.isFinite(l) && l > nowMs) return -1;
+  }
+  return nowMs;
+}
+
+async function createPhotoJob(ticketId, kind, slot) {
+  const id = String(ticketId || '').trim();
+  const k = normalizePhotoJobKind(kind);
+  const s = k ? normalizePhotoJobSlot(k, slot) : '';
+  if (!id || !k || !s) return { created: false, error: 'ticketId, kind (intake|completion) and valid slot are required' };
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `INSERT INTO drive_photo_jobs (ticket_id, kind, slot) VALUES ($1, $2, $3)
+         ON CONFLICT (ticket_id, kind, slot) DO NOTHING RETURNING *`,
+        [id, k, s]
+      );
+      if (res.rows.length > 0) return { created: true, job: mapPhotoJobRow(res.rows[0]) };
+      return { created: false, job: await getPhotoJob(id, k, s) };
+    } catch (e) {
+      console.error('Postgres createPhotoJob error:', e.message);
+      return { created: false, error: e.message };
+    }
+  }
+  const jobs = loadPhotoJobsFromJson();
+  const found = jobs.find(j => String(j.ticketId) === id && j.kind === k && String(j.slot) === s);
+  if (found) return { created: false, job: mapPhotoJobRow(found) };
+  const now = new Date().toISOString();
+  const nextId = jobs.reduce((m, j) => Math.max(m, Number(j.jobId) || 0), 0) + 1;
+  const job = { jobId: nextId, ticketId: id, kind: k, slot: s, state: 'PENDING', attempts: 0, nextAttemptAt: now, leaseOwner: null, leaseExpiresAt: null, lastError: '', createdAt: now, updatedAt: now };
+  jobs.push(job);
+  savePhotoJobsToJson(jobs);
+  return { created: true, job: mapPhotoJobRow(job) };
+}
+
+async function ensurePhotoJobs(ticketId, specs) {
+  const list = Array.isArray(specs) ? specs : [];
+  let created = 0, existing = 0, errors = 0;
+  for (const sp of list) {
+    const r = await createPhotoJob(ticketId, sp && sp.kind, sp && sp.slot);
+    if (r.created) created++;
+    else if (r.job) existing++;
+    else errors++;
+  }
+  return { created, existing, errors };
+}
+
+async function getPhotoJob(ticketId, kind, slot) {
+  const id = String(ticketId || '').trim();
+  const k = normalizePhotoJobKind(kind);
+  const s = k ? normalizePhotoJobSlot(k, slot) : '';
+  if (!id || !k || !s) return null;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM drive_photo_jobs WHERE ticket_id = $1 AND kind = $2 AND slot = $3', [id, k, s]);
+      return res.rows.length > 0 ? mapPhotoJobRow(res.rows[0]) : null;
+    } catch (e) { return null; }
+  }
+  const found = loadPhotoJobsFromJson().find(j => String(j.ticketId) === id && j.kind === k && String(j.slot) === s);
+  return mapPhotoJobRow(found || null);
+}
+
+async function listPhotoJobs(filter) {
+  const f = filter || {};
+  const state = f.state ? String(f.state).trim().toUpperCase() : '';
+  const ticketId = f.ticketId ? String(f.ticketId).trim() : '';
+  const kind = f.kind ? normalizePhotoJobKind(f.kind) : '';
+  const limit = Number.isFinite(Number(f.limit)) && Number(f.limit) > 0 ? Math.min(500, Number(f.limit)) : 200;
+  if (usePostgres && pool) {
+    try {
+      const conds = [];
+      const params = [];
+      if (state) { params.push(state); conds.push(`state = $${params.length}`); }
+      if (ticketId) { params.push(ticketId); conds.push(`ticket_id = $${params.length}`); }
+      if (kind) { params.push(kind); conds.push(`kind = $${params.length}`); }
+      const where = conds.length > 0 ? 'WHERE ' + conds.join(' AND ') : '';
+      const res = await pool.query(`SELECT * FROM drive_photo_jobs ${where} ORDER BY next_attempt_at ASC, job_id ASC LIMIT ${limit}`, params);
+      return res.rows.map(mapPhotoJobRow);
+    } catch (e) { return []; }
+  }
+  let jobs = loadPhotoJobsFromJson();
+  if (state) jobs = jobs.filter(j => String(j.state).toUpperCase() === state);
+  if (ticketId) jobs = jobs.filter(j => String(j.ticketId) === ticketId);
+  if (kind) jobs = jobs.filter(j => j.kind === kind);
+  return jobs.slice(0, limit).map(mapPhotoJobRow);
+}
+
+async function countPhotoJobs(filter) {
+  const f = filter || {};
+  const state = f.state ? String(f.state).trim().toUpperCase() : '';
+  const ticketId = f.ticketId ? String(f.ticketId).trim() : '';
+  const kind = f.kind ? normalizePhotoJobKind(f.kind) : '';
+  if (usePostgres && pool) {
+    try {
+      const conds = [];
+      const params = [];
+      if (state) { params.push(state); conds.push(`state = $${params.length}`); }
+      if (ticketId) { params.push(ticketId); conds.push(`ticket_id = $${params.length}`); }
+      if (kind) { params.push(kind); conds.push(`kind = $${params.length}`); }
+      const where = conds.length > 0 ? 'WHERE ' + conds.join(' AND ') : '';
+      const res = await pool.query(`SELECT count(*)::int AS c FROM drive_photo_jobs ${where}`, params);
+      return res.rows[0] ? res.rows[0].c : 0;
+    } catch (e) { return 0; }
+  }
+  let jobs = loadPhotoJobsFromJson();
+  if (state) jobs = jobs.filter(j => String(j.state).toUpperCase() === state);
+  if (ticketId) jobs = jobs.filter(j => String(j.ticketId) === ticketId);
+  if (kind) jobs = jobs.filter(j => j.kind === kind);
+  return jobs.length;
+}
+
+// Atomic lease claim. PostgreSQL: single transaction with
+// SELECT ... FOR UPDATE SKIP LOCKED so concurrent workers take different
+// jobs and never block each other. Local JSON: synchronous read-modify-write
+// (atomic within Node's event loop — no awaits inside the critical section).
+async function claimPhotoJob(opts) {
+  const o = opts || {};
+  const owner = String(o.owner || '').trim() || 'worker';
+  const leaseMs = Number.isFinite(Number(o.leaseMs)) && Number(o.leaseMs) > 0 ? Number(o.leaseMs) : 10 * 60 * 1000;
+  const leaseUntil = new Date(Date.now() + leaseMs).toISOString();
+  if (usePostgres && pool) {
+    let client = null;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const sel = await client.query(
+        `SELECT * FROM drive_photo_jobs
+         WHERE (state = 'PENDING' OR (state = 'CLAIMED' AND lease_expires_at <= NOW()))
+           AND next_attempt_at <= NOW()
+         ORDER BY next_attempt_at ASC, created_at ASC, job_id ASC
+         LIMIT 1 FOR UPDATE SKIP LOCKED`
+      );
+      if (sel.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return { claimed: false };
+      }
+      const upd = await client.query(
+        `UPDATE drive_photo_jobs
+         SET state = 'CLAIMED', lease_owner = $1, lease_expires_at = $2, attempts = attempts + 1, updated_at = NOW()
+         WHERE job_id = $3 RETURNING *`,
+        [owner, leaseUntil, sel.rows[0].job_id]
+      );
+      await client.query('COMMIT');
+      return { claimed: true, job: mapPhotoJobRow(upd.rows[0]) };
+    } catch (e) {
+      try { if (client) await client.query('ROLLBACK'); } catch (rb) {}
+      console.error('Postgres claimPhotoJob error:', e.message);
+      return { claimed: false, error: e.message };
+    } finally {
+      try { if (client) client.release(); } catch (rel) {}
+    }
+  }
+  const nowMs = Date.now();
+  const jobs = loadPhotoJobsFromJson();
+  let best = null;
+  for (const j of jobs) {
+    if (photoJobDueTimestamp(j, nowMs) < 0) continue;
+    if (!best) { best = j; continue; }
+    const an = String(j.nextAttemptAt || ''), bn = String(best.nextAttemptAt || '');
+    if (an !== bn) { if (an < bn) best = j; continue; }
+    const ac = String(j.createdAt || ''), bc = String(best.createdAt || '');
+    if (ac !== bc) { if (ac < bc) best = j; continue; }
+    if ((Number(j.jobId) || 0) < (Number(best.jobId) || 0)) best = j;
+  }
+  if (!best) return { claimed: false };
+  best.state = 'CLAIMED';
+  best.leaseOwner = owner;
+  best.leaseExpiresAt = leaseUntil;
+  best.attempts = (Number(best.attempts) || 0) + 1;
+  best.updatedAt = new Date().toISOString();
+  savePhotoJobsToJson(jobs);
+  return { claimed: true, job: mapPhotoJobRow(best) };
+}
+
+async function confirmPhotoJob(jobId) {
+  const id = Number(jobId);
+  if (!Number.isFinite(id)) return null;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `UPDATE drive_photo_jobs SET state = 'CONFIRMED', lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW()
+         WHERE job_id = $1 RETURNING *`,
+        [id]
+      );
+      return res.rows.length > 0 ? mapPhotoJobRow(res.rows[0]) : null;
+    } catch (e) { return null; }
+  }
+  const jobs = loadPhotoJobsFromJson();
+  const job = jobs.find(j => Number(j.jobId) === id);
+  if (!job) return null;
+  job.state = 'CONFIRMED';
+  job.leaseOwner = null;
+  job.leaseExpiresAt = null;
+  job.updatedAt = new Date().toISOString();
+  savePhotoJobsToJson(jobs);
+  return mapPhotoJobRow(job);
+}
+
+async function confirmPhotoJobsForTicket(ticketId, kind, slots) {
+  const id = String(ticketId || '').trim();
+  const k = normalizePhotoJobKind(kind);
+  const list = Array.isArray(slots) ? slots : [];
+  let confirmed = 0;
+  for (const s of list) {
+    const job = await getPhotoJob(id, k, s);
+    if (job && job.state !== 'CONFIRMED') {
+      const done = await confirmPhotoJob(job.jobId);
+      if (done) confirmed++;
+    } else if (job && job.state === 'CONFIRMED') {
+      confirmed++;
+    }
+  }
+  return { confirmed };
+}
+
+async function failPhotoJob(jobId, error) {
+  const id = Number(jobId);
+  if (!Number.isFinite(id)) return null;
+  const msg = String((error && error.message) || error || 'unknown error').slice(0, 500);
+  const applyFail = (job) => {
+    const attempts = Number(job.attempts) || 0;
+    if (attempts >= PHOTO_JOB_MAX_ATTEMPTS) {
+      job.state = 'FAILED_PERMANENT';
+      job.nextAttemptAt = new Date(Date.now() + PHOTO_JOB_BACKOFF_MAX_MS).toISOString();
+    } else {
+      job.state = 'PENDING';
+      job.nextAttemptAt = new Date(Date.now() + photoJobBackoffMs(attempts)).toISOString();
+    }
+    job.leaseOwner = null;
+    job.leaseExpiresAt = null;
+    job.lastError = msg;
+    job.updatedAt = new Date().toISOString();
+    return attempts >= PHOTO_JOB_MAX_ATTEMPTS;
+  };
+  if (usePostgres && pool) {
+    try {
+      const cur = await pool.query('SELECT * FROM drive_photo_jobs WHERE job_id = $1', [id]);
+      if (cur.rows.length === 0) return null;
+      const probe = mapPhotoJobRow(cur.rows[0]);
+      const permanent = (Number(probe.attempts) || 0) >= PHOTO_JOB_MAX_ATTEMPTS;
+      const nextAt = new Date(Date.now() + (permanent ? PHOTO_JOB_BACKOFF_MAX_MS : photoJobBackoffMs(probe.attempts))).toISOString();
+      const res = await pool.query(
+        `UPDATE drive_photo_jobs
+         SET state = $2, next_attempt_at = $3, lease_owner = NULL, lease_expires_at = NULL, last_error = $4, updated_at = NOW()
+         WHERE job_id = $1 RETURNING *`,
+        [id, permanent ? 'FAILED_PERMANENT' : 'PENDING', nextAt, msg]
+      );
+      const job = res.rows.length > 0 ? mapPhotoJobRow(res.rows[0]) : null;
+      return job ? { job, permanent } : null;
+    } catch (e) { return null; }
+  }
+  const jobs = loadPhotoJobsFromJson();
+  const job = jobs.find(j => Number(j.jobId) === id);
+  if (!job) return null;
+  const permanent = applyFail(job);
+  savePhotoJobsToJson(jobs);
+  return { job: mapPhotoJobRow(job), permanent };
+}
+
+async function failPhotoJobPermanent(jobId, error) {
+  const id = Number(jobId);
+  if (!Number.isFinite(id)) return null;
+  const msg = String((error && error.message) || error || 'unknown error').slice(0, 500);
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `UPDATE drive_photo_jobs SET state = 'FAILED_PERMANENT', lease_owner = NULL, lease_expires_at = NULL, last_error = $2, updated_at = NOW()
+         WHERE job_id = $1 RETURNING *`,
+        [id, msg]
+      );
+      return res.rows.length > 0 ? mapPhotoJobRow(res.rows[0]) : null;
+    } catch (e) { return null; }
+  }
+  const jobs = loadPhotoJobsFromJson();
+  const job = jobs.find(j => Number(j.jobId) === id);
+  if (!job) return null;
+  job.state = 'FAILED_PERMANENT';
+  job.leaseOwner = null;
+  job.leaseExpiresAt = null;
+  job.lastError = msg;
+  job.updatedAt = new Date().toISOString();
+  savePhotoJobsToJson(jobs);
+  return mapPhotoJobRow(job);
+}
+
+// Targeted single-slot load for the worker: identifiers + that slot's bytes
+// and Drive refs ONLY. Never a full-table scan, never all photo bytes.
+// Returns { found:false } when the ticket is missing or tombstoned.
+async function getTicketPhotoSlot(ticketId, kind, slot) {
+  const id = String(ticketId || '').trim();
+  const k = normalizePhotoJobKind(kind);
+  const s = k ? normalizePhotoJobSlot(k, slot) : '';
+  if (!id || !k || !s) return { found: false };
+  if (isDeleted(id)) return { found: false };
+  const asBytes = (v) => (typeof v === 'string' && v.startsWith('data:') ? v : '');
+  if (usePostgres && pool) {
+    try {
+      let res;
+      if (k === 'intake') {
+        const n = s; // validated '1'..'4'
+        res = await pool.query(
+          `SELECT ticket_id, created_date, udise_code, district, school_name, block,
+                  photo${n}_data AS bytes, p${n}_drive_file_id AS fid, p${n}_drive_url AS furl
+           FROM tickets WHERE ticket_id = $1`,
+          [id]
+        );
+        if (res.rows.length === 0) return { found: false };
+        const r = res.rows[0];
+        return {
+          found: true, ticketId: r.ticket_id, udise: r.udise_code || '', district: r.district || 'Thiruvarur',
+          schoolName: r.school_name || '', block: r.block || '', createdDate: r.created_date || '',
+          bytes: asBytes(r.bytes), driveFileId: r.fid || '', driveUrl: r.furl || '', evidence: null,
+        };
+      }
+      const hm = s === 'hm';
+      res = await pool.query(
+        `SELECT ticket_id, created_date, udise_code, district, school_name, block,
+                ${hm ? 'hm_report_photo_base64' : 'completion_photo_base64'} AS bytes,
+                ${hm ? 'hm_drive_file_id' : 'comp_drive_file_id'} AS fid,
+                ${hm ? 'hm_report_photo_url' : 'completion_photo_url'} AS furl,
+                ${hm ? 'comp_drive_file_id' : 'hm_drive_file_id'} AS ofid,
+                ${hm ? 'completion_photo_url' : 'hm_report_photo_url'} AS ourl,
+                completion_evidence AS evidence
+         FROM tickets WHERE ticket_id = $1`,
+        [id]
+      );
+      if (res.rows.length === 0) return { found: false };
+      const r = res.rows[0];
+      return {
+        found: true, ticketId: r.ticket_id, udise: r.udise_code || '', district: r.district || 'Thiruvarur',
+        schoolName: r.school_name || '', block: r.block || '', createdDate: r.created_date || '',
+        bytes: asBytes(r.bytes), driveFileId: r.fid || '', driveUrl: r.furl || '',
+        other: { driveFileId: r.ofid || '', driveUrl: r.ourl || '' },
+        evidence: (r.evidence && typeof r.evidence === 'object') ? r.evidence : null,
+      };
+    } catch (e) { return { found: false, error: e.message }; }
+  }
+  const list = loadTicketsFromJson();
+  const t = list.find(x => String(x.ticketId || x.id || '').trim() === id);
+  if (!t) return { found: false };
+  if (k === 'intake') {
+    const n = s;
+    return {
+      found: true, ticketId: id, udise: t.udise || '', district: t.district || 'Thiruvarur',
+      schoolName: t.schoolName || '', block: t.block || '', createdDate: t.createdDate || t.createdAt || '',
+      bytes: asBytes(t['photo' + n + 'Url']), driveFileId: t['p' + n + 'DriveFileId'] || '', driveUrl: t['p' + n + 'DriveUrl'] || '', evidence: null,
+    };
+  }
+  const ce = (t.completionEvidence && typeof t.completionEvidence === 'object') ? t.completionEvidence : null;
+  const otherIsHm = s !== 'hm';
+  return {
+    found: true, ticketId: id, udise: t.udise || '', district: t.district || 'Thiruvarur',
+    schoolName: t.schoolName || '', block: t.block || '', createdDate: t.createdDate || t.createdAt || '',
+    bytes: asBytes(hmShortSlot(t, s)), driveFileId: hmSlotId(t, s), driveUrl: hmSlotUrl(t, s), evidence: ce,
+    other: {
+      driveFileId: otherIsHm ? (t.hmDriveFileId || '') : (t.compDriveFileId || ''),
+      driveUrl: otherIsHm ? (t.hmReportPhotoUrl || '') : (t.completionPhotoUrl || ''),
+    },
+  };
+  function hmShortSlot(tt, ss) { return ss === 'hm' ? (tt.hmReportPhotoBase64 || '') : (tt.completionPhotoBase64 || ''); }
+  function hmSlotId(tt, ss) { return ss === 'hm' ? (tt.hmDriveFileId || '') : (tt.compDriveFileId || ''); }
+  function hmSlotUrl(tt, ss) { return ss === 'hm' ? (tt.hmReportPhotoUrl || '') : (tt.completionPhotoUrl || ''); }
+}
+
+// Byte-presence (no byte transfer): which slots hold durable bytes and which
+// already have Drive IDs. Drives job creation without loading photo data.
+async function getTicketPhotoPresence(ticketId) {
+  const id = String(ticketId || '').trim();
+  const empty = { found: false, intake: [], completion: [], intakeIds: [], completionIds: [] };
+  if (!id || isDeleted(id)) return empty;
+  const hasBytes = (v) => typeof v === 'string' && v.startsWith('data:');
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `SELECT photo1_data LIKE 'data:%' AS b1, photo2_data LIKE 'data:%' AS b2,
+                photo3_data LIKE 'data:%' AS b3, photo4_data LIKE 'data:%' AS b4,
+                NULLIF(p1_drive_file_id, '') IS NOT NULL AS i1, NULLIF(p2_drive_file_id, '') IS NOT NULL AS i2,
+                NULLIF(p3_drive_file_id, '') IS NOT NULL AS i3, NULLIF(p4_drive_file_id, '') IS NOT NULL AS i4,
+                hm_report_photo_base64 LIKE 'data:%' AS bhm, completion_photo_base64 LIKE 'data:%' AS bgps,
+                NULLIF(hm_drive_file_id, '') IS NOT NULL AS ihm, NULLIF(comp_drive_file_id, '') IS NOT NULL AS igps,
+                (completion_evidence->'hmSignedReport'->>'data') LIKE 'data:%' AS nhm,
+                (completion_evidence->'completionPhoto'->>'data') LIKE 'data:%' AS ngps
+         FROM tickets WHERE ticket_id = $1`,
+        [id]
+      );
+      if (res.rows.length === 0) return empty;
+      const r = res.rows[0];
+      const intake = ['1', '2', '3', '4'].filter((n, ix) => r['b' + (ix + 1)]);
+      const intakeIds = ['1', '2', '3', '4'].filter((n, ix) => r['i' + (ix + 1)]);
+      const completion = [];
+      if (r.bhm || r.nhm) completion.push('hm');
+      if (r.bgps || r.ngps) completion.push('gps');
+      const completionIds = [];
+      if (r.ihm) completionIds.push('hm');
+      if (r.igps) completionIds.push('gps');
+      return { found: true, intake, completion, intakeIds, completionIds };
+    } catch (e) { return empty; }
+  }
+  const list = loadTicketsFromJson();
+  const t = list.find(x => String(x.ticketId || x.id || '').trim() === id);
+  if (!t) return empty;
+  const ce = (t.completionEvidence && typeof t.completionEvidence === 'object') ? t.completionEvidence : null;
+  const intake = ['1', '2', '3', '4'].filter(n => hasBytes(t['photo' + n + 'Url']));
+  const intakeIds = ['1', '2', '3', '4'].filter(n => !!t['p' + n + 'DriveFileId']);
+  const completion = [];
+  if (hasBytes(t.hmReportPhotoBase64) || (ce && ce.hmSignedReport && hasBytes(ce.hmSignedReport.data))) completion.push('hm');
+  if (hasBytes(t.completionPhotoBase64) || (ce && ce.completionPhoto && hasBytes(ce.completionPhoto.data))) completion.push('gps');
+  const completionIds = [];
+  if (t.hmDriveFileId) completionIds.push('hm');
+  if (t.compDriveFileId) completionIds.push('gps');
+  return { found: true, intake, completion, intakeIds, completionIds };
+}
+
+// Legacy discovery (bounded, byte-free): ticket IDs holding durable photo
+// bytes without Drive IDs. Feeds job creation for pre-queue records.
+async function findUnconfirmedPhotoWork(limit) {
+  const cap = Number.isFinite(Number(limit)) && Number(limit) > 0 ? Math.min(200, Number(limit)) : 50;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `SELECT ticket_id, CASE WHEN (
+            (photo1_data LIKE 'data:%' AND NULLIF(p1_drive_file_id, '') IS NULL) OR
+            (photo2_data LIKE 'data:%' AND NULLIF(p2_drive_file_id, '') IS NULL) OR
+            (photo3_data LIKE 'data:%' AND NULLIF(p3_drive_file_id, '') IS NULL) OR
+            (photo4_data LIKE 'data:%' AND NULLIF(p4_drive_file_id, '') IS NULL)
+          ) THEN true ELSE false END AS need_intake,
+          CASE WHEN (
+            ((hm_report_photo_base64 LIKE 'data:%' OR (completion_evidence->'hmSignedReport'->>'data') LIKE 'data:%') AND NULLIF(hm_drive_file_id, '') IS NULL) OR
+            ((completion_photo_base64 LIKE 'data:%' OR (completion_evidence->'completionPhoto'->>'data') LIKE 'data:%') AND NULLIF(comp_drive_file_id, '') IS NULL)
+          ) THEN true ELSE false END AS need_completion
+         FROM tickets
+         WHERE (photo1_data LIKE 'data:%' AND NULLIF(p1_drive_file_id, '') IS NULL)
+            OR (photo2_data LIKE 'data:%' AND NULLIF(p2_drive_file_id, '') IS NULL)
+            OR (photo3_data LIKE 'data:%' AND NULLIF(p3_drive_file_id, '') IS NULL)
+            OR (photo4_data LIKE 'data:%' AND NULLIF(p4_drive_file_id, '') IS NULL)
+            OR ((hm_report_photo_base64 LIKE 'data:%' OR (completion_evidence->'hmSignedReport'->>'data') LIKE 'data:%') AND NULLIF(hm_drive_file_id, '') IS NULL)
+            OR ((completion_photo_base64 LIKE 'data:%' OR (completion_evidence->'completionPhoto'->>'data') LIKE 'data:%') AND NULLIF(comp_drive_file_id, '') IS NULL)
+         ORDER BY created_at DESC LIMIT $1`,
+        [cap]
+      );
+      return res.rows.map(r => ({ ticketId: r.ticket_id, needIntake: !!r.need_intake, needCompletion: !!r.need_completion }));
+    } catch (e) { return []; }
+  }
+  const list = loadTicketsFromJson();
+  const out = [];
+  for (const t of list) {
+    if (out.length >= cap) break;
+    const id = String(t.ticketId || t.id || '').trim();
+    if (!id || isDeleted(id)) continue;
+    const hasB = (v) => typeof v === 'string' && v.startsWith('data:');
+    const ce = (t.completionEvidence && typeof t.completionEvidence === 'object') ? t.completionEvidence : null;
+    const needIntake = ['1', '2', '3', '4'].some(n => hasB(t['photo' + n + 'Url']) && !t['p' + n + 'DriveFileId']);
+    const needCompletion = ((hasB(t.hmReportPhotoBase64) || (ce && ce.hmSignedReport && hasB(ce.hmSignedReport.data))) && !t.hmDriveFileId)
+      || ((hasB(t.completionPhotoBase64) || (ce && ce.completionPhoto && hasB(ce.completionPhoto.data))) && !t.compDriveFileId);
+    if (needIntake || needCompletion) out.push({ ticketId: id, needIntake, needCompletion });
+  }
+  return out;
+}
+
+// Idempotency-key lookup: exact match on client_request_id (unique index in
+// PostgreSQL; linear scan in local JSON). NULL/empty keys never match.
+async function findTicketByClientRequestId(clientRequestId) {
+  const key = String(clientRequestId || '').trim();
+  if (!key) return null;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM tickets WHERE client_request_id = $1 LIMIT 1', [key]);
+      return res.rows.length > 0 ? mapRowToTicket(res.rows[0]) : null;
+    } catch (e) { return null; }
+  }
+  const list = loadTicketsFromJson();
+  return list.find(t => String(t.clientRequestId || '').trim() === key) || null;
+}
+
+// Race-safe insert for the intake path: single-statement INSERT that does
+// NOTHING on primary-key conflict (never overwrites photo bytes, never
+// regresses status), then reads back the winning row. Concurrent duplicate
+// requests converge on the same ticket instead of last-writer-wins.
+async function createTicketIfNotExists(ticketData) {
+  if (!ticketData || !ticketData.ticketId) return { created: false, error: 'Ticket ID is required.' };
+  const cleanId = String(ticketData.ticketId).trim();
+  if (isDeleted(cleanId)) return { created: false, error: 'Ticket ID is permanently deleted and cannot be reused.' };
+  if (usePostgres && pool) {
+    try {
+      const ins = await pool.query(`
+        INSERT INTO tickets (
+          ticket_id, created_date, priority, status, resolution_category,
+          district, block, school_id, school_name, udise_code,
+          ai_instructor_name, ai_instructor_mobile, reported_issue,
+          duration, ups_serial_number, resolution_type, vendor_name,
+          vendor_ticket_no, parts_required, resolution_notes,
+          resolved_at, photo1_data, photo2_data, photo3_data, photo4_data, remarks, activity_log,
+          p1_drive_file_id, p2_drive_file_id, p3_drive_file_id, p4_drive_file_id,
+          hm_drive_file_id, comp_drive_file_id, hm_report_photo_url, completion_photo_url, drive_folder_url,
+          client_request_id
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27::jsonb,
+          $28, $29, $30, $31, $32, $33, $34, $35, $36,
+          NULLIF($37, '')
+        )
+        ON CONFLICT (ticket_id) DO NOTHING RETURNING ticket_id
+      `, [
+        ticketData.ticketId,
+        ticketData.createdAt,
+        ticketData.priority,
+        ticketData.status,
+        ticketData.resolutionCategory,
+        ticketData.district,
+        ticketData.block,
+        ticketData.schoolId,
+        ticketData.schoolName,
+        ticketData.udise,
+        ticketData.aiName,
+        ticketData.phone,
+        ticketData.issue,
+        ticketData.duration,
+        ticketData.serialNo,
+        ticketData.resolutionType,
+        ticketData.vendorName,
+        ticketData.vendorTicketNo,
+        ticketData.partsRequired,
+        ticketData.resolutionNotes,
+        ticketData.resolvedAt,
+        ticketData.photo1Url,
+        ticketData.photo2Url,
+        ticketData.photo3Url,
+        ticketData.photo4Url,
+        ticketData.remarks,
+        JSON.stringify(ticketData.timeline || []),
+        ticketData.p1DriveFileId || null,
+        ticketData.p2DriveFileId || null,
+        ticketData.p3DriveFileId || null,
+        ticketData.p4DriveFileId || null,
+        ticketData.hmDriveFileId || null,
+        ticketData.compDriveFileId || null,
+        ticketData.hmReportPhotoUrl || null,
+        ticketData.completionPhotoUrl || null,
+        ticketData.googleDriveFolderUrl || null,
+        (ticketData.clientRequestId && String(ticketData.clientRequestId).trim()) ? String(ticketData.clientRequestId).trim() : null
+      ]);
+      const sel = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1', [cleanId]);
+      const row = sel.rows.length > 0 ? mapRowToTicket(sel.rows[0]) : null;
+      return { created: ins.rows.length > 0, ticket: row };
+    } catch (e) {
+      // Resolve unique-violation races to the winning row instead of erroring.
+      // ONLY same-request identity converges: same ticket ID (PK race) or same
+      // idempotency key (retry). Same-UDISE requests are NEVER converged here —
+      // a suffixed ticket is a NEW complaint from the same school and multiple
+      // open complaints per UDISE are legitimate. Genuine conflicts with no
+      // resolvable winner stay an error.
+      if (e && e.code === '23505') {
+        try {
+          let sel = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1', [cleanId]);
+          if (sel.rows.length > 0) return { created: false, ticket: mapRowToTicket(sel.rows[0]) };
+          const key = (ticketData.clientRequestId && String(ticketData.clientRequestId).trim())
+            ? String(ticketData.clientRequestId).trim() : null;
+          if (key) {
+            sel = await pool.query('SELECT * FROM tickets WHERE client_request_id = $1 LIMIT 1', [key]);
+            if (sel.rows.length > 0) return { created: false, ticket: mapRowToTicket(sel.rows[0]) };
+          }
+        } catch (re) {}
+      }
+      console.error('Postgres createTicketIfNotExists error:', e.message);
+      return { created: false, error: e.message };
+    }
+  }
+  const list = loadTicketsFromJson();
+  const existing = list.find(t => String(t.ticketId || '').trim() === cleanId);
+  if (existing) return { created: false, ticket: existing };
+  const res = await createTicket(ticketData);
+  if (!res || res.success === false) return { created: false, error: (res && res.error) || 'create failed' };
+  return { created: true, ticket: res.ticket || ticketData };
+}
+
 module.exports = {
   safeWriteFileSync,
   initDatabase,
   getAllTickets,
   getAllTicketsSync,
   checkOpenTicketByUdise,
+  ticketIdExists,
+  ticketCount,
   createTicket,
+  createTicketIfNotExists,
+  findTicketByClientRequestId,
   updateTicket,
   deleteTicket,
   deleteCompletionEvidence,
@@ -2839,5 +3608,19 @@ module.exports = {
   isValidIndianPhone,
   maskPhone,
   syncGasTickets,
-  extractDriveFileId
+  extractDriveFileId,
+  createPhotoJob,
+  ensurePhotoJobs,
+  getPhotoJob,
+  listPhotoJobs,
+  countPhotoJobs,
+  claimPhotoJob,
+  confirmPhotoJob,
+  confirmPhotoJobsForTicket,
+  failPhotoJob,
+  failPhotoJobPermanent,
+  getTicketPhotoSlot,
+  getTicketPhotoPresence,
+  findUnconfirmedPhotoWork,
+  PHOTO_JOB_MAX_ATTEMPTS
 };

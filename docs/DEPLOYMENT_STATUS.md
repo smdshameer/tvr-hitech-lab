@@ -7,6 +7,8 @@
 - Last known deployment: commit `2c17f72`, READY (last reported; live status UNKNOWN — re-verify read-only)
 - Pending deployment: `f442c8b` pushed to `origin/main` 2026-09-06 (forensic-safe uploads + gated tests + continuity).
 - Deployed 2026-09-06: `c2c5f9d` pushed to `origin/main` (intake ID-gate + verify/adopt).
+- Deployed 2026-09-06: `dd2fa9d` pushed to `origin/main` (emergency verify fix).
+  Post-push routing checks PASS. Running-commit needs dashboard confirm (write-path-only deltas).
 - Deployed 2026-09-06: `057080d` pushed to `origin/main` (nothing-to-confirm guard + URL backfill).
   Post-push routing checks PASS. Running-commit needs dashboard confirm (write-path-only deltas).
   Post-push routing checks PASS (`/`, `/api/version`, `/api/diag` 200). Running-commit identity

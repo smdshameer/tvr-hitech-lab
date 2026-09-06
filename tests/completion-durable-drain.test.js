@@ -8,12 +8,46 @@
  * Server-handler tests invoke the REAL handleRequest() with faithful request
  * shapes (same harness style as tests/vercel-routing.test.js). No network GAS
  * dependency for cron tests (empty queue drains instantly).
+ *
+ * HERMETIC: VERCEL=1 routes ALL disk writes to os.tmpdir() and a fail-closed
+ * fetch guard blocks any production Apps Script call. The live-drain tests run
+ * against an empty tmpdir queue, so they can never touch production Drive.
  */
 
 const assert = require('assert');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { EventEmitter } = require('events');
+
+// Hermetic BEFORE server require: isolates ALL disk writes to os.tmpdir().
+process.env.VERCEL = '1';
+const TMP_DATA = path.join(os.tmpdir(), 'tvr_data');
+const TMP_UP = path.join(os.tmpdir(), 'tvr_uploads');
+for (const d of [TMP_DATA, TMP_UP]) {
+  try { fs.rmSync(d, { recursive: true, force: true }); } catch (e) {}
+  try { fs.mkdirSync(d, { recursive: true }); } catch (e) {}
+}
+// Snapshot/restore repo data files (belt-and-braces; hermetic mode writes tmpdir only).
+const REPO_SNAP = {};
+for (const f of ['data/htl_itsm_tickets.json', 'data/master_schools_182.json', 'Hi-Tech_Lab_Warriors_Thiruvarur_Directory.json', 'data/audit_log.json', 'data/htl_deleted_ids.json', 'data/htl_tombstones.json']) {
+  try { REPO_SNAP[f] = fs.readFileSync(path.join(__dirname, '..', f)); } catch (e) { REPO_SNAP[f] = null; }
+}
+function restoreRepo() {
+  for (const f of Object.keys(REPO_SNAP)) {
+    try {
+      const p = path.join(__dirname, '..', f);
+      if (REPO_SNAP[f] === null) { try { fs.rmSync(p, { force: true }); } catch (e) {} }
+      else fs.writeFileSync(p, REPO_SNAP[f]);
+    } catch (e) {}
+  }
+}
+// Fail-closed: any production GAS call attempt throws instead of executing.
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, opts) => {
+  if (String(url || '').includes('script.google.com')) throw new Error('hermetic guard: production GAS call blocked');
+  return realFetch(url, opts);
+};
 
 const serverSrc = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 const dbSrc = fs.readFileSync(path.join(__dirname, '../db.js'), 'utf8');
@@ -135,8 +169,15 @@ function retryQueueDepth() {
   test('G. Inline failure queues durable retry + honest pending', () => {
     const i = serverSrc.indexOf('Serverless sync-first');
     assert(i !== -1, 'sync-first block present');
-    const block = serverSrc.slice(i, i + 1400);
-    assert(block.includes('enqueueDriveRetry(ticketId,'), 'failure path enqueues');
+    // Completion failures route through the queueCompletionRetry closure, which
+    // enqueues a durable 'completion' retry entry (never silently dropped).
+    assert(serverSrc.includes("const queueCompletionRetry = () => { enqueueDriveRetry(ticketId, 'completion');"),
+      'retry closure enqueues durable completion entry');
+    const block = serverSrc.slice(i, i + 3200);
+    const queued = (block.match(/queueCompletionRetry\(\)/g) || []).length;
+    assert(queued >= 3, 'inline/verify-fail paths queue durable retry, found=' + queued);
+    assert(block.includes("'pending-retry'") || block.includes('pending-verification'),
+      'failure paths record honest pending state');
   });
 
   // Cron endpoint: auth matrix (no secret in repo, no network GAS needed for empty queue).
@@ -224,5 +265,9 @@ function retryQueueDepth() {
   console.log(`📊 DURABLE-DRAIN RESULTS: ${passed} Passed, ${failed} Failed${skipped > 0 ? `, ${skipped} Skipped (non-empty retry queue — live drain refused)` : ''}`);
   console.log('SAFE TESTS: ' + (failed === 0 ? 'PASS' : 'FAIL') + (skipped > 0 ? ' / LIVE DRAIN: SKIPPED' : ''));
   console.log('======================================================================\n');
+  globalThis.fetch = realFetch;
+  try { fs.rmSync(TMP_DATA, { recursive: true, force: true }); } catch (e) {}
+  try { fs.rmSync(TMP_UP, { recursive: true, force: true }); } catch (e) {}
+  restoreRepo();
   process.exit(failed > 0 ? 1 : 0);
-})().catch((e) => { console.error('SUITE ERROR: ' + (e && e.message)); process.exit(2); });
+})().catch((e) => { console.error('SUITE ERROR: ' + (e && e.message)); globalThis.fetch = realFetch; try { restoreRepo(); } catch (err) {} process.exit(2); });

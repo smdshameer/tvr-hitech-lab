@@ -128,6 +128,9 @@ const masterSchools = db.masterSchools || [];
 const { getAllTicketsSync } = db;
 // Import DATA_DIR from db.js for consistent data path handling (unified with db.js: os.tmpdir()/tvr_data)
 const isServerless = !!process.env.VERCEL || !!process.env.VERCEL_ENV || !!process.env.AWS_LAMBDA_FUNCTION_NAME || __dirname.startsWith('/var/task') || __dirname.startsWith('/tmp');
+// Durable per-photo job queue (Phase 2). Rollback lever: USE_PHOTO_JOBS=0
+// restores pure-legacy queue behavior without a code revert.
+const USE_PHOTO_JOBS = process.env.USE_PHOTO_JOBS !== '0';
 const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
 const DATA_DIR = isServerless ? path.join(os.tmpdir(), 'tvr_data') : BUNDLED_DATA_DIR;
 
@@ -1038,11 +1041,111 @@ function enqueueDriveRetry(ticketId, kind) {
 function dataUrlOrEmpty(v) {
   return (typeof v === 'string' && v.startsWith('data:image')) ? v : '';
 }
+// ---- Durable per-photo job creation (Phase 2) ----
+// Jobs are created ONLY for slots with durable photo bytes in the ticket
+// record. Creation is idempotent (UNIQUE ticket/kind/slot + DO NOTHING).
+function photoJobSpecsForIntake(ticket) {
+  const specs = [];
+  if (!ticket) return specs;
+  for (let i = 1; i <= 4; i++) {
+    if (dataUrlOrEmpty(ticket['photo' + i + 'Url'])) specs.push({ kind: 'intake', slot: String(i) });
+  }
+  return specs;
+}
+async function enqueuePhotoJobsForIntake(ticket) {
+  if (!USE_PHOTO_JOBS || !ticket || !ticket.ticketId) return { created: 0, existing: 0, errors: 0 };
+  try {
+    return await db.ensurePhotoJobs(ticket.ticketId, photoJobSpecsForIntake(ticket));
+  } catch (e) {
+    console.warn(`[PHOTO-JOBS] intake ensure failed for ${ticket.ticketId}: ${e.message}`);
+    return { created: 0, existing: 0, errors: 1 };
+  }
+}
+async function enqueuePhotoJobsForCompletion(ticketId, hmBytes, compBytes) {
+  if (!USE_PHOTO_JOBS || !ticketId) return { created: 0, existing: 0, errors: 0 };
+  const specs = [];
+  if (dataUrlOrEmpty(hmBytes)) specs.push({ kind: 'completion', slot: 'hm' });
+  if (dataUrlOrEmpty(compBytes)) specs.push({ kind: 'completion', slot: 'gps' });
+  if (specs.length === 0) return { created: 0, existing: 0, errors: 0 };
+  try {
+    return await db.ensurePhotoJobs(ticketId, specs);
+  } catch (e) {
+    console.warn(`[PHOTO-JOBS] completion ensure failed for ${ticketId}: ${e.message}`);
+    return { created: 0, existing: 0, errors: 1 };
+  }
+}
+// Existing-ticket path (§6): make sure every present-but-unconfirmed slot has
+// a durable job (upsert — never duplicates). No unconfirmed photo orphans.
+async function ensurePhotoJobsForTicketRecord(t) {
+  if (!USE_PHOTO_JOBS || !t || !t.ticketId) return { created: 0, existing: 0, errors: 0 };
+  try {
+    const pres = await db.getTicketPhotoPresence(t.ticketId);
+    if (!pres || !pres.found) return { created: 0, existing: 0, errors: 0 };
+    const specs = [];
+    for (const s of (pres.intake || [])) {
+      if (!(pres.intakeIds || []).includes(s)) specs.push({ kind: 'intake', slot: s });
+    }
+    for (const s of (pres.completion || [])) {
+      if (!(pres.completionIds || []).includes(s)) specs.push({ kind: 'completion', slot: s });
+    }
+    if (specs.length === 0) return { created: 0, existing: 0, errors: 0 };
+    return await db.ensurePhotoJobs(t.ticketId, specs);
+  } catch (e) {
+    console.warn(`[PHOTO-JOBS] existing-ticket ensure failed for ${t.ticketId}: ${e.message}`);
+    return { created: 0, existing: 0, errors: 1 };
+  }
+}
 function isLocalUploadUrl(u) {
   return typeof u === 'string' && u.startsWith('/uploads/');
 }
 function isExternalUploadUrl(u) {
   return typeof u === 'string' && (u.startsWith('http://') || u.startsWith('https://'));
+}
+function isDashboardBytePayload(v) {
+  return typeof v === 'string' && v.startsWith('data:image');
+}
+// Metadata-first projection for /api/data responses (response-shape ONLY —
+// never persisted, never deletes anything from PostgreSQL/JSON).
+// Per-slot rule: a data: photo payload is blanked only when that slot already
+// has a Drive reference (file ID or https URL), so at least one viewable copy
+// always survives: Drive URL/ID, top-level bytes, or nested evidence .data.
+// Unconfirmed, legacy, and URL-less records pass through byte-identical.
+// Operates on copies so shared in-memory/DB objects are never stripped.
+function projectTicketForDashboard(src) {
+  if (!src || typeof src !== 'object') return src;
+  const t = { ...src };
+  let stripped = false;
+  const stripIfBacked = (field, backed) => {
+    if (backed && isDashboardBytePayload(t[field])) { t[field] = ''; stripped = true; }
+  };
+  // Intake slots 1-4: strip independently per slot.
+  for (let i = 1; i <= 4; i++) {
+    const backed = !!t['p' + i + 'DriveFileId'] || isExternalUploadUrl(t['photo' + i + 'Url']) || isExternalUploadUrl(t['p' + i + 'DriveUrl']);
+    stripIfBacked('photo' + i + 'Url', backed);
+    stripIfBacked('photo' + i + 'Base64', backed);
+  }
+  // Completion slots: HM report + GPS completion photo.
+  stripIfBacked('hmReportPhotoBase64', !!t.hmDriveFileId || isExternalUploadUrl(t.hmReportPhotoUrl));
+  stripIfBacked('completionPhotoBase64', !!t.compDriveFileId || isExternalUploadUrl(t.completionPhotoUrl));
+  if (t.completionEvidence && typeof t.completionEvidence === 'object') {
+    const ce = { ...t.completionEvidence };
+    let ceTouched = false;
+    const slots = [
+      { key: 'hmSignedReport', backed: !!t.hmDriveFileId || isExternalUploadUrl(t.hmReportPhotoUrl), topBytes: t.hmReportPhotoBase64 },
+      { key: 'completionPhoto', backed: !!t.compDriveFileId || isExternalUploadUrl(t.completionPhotoUrl), topBytes: t.completionPhotoBase64 },
+    ];
+    for (const s of slots) {
+      const slot = ce[s.key];
+      if (slot && typeof slot === 'object' && isDashboardBytePayload(slot.data)) {
+        // Keep nested .data when it is the ONLY recoverable copy (no Drive ref
+        // and no top-level bytes); otherwise blank it to shed payload weight.
+        if (s.backed || isDashboardBytePayload(s.topBytes)) { ce[s.key] = { ...slot, data: '' }; ceTouched = true; stripped = true; }
+      }
+    }
+    if (ceTouched) t.completionEvidence = ce;
+  }
+  if (stripped) t.bytesStripped = true;
+  return t;
 }
 // Pure decision helpers for the completion retry branch (unit-tested; no I/O).
 // Intent is derived from the DURABLE ticket record, never from /tmp.
@@ -1186,8 +1289,321 @@ async function processDriveRetryQueue(manual, opts) {
   driveRetryRunning = false;
   return { success: true, ...summary };
 }
+
+// ========================================================
+// DURABLE PER-PHOTO JOB WORKER (Phase 2)
+//
+// Consumes drive_photo_jobs: atomic lease claim -> single-photo GAS upload
+// (existing action:create / action:update, one slot per call) -> dd2fa9d
+// read-back verification -> atomic confirm + byte cleanup in ONE ticket
+// update. Failures keep bytes and requeue with backoff; a dead worker's
+// expired lease makes the job reclaimable by another worker.
+// Sequential within a worker; concurrent workers take different jobs.
+// ========================================================
+function resolvePhotoSlotFolder(slotLoad) {
+  const resolved = resolveSchoolDistrict(slotLoad.udise, '', slotLoad.district, slotLoad.schoolName);
+  return {
+    resolved,
+    schoolFolderDisplay: `${resolved.udise || slotLoad.udise} - ${resolved.schoolName || slotLoad.schoolName}`,
+  };
+}
+function driveThumbnailUrl(id) {
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w800` : '';
+}
+
+async function uploadIntakePhotoSlot(job, slotLoad, folder) {
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  if (!webhookUrl) return { ok: false, error: 'No webhook URL configured' };
+  const n = job.slot;
+  const payload = {
+    action: 'create',
+    ticketId: job.ticketId,
+    createdAt: slotLoad.createdDate || '',
+    schoolName: folder.resolved.schoolName || slotLoad.schoolName,
+    udise: folder.resolved.udise || slotLoad.udise,
+    block: slotLoad.block || '',
+    district: folder.resolved.district,
+    targetDistrictRoot: folder.resolved.rootFolder,
+    aiName: '', phone: '', issue: '', duration: '', serialNo: '',
+    remarks: `Photo-job intake slot ${n} (ticket ${job.ticketId}, job ${job.jobId})`,
+    photo1Base64: n === '1' ? slotLoad.bytes : '',
+    photo2Base64: n === '2' ? slotLoad.bytes : '',
+    photo3Base64: n === '3' ? slotLoad.bytes : '',
+    photo4Base64: n === '4' ? slotLoad.bytes : '',
+  };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 55000);
+    let data = null;
+    try {
+      const res = await globalThis.fetch(webhookUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), redirect: 'follow', signal: controller.signal,
+      });
+      data = await res.json();
+    } finally { clearTimeout(timer); }
+    if (!data || data.success !== true) return { ok: false, error: (data && data.error) || 'Drive upload failed', result: data };
+    const id = data['p' + n + 'DriveFileId'] || extractDriveFileId(data['p' + n + 'Url'] || '');
+    return { ok: true, id: id || '', url: data['p' + n + 'Url'] || '', result: data };
+  } catch (err) {
+    const isTimeout = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+    return { ok: false, error: err.message, timeout: !!isTimeout };
+  }
+}
+
+async function uploadCompletionPhotoSlot(job, slotLoad, folder) {
+  const webhookUrl = process.env.GOOGLE_DRIVE_WEBHOOK_URL || process.env.GOOGLE_DRIVE_URL || GOOGLE_APPS_SCRIPT_ENDPOINT;
+  if (!webhookUrl) return { ok: false, error: 'No webhook URL configured' };
+  const isHm = job.slot === 'hm';
+  const other = (slotLoad.other && typeof slotLoad.other === 'object') ? slotLoad.other : {};
+  const payload = {
+    action: 'update',
+    ticketId: job.ticketId,
+    operationId: `photojob-${job.jobId}-a${job.attempts || 0}`,
+    district: folder.resolved.district,
+    targetDistrictRoot: folder.resolved.rootFolder,
+    schoolName: folder.resolved.schoolName || slotLoad.schoolName,
+    udise: folder.resolved.udise || slotLoad.udise,
+    status: '',
+    remarks: `Photo-job completion/${job.slot} attempt ${job.attempts || 0} (ticket ${job.ticketId})`,
+    hmReportPhotoBase64: isHm ? slotLoad.bytes : '',
+    completionPhotoBase64: !isHm ? slotLoad.bytes : '',
+    hmReportPhotoUrl: '', completionPhotoUrl: '',
+    hmDriveFileId: isHm ? (slotLoad.driveFileId || '') : (other.driveFileId || ''),
+    compDriveFileId: !isHm ? (slotLoad.driveFileId || '') : (other.driveFileId || ''),
+    completionEvidenceStatus: '',
+    gpsLatitude: null, gpsLongitude: null,
+  };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 55000);
+    let data = null;
+    try {
+      const res = await globalThis.fetch(webhookUrl, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), redirect: 'follow', signal: controller.signal,
+      });
+      data = await res.json();
+    } finally { clearTimeout(timer); }
+    if (!data || data.success !== true) return { ok: false, error: (data && data.error) || 'Drive upload failed', result: data };
+    const id = isHm ? (data.hmDriveFileId || '') : (data.compDriveFileId || '');
+    const url = isHm ? (data.hmDriveUrl || data.hmReportPhotoUrl || '') : (data.compDriveUrl || data.completionPhotoUrl || '');
+    return { ok: true, id: id || '', url: url || '', result: data };
+  } catch (err) {
+    const isTimeout = err && (err.name === 'AbortError' || /abort/i.test(err.message || ''));
+    return { ok: false, error: err.message, timeout: !!isTimeout };
+  }
+}
+
+// Per-slot read-back over the existing dd2fa9d classifiers. reportedId is the
+// ID GAS just returned ('' when unknown: observed files are adopted).
+async function verifyPhotoSlot(job, slotLoad, opts) {
+  const o = opts || {};
+  const folder = resolvePhotoSlotFolder(slotLoad);
+  if (job.kind === 'intake') {
+    const idx = Number(job.slot) - 1;
+    const names = [1, 2, 3, 4].map(i => `${job.ticketId}_Evidence_${i}.jpg`);
+    const ids = ['', '', '', ''];
+    const need = [false, false, false, false];
+    ids[idx] = o.reportedId || '';
+    need[idx] = true;
+    const v = await verifyIntakeDriveFiles({
+      ticketId: job.ticketId, district: folder.resolved.district,
+      udise: folder.resolved.udise || slotLoad.udise, schoolName: folder.resolved.schoolName || slotLoad.schoolName,
+      schoolFolder: folder.schoolFolderDisplay,
+      fileNames: names, ids, needsVerify: need,
+    });
+    return { verified: v.verified, reasons: v.reasons, adoptedId: (v.adoptedIds && v.adoptedIds[idx]) || '', folderUrl: v.folderUrl || '' };
+  }
+  const isHm = job.slot === 'hm';
+  const v = await verifyCompletionDriveFiles({
+    ticketId: job.ticketId, district: folder.resolved.district,
+    udise: folder.resolved.udise || slotLoad.udise, schoolName: folder.resolved.schoolName || slotLoad.schoolName,
+    schoolFolder: folder.schoolFolderDisplay,
+    hmFileName: `${job.ticketId}_HM_Signed_Completion_Report.jpg`,
+    compFileName: `${job.ticketId}_Completion_UPS_GPS.jpg`,
+    hmId: isHm ? (o.reportedId || '') : '',
+    compId: !isHm ? (o.reportedId || '') : '',
+    hmNeedsVerify: isHm, compNeedsVerify: !isHm,
+  });
+  return { verified: v.verified, reasons: v.reasons, adoptedId: isHm ? (v.hmFoundId || '') : (v.compFoundId || ''), folderUrl: v.folderUrl || '' };
+}
+
+// Atomic confirm + byte cleanup: ONE updateTicket persists the Drive ID/URL
+// and releases that slot's bytes (URL-overwrite for intake, per-slot clear
+// flags for completion). Never split across updates.
+async function confirmPhotoSlotInStore(job, slotLoad, fileId, fileUrl, folderUrl) {
+  if (!fileId) return { success: false, error: 'missing Drive file ID' };
+  const url = fileUrl || driveThumbnailUrl(fileId);
+  if (job.kind === 'intake') {
+    const n = job.slot;
+    const update = {
+      ['p' + n + 'DriveFileId']: fileId,
+      ['p' + n + 'DriveUrl']: url,
+      ['photo' + n + 'Url']: url,
+    };
+    if (folderUrl) update.googleDriveFolderUrl = folderUrl;
+    return db.updateTicket(job.ticketId, update);
+  }
+  const isHm = job.slot === 'hm';
+  const ev = (slotLoad.evidence && typeof slotLoad.evidence === 'object') ? slotLoad.evidence : {};
+  const slotKey = isHm ? 'hmSignedReport' : 'completionPhoto';
+  const prev = (ev[slotKey] && typeof ev[slotKey] === 'object') ? ev[slotKey] : {};
+  const merged = { ...ev, [slotKey]: { ...prev, uploaded: true, driveFileId: fileId, fileUrl: url } };
+  const update = {
+    completionEvidence: merged,
+    clearHmBytes: isHm,
+    clearCompBytes: !isHm,
+  };
+  if (isHm) { update.hmDriveFileId = fileId; update.hmReportPhotoUrl = url; }
+  else { update.compDriveFileId = fileId; update.completionPhotoUrl = url; }
+  if (folderUrl) update.googleDriveFolderUrl = folderUrl;
+  return db.updateTicket(job.ticketId, update);
+}
+
+async function processPhotoJob(job, owner, hooks) {
+  const H = hooks || {};
+  if (!job || !job.ticketId || !job.kind || !job.slot) return { outcome: 'invalid-job' };
+  const slotLoad = await db.getTicketPhotoSlot(job.ticketId, job.kind, job.slot);
+  if (!slotLoad || !slotLoad.found) {
+    // Ticket missing/tombstoned: close the loop without resurrecting anything.
+    await db.confirmPhotoJob(job.jobId);
+    return { outcome: 'dropped-missing-ticket' };
+  }
+  const folder = resolvePhotoSlotFolder(slotLoad);
+  // Slot already carries a Drive ID: verify-once, then confirm (+atomic release).
+  if (slotLoad.driveFileId) {
+    const v = await verifyPhotoSlot(job, slotLoad, { reportedId: slotLoad.driveFileId });
+    if (v.verified) {
+      await confirmPhotoSlotInStore(job, slotLoad, slotLoad.driveFileId, slotLoad.driveUrl, v.folderUrl);
+      await db.confirmPhotoJob(job.jobId);
+      return { outcome: 'confirmed-existing' };
+    }
+    // Unverifiable stale ID: fall through to re-upload when bytes exist.
+  }
+  if (!slotLoad.bytes) {
+    await db.failPhotoJob(job.jobId, new Error(`no recoverable photo bytes for ${job.kind}/${job.slot} (cold read; retryable)`));
+    return { outcome: 'cold-missing' };
+  }
+  // Retry (not the first attempt): inspect Drive FIRST so a file uploaded by
+  // a worker that died before persisting IDs is adopted, not duplicated.
+  if ((Number(job.attempts) || 0) > 1) {
+    try {
+      const v = await verifyPhotoSlot(job, slotLoad, {});
+      if (v.verified && v.adoptedId) {
+        await confirmPhotoSlotInStore(job, slotLoad, v.adoptedId, '', v.folderUrl);
+        await db.confirmPhotoJob(job.jobId);
+        return { outcome: 'adopted' };
+      }
+    } catch (e) { /* fall through to upload */ }
+  }
+  // Single-photo upload. Sequential by design — never parallel per ticket.
+  let up = null;
+  try {
+    up = (job.kind === 'intake')
+      ? await uploadIntakePhotoSlot(job, slotLoad, folder)
+      : await uploadCompletionPhotoSlot(job, slotLoad, folder);
+    if (H && typeof H.onAfterUpload === 'function') await H.onAfterUpload(job, up);
+  } catch (e) {
+    up = { ok: false, error: (e && e.message) || String(e) };
+  }
+  // Read-back verification regardless of upload outcome: a timeout AFTER
+  // Drive creation still confirms via adoption instead of blind retry.
+  let v = { verified: false, reasons: ['not-attempted'], adoptedId: '' };
+  try {
+    v = await verifyPhotoSlot(job, slotLoad, { reportedId: (up && up.id) || '' });
+  } catch (e) {
+    v = { verified: false, reasons: ['verify-error: ' + String((e && e.message) || e).slice(0, 120)], adoptedId: '' };
+  }
+  const finalId = (v.verified && (v.adoptedId || (up && up.id))) || '';
+  if (v.verified && finalId) {
+    await confirmPhotoSlotInStore(job, slotLoad, finalId, (up && up.url) || '', v.folderUrl);
+    await db.confirmPhotoJob(job.jobId);
+    return { outcome: 'confirmed' };
+  }
+  const err = (up && !up.ok && up.error) ? up.error : ('Drive verification failed: ' + (v.reasons || []).join('; '));
+  await db.failPhotoJob(job.jobId, new Error(String(err).slice(0, 500)));
+  return { outcome: 'failed-retry' };
+}
+
+// Bounded worker loop: claim -> process until budget exhausted or queue empty.
+// Stops cleanly before platform limits; remaining jobs stay durable/retryable.
+async function drainPhotoJobs(opts) {
+  const o = opts || {};
+  const owner = String(o.owner || ('photo-worker-' + process.pid + '-' + Date.now().toString(36))).slice(0, 80);
+  const maxJobs = Number.isFinite(Number(o.maxJobs)) && Number(o.maxJobs) > 0 ? Number(o.maxJobs) : Infinity;
+  const maxMs = Number.isFinite(Number(o.maxMs)) && Number(o.maxMs) > 0 ? Number(o.maxMs) : 50000;
+  const leaseMs = Number.isFinite(Number(o.leaseMs)) && Number(o.leaseMs) > 0 ? Number(o.leaseMs) : 10 * 60 * 1000;
+  const deadline = Date.now() + maxMs;
+  const summary = { claimed: 0, confirmed: 0, adopted: 0, confirmedExisting: 0, failed: 0, failedPermanent: 0, dropped: 0, coldMissing: 0 };
+  while (summary.claimed < maxJobs && Date.now() < deadline) {
+    let c = null;
+    try { c = await db.claimPhotoJob({ owner, leaseMs }); } catch (e) { break; }
+    if (!c || !c.claimed) break;
+    summary.claimed++;
+    try {
+      const r = await processPhotoJob(c.job, owner, o._testHooks);
+      if (r.outcome === 'confirmed') summary.confirmed++;
+      else if (r.outcome === 'adopted') summary.adopted++;
+      else if (r.outcome === 'confirmed-existing') summary.confirmedExisting++;
+      else if (r.outcome === 'dropped-missing-ticket') summary.dropped++;
+      else if (r.outcome === 'cold-missing') summary.coldMissing++;
+      else summary.failed++;
+    } catch (e) {
+      try { await db.failPhotoJob(c.job.jobId, e); } catch (fe) {}
+      summary.failed++;
+    }
+    try {
+      const cur = await db.getPhotoJob(c.job.ticketId, c.job.kind, c.job.slot);
+      if (cur && cur.state === 'FAILED_PERMANENT') summary.failedPermanent++;
+    } catch (e) {}
+  }
+  return { success: true, owner, ...summary };
+}
+
+// Legacy discovery (bounded, byte-free): find pre-queue tickets holding
+// durable bytes without Drive IDs and ensure photo jobs for their slots.
+async function runPhotoJobDiscovery(limit) {
+  if (!USE_PHOTO_JOBS) return { discovered: 0 };
+  try {
+    const cands = await db.findUnconfirmedPhotoWork(limit || 50);
+    let jobs = 0;
+    for (const c of (cands || [])) {
+      try {
+        const pres = await db.getTicketPhotoPresence(c.ticketId);
+        if (!pres || !pres.found) continue;
+        const specs = [];
+        if (c.needIntake) {
+          for (const s of (pres.intake || [])) {
+            if (!(pres.intakeIds || []).includes(s)) specs.push({ kind: 'intake', slot: s });
+          }
+        }
+        if (c.needCompletion) {
+          for (const s of (pres.completion || [])) {
+            if (!(pres.completionIds || []).includes(s)) specs.push({ kind: 'completion', slot: s });
+          }
+        }
+        if (specs.length > 0) {
+          const r = await db.ensurePhotoJobs(c.ticketId, specs);
+          jobs += (r.created || 0);
+        }
+      } catch (e) {}
+    }
+    return { discovered: jobs };
+  } catch (e) { return { discovered: 0, error: e.message }; }
+}
 if (!process.env.VERCEL && typeof setInterval !== 'undefined') {
-  setInterval(() => { processDriveRetryQueue(false).catch(() => {}); }, 5 * 60 * 1000);
+  setInterval(() => {
+    (async () => {
+      try {
+        if (USE_PHOTO_JOBS) {
+          try { await runPhotoJobDiscovery(50); } catch (e) {}
+          await drainPhotoJobs({ owner: 'local-interval', maxJobs: 20, maxMs: 4 * 60 * 1000 });
+        }
+      } catch (e) {}
+    })().catch(() => {});
+    processDriveRetryQueue(false).catch(() => {});
+  }, 5 * 60 * 1000);
 }
 
 // ========================================================
@@ -1330,8 +1746,11 @@ async function syncTicketToGoogleDrive(ticket, rawData) {
         if (!idGate.complete) {
           // Persist reported IDs only (never recovered/unverified ones) so no
           // phantom IDs enter the record; the retry entry is kept.
+          // Preserve already-persisted IDs for slots GAS omitted this round: an
+          // empty reported ID must never wipe a genuine confirmed ID (same rule
+          // as the verify-fail path below).
           await db.updateTicket(ticket.ticketId, { ...baseUpdate,
-            p1DriveFileId: p1Id, p2DriveFileId: p2Id, p3DriveFileId: p3Id, p4DriveFileId: p4Id });
+            p1DriveFileId: p1Id || preIds[0], p2DriveFileId: p2Id || preIds[1], p3DriveFileId: p3Id || preIds[2], p4DriveFileId: p4Id || preIds[3] });
           console.warn(`[DRIVE] Intake IDs incomplete for ${ticket.ticketId}: missing=${idGate.missing} — kept for retry`);
           return { success: false, error: `Google Drive did not return file IDs for ${idGate.missing} Evidence photo(s)`, result };
         }
@@ -1911,9 +2330,13 @@ async function handleRequest(req, res) {
         res.end(JSON.stringify({ success: false, error: 'Authentication required. Please login.' }));
         return;
       }
+      let photoJobs = { success: true, claimed: 0, confirmed: 0 };
+      if (USE_PHOTO_JOBS) {
+        try { photoJobs = await drainPhotoJobs({ owner: 'manual-drain', maxJobs: 20, maxMs: 50000 }); } catch (e) { photoJobs = { success: false, error: e.message }; }
+      }
       const result = await processDriveRetryQueue(true);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(result));
+      res.end(JSON.stringify({ ...result, photoJobs }));
       return;
     }
   }
@@ -1965,10 +2388,39 @@ async function handleRequest(req, res) {
       res.end(JSON.stringify({ success: false, error: expected ? 'Invalid cron secret.' : 'Cron drain not configured (CRON_SECRET missing); scheduler must identify as Vercel Cron.' }));
       return;
     }
+    // Cron backstop: bounded legacy discovery (byte-free) feeds durable photo
+    // jobs for pre-queue records, then a small photo-job slice, then the
+    // legacy drain with its existing bounds (unchanged).
+    let discovered = 0;
+    let photoJobs = { success: true, claimed: 0, confirmed: 0 };
+    if (USE_PHOTO_JOBS) {
+      try { discovered = (await runPhotoJobDiscovery(50)).discovered || 0; } catch (e) {}
+      try { photoJobs = await drainPhotoJobs({ owner: 'cron-drain', maxJobs: 2, maxMs: 8000 }); } catch (e) { photoJobs = { success: false, error: e.message }; }
+    }
     const result = await processDriveRetryQueue(true, { maxEntries: 5, maxMs: 50000 });
-    console.log(`[DRIVE-DRAIN] via=${authVia} processed=${result.processed} succeeded=${result.succeeded} pending=${result.stillPending}`);
+    console.log(`[DRIVE-DRAIN] via=${authVia} discovered=${discovered} photoJobs=${photoJobs.claimed || 0}/${photoJobs.confirmed || 0} processed=${result.processed} succeeded=${result.succeeded} pending=${result.stillPending}`);
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, bounded: true, via: authVia, ...result }));
+    res.end(JSON.stringify({ success: true, bounded: true, via: authVia, discovered, photoJobs, ...result }));
+    return;
+  }
+
+  // Staff-driven bounded drain pump: the Engineer workbench polls every 15s and
+  // hits this endpoint every 4th poll (~60s) to advance at most 2 queued uploads
+  // within 12s. Engineer session required (existing auth, no new secrets).
+  // Fully awaited server-side: work completes inside THIS request lifecycle, so
+  // unlike fire-and-forget drains it cannot be frozen mid-upload. Counts only.
+  if (pathname === '/api/admin/drive-pump' && req.method === 'POST') {
+    if (!requireCsrf(req, res)) return;
+    // Durable photo jobs first (bounded slice), then the legacy ticket-level
+    // drain for pre-queue file entries. Both converge on verified Drive IDs.
+    let photoJobs = { success: true, claimed: 0, confirmed: 0 };
+    if (USE_PHOTO_JOBS) {
+      try { photoJobs = await drainPhotoJobs({ owner: 'staff-pump', maxJobs: 2, maxMs: 8000 }); } catch (e) { photoJobs = { success: false, error: e.message }; }
+    }
+    const result = await processDriveRetryQueue(true, { maxEntries: 2, maxMs: 12000 });
+    console.log(`[DRIVE-PUMP] photoJobs=${photoJobs.claimed || 0}/${photoJobs.confirmed || 0} processed=${result.processed} succeeded=${result.succeeded} pending=${result.stillPending}`);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, bounded: true, via: 'staff-pump', photoJobs, ...result }));
     return;
   }
 
@@ -2174,8 +2626,31 @@ async function handleRequest(req, res) {
         const ts = Date.now();
 
         // 1.5 Duplicate Submission & Double-Click Idempotency Protection
+        // Idempotency key first: the same logical request retried returns the
+        // same ticket without creating anything (callers without a key use the
+        // legacy UDISE business rule below — never replaced by the key).
+        const clientRequestId = String(data.clientRequestId || data.client_request_id || req.headers['x-idempotency-key'] || '').trim();
+        if (clientRequestId) {
+          const keyedTicket = await db.findTicketByClientRequestId(clientRequestId);
+          if (keyedTicket && keyedTicket.ticketId && !db.isDeleted(keyedTicket.ticketId)) {
+            // Existing-ticket path: ensure unconfirmed evidence has durable jobs.
+            try { await ensurePhotoJobsForTicketRecord(keyedTicket); } catch (e) {}
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true,
+              ticketId: keyedTicket.ticketId,
+              message: 'பள்ளியின் முந்தைய புகார் ஏற்கனவே நிலுவையில் உள்ளது (Existing active ticket returned).',
+              isExisting: true,
+              idempotentReplay: true
+            }));
+            return;
+          }
+        }
         const existingOpenTicket = await db.checkOpenTicketByUdise(schoolUdise);
         if (existingOpenTicket) {
+          // Existing-ticket path: requeue any unconfirmed evidence (upsert, no
+          // duplicates) so nothing orphans merely because the ticket exists.
+          try { await ensurePhotoJobsForTicketRecord(existingOpenTicket); } catch (e) {}
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             success: true,
@@ -2212,23 +2687,26 @@ async function handleRequest(req, res) {
         const nowTicketDate = new Date();
         const dateStr = formatAppDate(nowTicketDate);
         const isoTicketStr = nowTicketDate.toISOString();
-        const allTickets = await db.getAllTickets();
-        const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(allTickets.length + 1).padStart(4, '0');
-        
+        // Scalability: targeted existence probes (no full-table byte scans, no
+        // Sheets sync) for ID allocation. Falls back to a lightweight count.
+        const ticketCountHint = await db.ticketCount();
+        const cleanSuffix = schoolUdise ? schoolUdise.slice(-5) : String(ticketCountHint + 1).padStart(4, '0');
+
         const isNgp = resolvedDistrict.toLowerCase().includes('nagapattinam');
         const distPrefix = isNgp ? 'HTL-NGP-' : 'HTL-TVR-';
         const baseTicketId = distPrefix + cleanSuffix;
 
-        // Check existing active IDs in database
-        const existingIds = new Set(allTickets.map(t => String(t.ticketId || '').trim()));
-        
+        // Allocate an unused ticket ID via bounded targeted probes. Concurrent
+        // same-UDISE submissions converge on the same base ID and the PK upsert
+        // in db.createTicket makes the winner stick (no duplicates, no new ticket).
         let ticketId;
-        if (!existingIds.has(baseTicketId) && !db.isDeleted(baseTicketId)) {
+        if (!(await db.ticketIdExists(baseTicketId)) && !db.isDeleted(baseTicketId)) {
           ticketId = baseTicketId;
         } else {
           let suffixNum = 2;
-          while (existingIds.has(`${baseTicketId}-${suffixNum}`) || db.isDeleted(`${baseTicketId}-${suffixNum}`)) {
+          while ((await db.ticketIdExists(`${baseTicketId}-${suffixNum}`)) || db.isDeleted(`${baseTicketId}-${suffixNum}`)) {
             suffixNum++;
+            if (suffixNum > 500) break;
           }
           ticketId = `${baseTicketId}-${suffixNum}`;
         }
@@ -2236,6 +2714,7 @@ async function handleRequest(req, res) {
         const canonicalPriority = db.normalizePriority(data.priority, data.issue);
         const newTicket = {
           ticketId: ticketId,
+          clientRequestId: clientRequestId || '',
           createdAt: isoTicketStr,
           createdDate: dateStr,
           schoolId: (matchedSchool ? matchedSchool.id : (data.schoolId || '')),
@@ -2277,17 +2756,35 @@ async function handleRequest(req, res) {
           ]
         };
 
-        await db.createTicket(newTicket);
+        // Race-safe persist: single-statement insert-if-absent. A concurrent
+        // duplicate converges on the same ticket ID WITHOUT overwriting the
+        // winner's photo bytes or regressing status (no last-writer-wins).
+        const createRes = await db.createTicketIfNotExists(newTicket);
+        const activeTicket = (createRes && createRes.ticket && createRes.ticket.ticketId) ? createRes.ticket : newTicket;
+        const converged = !!(createRes && createRes.created === false);
+        // Phase 4: on convergence every downstream reference (response ID,
+        // audit, retry queue, job confirmation) must target the WINNING ticket.
+        // Reporting the locally minted ID here would hand the caller a phantom
+        // ticket ID that was never persisted (loser probe staggering).
+        if (activeTicket && activeTicket.ticketId) ticketId = activeTicket.ticketId;
         db.registerOrUpdateSchool({ udise: data.udise, schoolName: data.schoolName, block: data.block, aiName: data.aiName, phone: data.phone, district: data.district || 'Thiruvarur' });
-        await db.logAudit({ action: 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
+        await db.logAudit({ action: converged ? 'TICKET_CONVERGED' : 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
+
+        // Durable per-photo jobs for every present slot (idempotent upsert).
+        // Legacy ticket-level enqueue below is retained as fallback during transition.
+        try { await enqueuePhotoJobsForIntake(activeTicket); } catch (e) {}
 
         // Authoritatively sync photos to Google Drive before completing request.
         // Serverless (Vercel) fast-submit: awaiting multi-photo Apps Script uploads inside the
         // request breaches platform body/time limits (413/504 HTML -> client "check internet").
         // So on serverless we persist + queue cloud backup; local keeps the awaited sync.
+        // Converged duplicates (exact-ID race lost) skip inline sync: the winner's
+        // bytes own the upload; durable jobs already cover retry.
         let driveSyncResult = null;
         let driveSyncError = null;
-        if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+        if (converged) {
+          driveSyncError = 'Duplicate submission converged on existing ticket; cloud backup owned by durable jobs.';
+        } else if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
           if (isServerless) {
             enqueueDriveRetry(ticketId, 'intake');
             driveSyncError = 'Cloud backup queued (serverless fast-submit).';
@@ -2296,6 +2793,12 @@ async function handleRequest(req, res) {
               driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
               if (!driveSyncResult || !driveSyncResult.success) {
                 driveSyncError = (driveSyncResult && driveSyncResult.error) || 'Google Drive upload failed';
+              } else if (USE_PHOTO_JOBS && driveSyncResult.adoptedIds) {
+                // Inline success: close the matching durable jobs truthfully.
+                try {
+                  const doneSlots = [1, 2, 3, 4].filter(i => !!(driveSyncResult.adoptedIds[i - 1] || [newTicket.p1DriveFileId, newTicket.p2DriveFileId, newTicket.p3DriveFileId, newTicket.p4DriveFileId][i - 1]));
+                  if (doneSlots.length > 0) await db.confirmPhotoJobsForTicket(ticketId, 'intake', doneSlots.map(String));
+                } catch (e) {}
               }
             } catch (syncErr) {
               driveSyncError = syncErr.message;
@@ -2311,9 +2814,6 @@ async function handleRequest(req, res) {
           enqueueDriveRetry(ticketId, 'intake');
           drivePendingRetry = true;
         }
-        // Opportunistic: drain any older queued uploads now (non-blocking)
-        try { processDriveRetryQueue(false).catch(() => {}); } catch (e) {}
-
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
@@ -2321,6 +2821,7 @@ async function handleRequest(req, res) {
           message: 'Ticket logged successfully!',
           driveUploadConfirmed: driveConfirmed,
           drivePendingRetry: drivePendingRetry,
+          converged: converged === true,
           driveError: driveSyncError || null,
           driveFolderUrl: driveSyncResult?.result?.folderUrl || newTicket.googleDriveFolderUrl || '',
           uploadedCount: driveSyncResult?.evidencePhotos?.length || 0
@@ -2735,6 +3236,14 @@ async function handleRequest(req, res) {
           return;
         }
 
+        // Durable per-slot jobs for validated completion bytes (idempotent).
+        // The worker uploads the STORED bytes (validated above, GPS intact) —
+        // never regenerated, never re-watermarked. Inline paths below close
+        // jobs on verified success; failures stay PENDING for the worker.
+        try {
+          await enqueuePhotoJobsForCompletion(ticketId, persistentHmBase64, persistentCompBase64);
+        } catch (e) { console.warn('[PHOTO-JOBS] completion submit ensure failed:', e.message); }
+
         // Direct Dashboard Verification Check
         const allRefreshed = await db.getAllTickets();
         const refreshedTicket = allRefreshed.find(t => String(t.ticketId || t.id).trim().toLowerCase() === ticketId.toLowerCase());
@@ -2804,6 +3313,9 @@ async function handleRequest(req, res) {
                 uploadOperations: [...prevOps, rec].slice(-10),
                 lastDriveVerification: { opId: rec.opId, verified: rec.verified, verifiedAt: rec.verifiedAt, hmFileId: rec.hmFileId, compFileId: rec.compFileId, folderId: rec.folderId },
               },
+              // Byte lifecycle: verified records drop bulk bytes (URLs/IDs retained);
+              // failed records keep bytes for retry. Never implicit elsewhere.
+              clearDurableBytes: rec.verified === true,
             });
           } catch (e) { console.warn('[DRIVE-VERIFY] op record persist failed:', e.message); }
         };
@@ -2841,6 +3353,13 @@ async function handleRequest(req, res) {
                 driveSyncResult = inline;
                 await recordOp(['bytes-durable', 'gas-ok', 'verified'], 'verified',
                   vInline.hmFoundId || inline.hmDriveFileId || '', vInline.compFoundId || inline.compDriveFileId || '', true);
+                // Inline verified: close the matching durable jobs truthfully.
+                try {
+                  const done = [];
+                  if (vInline.hmFoundId || inline.hmDriveFileId) done.push('hm');
+                  if (vInline.compFoundId || inline.compDriveFileId) done.push('gps');
+                  if (USE_PHOTO_JOBS && done.length > 0) await db.confirmPhotoJobsForTicket(ticketId, 'completion', done);
+                } catch (e) {}
               } else {
                 queueCompletionRetry();
                 await recordOp(['bytes-durable', 'gas-ok', 'verify-failed'], 'pending-verification',
@@ -2894,15 +3413,23 @@ async function handleRequest(req, res) {
               completionPhotoUrl: completionPhotoUrl,
               hmDriveFileId: adoptHm || targetTicket.hmDriveFileId || '',
               compDriveFileId: adoptComp || targetTicket.compDriveFileId || '',
-              completionEvidence: completionEvidence
+              completionEvidence: completionEvidence,
+              clearDurableBytes: vDirect.verified === true,
             });
+            if (vDirect.verified) {
+              try {
+                const done = [];
+                if (adoptHm) done.push('hm');
+                if (adoptComp) done.push('gps');
+                if (USE_PHOTO_JOBS && done.length > 0) await db.confirmPhotoJobsForTicket(ticketId, 'completion', done);
+              } catch (e) {}
+            }
             if (!vDirect.verified) queueCompletionRetry();
           } else {
             // Evidence is durable in DB — queue cloud backup instead of losing it
             queueCompletionRetry();
             await recordOp(['bytes-durable', 'gas-failed'], 'pending-retry', '', '', false);
           }
-          try { processDriveRetryQueue(false).catch(() => {}); } catch (e) {}
         }
 
         await db.logAudit({
@@ -3504,6 +4031,27 @@ if (pathname === '/api/data' && req.method === 'GET') {
     const trackQ = (parsedUrl.searchParams.get('track') || parsedUrl.searchParams.get('q') || '').trim().toLowerCase();
     const cleanTrackQ = trackQ.replace(/\D/g, '');
 
+    // Explicit per-ticket bytes retrieval (session-gated): returns the FULL
+    // unprojected record when bytes are actually required (recovery/repair).
+    // Normal /api/data responses are metadata-first (see projection below).
+    const bytesTicketId = (parsedUrl.searchParams.get('ticketId') || '').trim();
+    if (parsedUrl.searchParams.get('includeBytes') === '1' && bytesTicketId) {
+      if (!session) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Session expired or authentication required.', ticket: null }));
+        return;
+      }
+      const found = tickets.find(t => t && String(t.ticketId || '').trim() === bytesTicketId);
+      if (!found) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Ticket not found.', ticket: null }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true, ticket: found, bytesIncluded: true }));
+      return;
+    }
+
     // Guard: Unauthenticated requests without a specific search query get 401 to trigger login
     if (!session && !trackQ) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
@@ -3581,6 +4129,12 @@ if (pathname === '/api/data' && req.method === 'GET') {
         }
       }
     });
+
+    // Metadata-first projection: confirmed Drive-backed slots shed bulk
+    // data: payloads (Drive URLs/IDs remain); unconfirmed/legacy records pass
+    // through byte-identical. Projection works on copies — shared objects
+    // (and PostgreSQL) are never modified by serving a response.
+    ticketsResponse = ticketsResponse.map(projectTicketForDashboard);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
@@ -10312,6 +10866,16 @@ function getITSMWorkbenchHtml(initialTickets = []) {
         console.warn('Background sync note:', e.message);
       }
 
+      // Staff-driven Drive pump: every 4th dashboard poll (~60s) advances the
+      // bounded server-side drain. Client never waits for it; the server always
+      // completes pump work inside its own request lifecycle (never fire-and-forget).
+      try {
+        window.__drivePumpTicks = (window.__drivePumpTicks || 0) + 1;
+        if (window.__drivePumpTicks % 4 === 0) {
+          fetch('/api/admin/drive-pump', { method: 'POST', credentials: 'same-origin' }).catch(function() {});
+        }
+      } catch (e) {}
+
       updateAllKpis();
 
       if (allTickets.length > 0) {
@@ -12618,4 +13182,9 @@ module.exports.intakeUploadComplete = intakeUploadComplete;
 module.exports.isIntakeVerifySuccess = isIntakeVerifySuccess;
 module.exports.verifyIntakeDriveFiles = verifyIntakeDriveFiles;
 module.exports.backfillDriveIdFromUrl = backfillDriveIdFromUrl;
+module.exports.processDriveRetryQueue = processDriveRetryQueue;
 module.exports.syncTicketToGoogleDrive = syncTicketToGoogleDrive;
+module.exports.projectTicketForDashboard = projectTicketForDashboard;
+module.exports.processPhotoJob = processPhotoJob;
+module.exports.drainPhotoJobs = drainPhotoJobs;
+module.exports.runPhotoJobDiscovery = runPhotoJobDiscovery;
