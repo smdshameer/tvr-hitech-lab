@@ -1949,7 +1949,17 @@ async function syncCompletionEvidenceToGoogleDrive(ticket, payload, timeoutMs) {
         };
 
         if (Object.keys(driveUpdates).length > 0) {
-          await db.updateTicket(ticket.ticketId, driveUpdates);
+          // PHASE-2: narrow Drive-columns write (IDs/URLs/evidence only;
+          // unrelated columns untouched, no full-row read-modify-write).
+          await db.writeCompletionDriveColumns(ticket.ticketId, {
+            hmReportPhotoUrl: driveUpdates.hmReportPhotoUrl,
+            completionPhotoUrl: driveUpdates.completionPhotoUrl,
+            hmDriveFileId: driveUpdates.hmDriveFileId,
+            compDriveFileId: driveUpdates.compDriveFileId,
+            googleDriveFolderUrl: driveUpdates.googleDriveFolderUrl,
+            completionEvidence: driveUpdates.completionEvidence,
+            evidencePhotos: driveUpdates.evidencePhotos,
+          });
         }
         return { 
           success: true, 
@@ -2928,8 +2938,8 @@ async function handleRequest(req, res) {
           return;
         }
 
-        const allCurTickets = await db.getAllTickets();
-        const targetTicket = allCurTickets.find(t => String(t.ticketId || t.id).trim() === ticketId);
+        // PHASE-2: targeted single-row lookup (no full-table scan, no Sheets sync).
+        const targetTicket = await db.getTicketById(ticketId);
         if (!targetTicket) {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Ticket not found or has been permanently deleted.' }));
@@ -3247,9 +3257,9 @@ async function handleRequest(req, res) {
           await enqueuePhotoJobsForCompletion(ticketId, persistentHmBase64, persistentCompBase64);
         } catch (e) { console.warn('[PHOTO-JOBS] completion submit ensure failed:', e.message); }
 
-        // Direct Dashboard Verification Check
-        const allRefreshed = await db.getAllTickets();
-        const refreshedTicket = allRefreshed.find(t => String(t.ticketId || t.id).trim().toLowerCase() === ticketId.toLowerCase());
+        // Direct Dashboard Verification Check (PHASE-2: targeted re-read of this
+        // ticket only — no full-table scan; same read-back verification).
+        const refreshedTicket = await db.getTicketById(ticketId);
         const persistedCount = ((refreshedTicket?.hmReportPhotoUrl || refreshedTicket?.completionEvidence?.hmSignedReport?.fileUrl) ? 1 : 0) + 
                                ((refreshedTicket?.completionPhotoUrl || refreshedTicket?.completionEvidence?.completionPhoto?.fileUrl) ? 1 : 0);
         console.log(`[COMPLETION_DASHBOARD] ticketId=${ticketId} persistedEvidenceCount=${persistedCount} dashboardEvidenceCount=${persistedCount}`);
@@ -3302,23 +3312,14 @@ async function handleRequest(req, res) {
           if (v.verified) { driveVerified = true; verifiedAt = v.verifiedAt; }
           return v;
         };
+        // PHASE-2: op-record merge via narrow row-locked write (no full-table
+        // scan, no full-row overwrite; IDs/URLs/history preserved by merge).
         const persistOpRecord = async (rec) => {
           try {
-            const cur = await db.getAllTickets();
-            const curT = cur.find(t => String(t.ticketId || t.id).trim() === ticketId);
-            const curEv = (curT && curT.completionEvidence) || completionEvidence;
-            const prevOps = Array.isArray(curEv.uploadOperations) ? curEv.uploadOperations : [];
-            await db.updateTicket(ticketId, {
-              completionEvidence: {
-                ...curEv,
-                hmSignedReport: { ...(curEv.hmSignedReport || {}), ...(rec.hmFileId ? { driveFileId: rec.hmFileId } : {}) },
-                completionPhoto: { ...(curEv.completionPhoto || {}), ...(rec.compFileId ? { driveFileId: rec.compFileId } : {}) },
-                uploadOperations: [...prevOps, rec].slice(-10),
-                lastDriveVerification: { opId: rec.opId, verified: rec.verified, verifiedAt: rec.verifiedAt, hmFileId: rec.hmFileId, compFileId: rec.compFileId, folderId: rec.folderId },
-              },
-              // Byte lifecycle: verified records drop bulk bytes (URLs/IDs retained);
-              // failed records keep bytes for retry. Never implicit elsewhere.
-              clearDurableBytes: rec.verified === true,
+            await db.appendCompletionOpRecord(ticketId, rec, {
+              hmFileId: rec.hmFileId || '',
+              compFileId: rec.compFileId || '',
+              clearBytes: rec.verified === true,
             });
           } catch (e) { console.warn('[DRIVE-VERIFY] op record persist failed:', e.message); }
         };
@@ -3411,7 +3412,8 @@ async function handleRequest(req, res) {
               verified: vDirect.verified, verifiedAt });
             completionEvidence.uploadOperations = [...prevOpsDirect, opRecDirect].slice(-10);
             completionEvidence.lastDriveVerification = { opId: completionOpId, verified: vDirect.verified, verifiedAt, hmFileId: adoptHm, compFileId: adoptComp, folderId: opFolderId };
-            await db.updateTicket(ticketId, {
+            // PHASE-2: narrow Drive-columns write (IDs/URLs/evidence only).
+            await db.writeCompletionDriveColumns(ticketId, {
               hmReportPhotoUrl: hmReportPhotoUrl,
               completionPhotoUrl: completionPhotoUrl,
               hmDriveFileId: adoptHm || targetTicket.hmDriveFileId || '',

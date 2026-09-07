@@ -2178,6 +2178,196 @@ async function updateTicket(ticketId, updateData) {
   return { success: false, error: 'Ticket not found or has been permanently deleted.' };
 }
 
+// ========================================================
+// PHASE-2 narrow completion-path helpers.
+//
+// These exist so the completion route never needs getAllTickets()
+// (full-table, byte-heavy) or full-row updateTicket() read-modify-write
+// for its Drive bookkeeping. Guarantees:
+//  - getTicketById: single indexed row, same visibility rules as the
+//    getAllTickets().find() pattern it replaces (tombstone/test-purged
+//    filtered, embedded-seed fallback). Deliberately NO Sheets sync.
+//  - writeCompletionDriveColumns: writes ONLY whitelisted Drive/evidence
+//    columns; every other column is untouched (no pre-read, no overwrite).
+//  - appendCompletionOpRecord: merges Drive IDs + appends one op record
+//    (capped at 10) using a row-locked single-row read; never loads or
+//    writes unrelated columns.
+// JSON fallback mirrors the same field-level semantics in-process.
+// ========================================================
+async function getTicketById(ticketId) {
+  const cleanId = String(ticketId || '').trim();
+  if (!cleanId || isDeleted(cleanId)) return null;
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query('SELECT * FROM tickets WHERE ticket_id = $1 LIMIT 1', [cleanId]);
+      if (res.rows.length === 0) return null;
+      const t = mapRowToTicket(res.rows[0]);
+      if (!t || !t.ticketId || isTestOrPurgedTicket(t) || isDeleted(t.ticketId)) return null;
+      return t;
+    } catch (e) { return null; }
+  }
+  const list = loadTicketsFromJson();
+  let ticket = list.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase()) || null;
+  if (!ticket) {
+    const emb = EMBEDDED_AUTHENTIC_TICKETS.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+    if (emb && !isDeleted(emb.ticketId) && !isTestOrPurgedTicket(emb)) ticket = JSON.parse(JSON.stringify(emb));
+  }
+  if (!ticket || isTestOrPurgedTicket(ticket) || isDeleted(ticket.ticketId || ticket.id)) return null;
+  return ticket;
+}
+
+function completionDriveTimelineEntry() {
+  return {
+    time: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+    action: 'Lifecycle Details Updated',
+    note: 'Google Drive sync completed'
+  };
+}
+
+async function writeCompletionDriveColumns(ticketId, cols) {
+  const cleanId = String(ticketId || '').trim();
+  const c = cols || {};
+  if (!cleanId || isDeleted(cleanId)) return { success: false, error: 'Ticket not found or has been permanently deleted.' };
+  const entry = completionDriveTimelineEntry();
+  if (usePostgres && pool) {
+    const sets = [];
+    const params = [];
+    const push = (col, val, cast) => { params.push(val); sets.push(col + ' = $' + params.length + (cast || '')); };
+    if (c.hmReportPhotoUrl !== undefined) push('hm_report_photo_url', c.hmReportPhotoUrl);
+    if (c.completionPhotoUrl !== undefined) push('completion_photo_url', c.completionPhotoUrl);
+    if (c.hmDriveFileId !== undefined) push('hm_drive_file_id', c.hmDriveFileId);
+    if (c.compDriveFileId !== undefined) push('comp_drive_file_id', c.compDriveFileId);
+    if (c.googleDriveFolderUrl !== undefined) push('drive_folder_url', c.googleDriveFolderUrl);
+    if (c.completionEvidenceStatus !== undefined) push('completion_evidence_status', c.completionEvidenceStatus);
+    if (c.completionEvidence !== undefined) {
+      let ev = c.completionEvidence;
+      if (c.clearDurableBytes === true && ev && typeof ev === 'object') {
+        ev = JSON.parse(JSON.stringify(ev));
+        if (ev.hmSignedReport) ev.hmSignedReport.data = '';
+        if (ev.completionPhoto) ev.completionPhoto.data = '';
+      }
+      push('completion_evidence', JSON.stringify(ev), '::jsonb');
+    }
+    if (c.clearDurableBytes === true) {
+      push('hm_report_photo_base64', '');
+      push('completion_photo_base64', '');
+    }
+    params.push(JSON.stringify(entry));
+    sets.push('activity_log = $' + params.length + '::jsonb || COALESCE(activity_log, \'[]\'::jsonb)');
+    params.push(cleanId);
+    try {
+      const res = await pool.query('UPDATE tickets SET ' + sets.join(', ') + ' WHERE ticket_id = $' + params.length, params);
+      if (res.rowCount === 0) return { success: false, error: 'Ticket not found in PostgreSQL.' };
+      return { success: true };
+    } catch (e) {
+      console.error('Postgres writeCompletionDriveColumns error:', e.message);
+      return { success: false, error: e.message };
+    }
+  }
+  const list = loadTicketsFromJson();
+  let ticket = list.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+  if (!ticket) {
+    const emb = EMBEDDED_AUTHENTIC_TICKETS.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+    if (emb) { ticket = JSON.parse(JSON.stringify(emb)); list.push(ticket); }
+  }
+  if (!ticket) return { success: false, error: 'Ticket not found or has been permanently deleted.' };
+  if (c.hmReportPhotoUrl !== undefined && c.hmReportPhotoUrl) ticket.hmReportPhotoUrl = c.hmReportPhotoUrl;
+  if (c.completionPhotoUrl !== undefined && c.completionPhotoUrl) ticket.completionPhotoUrl = c.completionPhotoUrl;
+  if (c.hmDriveFileId !== undefined && c.hmDriveFileId) ticket.hmDriveFileId = c.hmDriveFileId;
+  if (c.compDriveFileId !== undefined && c.compDriveFileId) ticket.compDriveFileId = c.compDriveFileId;
+  if (c.googleDriveFolderUrl !== undefined && c.googleDriveFolderUrl) ticket.googleDriveFolderUrl = c.googleDriveFolderUrl;
+  if (c.completionEvidenceStatus !== undefined) ticket.completionEvidenceStatus = c.completionEvidenceStatus;
+  if (c.evidencePhotos !== undefined && Array.isArray(c.evidencePhotos)) ticket.evidencePhotos = c.evidencePhotos;
+  if (c.completionEvidence !== undefined) {
+    ticket.completionEvidence = JSON.parse(JSON.stringify(c.completionEvidence));
+    if (c.clearDurableBytes === true) {
+      if (ticket.completionEvidence.hmSignedReport) ticket.completionEvidence.hmSignedReport.data = '';
+      if (ticket.completionEvidence.completionPhoto) ticket.completionEvidence.completionPhoto.data = '';
+    }
+  }
+  if (c.clearDurableBytes === true) { ticket.hmReportPhotoBase64 = ''; ticket.completionPhotoBase64 = ''; }
+  if (!Array.isArray(ticket.timeline)) ticket.timeline = Array.isArray(ticket.activity_log) ? ticket.activity_log : [];
+  ticket.timeline.unshift({ time: entry.time, action: entry.action, note: entry.note });
+  saveTicketsToJson(list);
+  return { success: true };
+}
+
+async function appendCompletionOpRecord(ticketId, rec, opts) {
+  const cleanId = String(ticketId || '').trim();
+  const o = opts || {};
+  if (!cleanId || !rec || isDeleted(cleanId)) return { success: false, error: 'Ticket not found or has been permanently deleted.' };
+  const mergeEvidence = (curEv) => {
+    const base = (curEv && typeof curEv === 'object') ? curEv : {};
+    const prevOps = Array.isArray(base.uploadOperations) ? base.uploadOperations : [];
+    const hmId = o.hmFileId !== undefined ? o.hmFileId : (rec.hmFileId || '');
+    const compId = o.compFileId !== undefined ? o.compFileId : (rec.compFileId || '');
+    const merged = {
+      ...base,
+      hmSignedReport: { ...(base.hmSignedReport || {}), ...(hmId ? { driveFileId: hmId } : {}) },
+      completionPhoto: { ...(base.completionPhoto || {}), ...(compId ? { driveFileId: compId } : {}) },
+      uploadOperations: [...prevOps, rec].slice(-10),
+      lastDriveVerification: {
+        opId: rec.opId, verified: rec.verified, verifiedAt: rec.verifiedAt,
+        hmFileId: hmId, compFileId: compId, folderId: rec.folderId
+      }
+    };
+    if (o.clearBytes === true) {
+      if (merged.hmSignedReport) merged.hmSignedReport.data = '';
+      if (merged.completionPhoto) merged.completionPhoto.data = '';
+    }
+    return { merged, hmId, compId };
+  };
+  if (usePostgres && pool) {
+    let client = null;
+    try {
+      client = await pool.connect();
+      await client.query('BEGIN');
+      const sel = await client.query(
+        'SELECT completion_evidence, hm_drive_file_id, comp_drive_file_id FROM tickets WHERE ticket_id = $1 FOR UPDATE',
+        [cleanId]
+      );
+      if (sel.rows.length === 0) { await client.query('ROLLBACK'); return { success: false, error: 'Ticket not found in PostgreSQL.' }; }
+      const { merged, hmId, compId } = mergeEvidence(sel.rows[0].completion_evidence);
+      const entry = completionDriveTimelineEntry();
+      await client.query(
+        `UPDATE tickets SET completion_evidence = $2::jsonb,
+          hm_drive_file_id = CASE WHEN $3 <> '' THEN $3 ELSE hm_drive_file_id END,
+          comp_drive_file_id = CASE WHEN $4 <> '' THEN $4 ELSE comp_drive_file_id END,
+          hm_report_photo_base64 = CASE WHEN $5 THEN '' ELSE hm_report_photo_base64 END,
+          completion_photo_base64 = CASE WHEN $5 THEN '' ELSE completion_photo_base64 END,
+          activity_log = $6::jsonb || COALESCE(activity_log, '[]'::jsonb)
+         WHERE ticket_id = $1`,
+        [cleanId, JSON.stringify(merged), hmId, compId, o.clearBytes === true, JSON.stringify(entry)]
+      );
+      await client.query('COMMIT');
+      return { success: true };
+    } catch (e) {
+      try { if (client) await client.query('ROLLBACK'); } catch (rb) {}
+      console.error('Postgres appendCompletionOpRecord error:', e.message);
+      return { success: false, error: e.message };
+    } finally {
+      try { if (client) client.release(); } catch (rel) {}
+    }
+  }
+  const list = loadTicketsFromJson();
+  let ticket = list.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+  if (!ticket) {
+    const emb = EMBEDDED_AUTHENTIC_TICKETS.find(t => String(t.ticketId || t.id).trim().toLowerCase() === cleanId.toLowerCase());
+    if (emb) { ticket = JSON.parse(JSON.stringify(emb)); list.push(ticket); }
+  }
+  if (!ticket) return { success: false, error: 'Ticket not found or has been permanently deleted.' };
+  const { merged, hmId, compId } = mergeEvidence(ticket.completionEvidence);
+  ticket.completionEvidence = merged;
+  if (hmId) ticket.hmDriveFileId = hmId;
+  if (compId) ticket.compDriveFileId = compId;
+  if (o.clearBytes === true) { ticket.hmReportPhotoBase64 = ''; ticket.completionPhotoBase64 = ''; }
+  const entry = completionDriveTimelineEntry();
+  if (!Array.isArray(ticket.timeline)) ticket.timeline = Array.isArray(ticket.activity_log) ? ticket.activity_log : [];
+  ticket.timeline.unshift({ time: entry.time, action: entry.action, note: entry.note });
+  saveTicketsToJson(list);
+  return { success: true };
+}
+
 async function deleteCompletionEvidence(ticketId, slot) {
   if (!ticketId) return { success: false, error: 'Ticket ID is required' };
   const cleanId = String(ticketId).trim();
@@ -3209,8 +3399,32 @@ async function confirmPhotoJobsForTicket(ticketId, kind, slots) {
   const id = String(ticketId || '').trim();
   const k = normalizePhotoJobKind(kind);
   const list = Array.isArray(slots) ? slots : [];
+  const clean = [...new Set(list.map((s) => (k ? normalizePhotoJobSlot(k, s) : '')).filter(Boolean))];
+  if (!id || !k || clean.length === 0) return { confirmed: 0 };
+  // PHASE-2: single-statement confirm — touches ONLY this ticket's jobs of
+  // this kind in the requested slots (intake jobs and other tickets excluded
+  // by the WHERE clause). Already-CONFIRMED rows count as confirmed (prior
+  // semantics) without being rewritten.
+  if (usePostgres && pool) {
+    try {
+      const res = await pool.query(
+        `WITH target AS (
+           SELECT job_id FROM drive_photo_jobs
+           WHERE ticket_id = $1 AND kind = $2 AND slot = ANY($3)
+         ), up AS (
+           UPDATE drive_photo_jobs j
+           SET state = 'CONFIRMED', lease_owner = NULL, lease_expires_at = NULL, updated_at = NOW()
+           FROM target t WHERE j.job_id = t.job_id AND j.state <> 'CONFIRMED'
+           RETURNING j.job_id
+         )
+         SELECT (SELECT COUNT(*)::int FROM drive_photo_jobs j JOIN target t ON t.job_id = j.job_id WHERE j.state = 'CONFIRMED') AS confirmed`,
+        [id, k, clean]
+      );
+      return { confirmed: res.rows.length > 0 ? Number(res.rows[0].confirmed) || 0 : 0 };
+    } catch (e) { return { confirmed: 0 }; }
+  }
   let confirmed = 0;
-  for (const s of list) {
+  for (const s of clean) {
     const job = await getPhotoJob(id, k, s);
     if (job && job.state !== 'CONFIRMED') {
       const done = await confirmPhotoJob(job.jobId);
@@ -3593,6 +3807,9 @@ module.exports = {
   createTicketIfNotExists,
   findTicketByClientRequestId,
   updateTicket,
+  getTicketById,
+  writeCompletionDriveColumns,
+  appendCompletionOpRecord,
   deleteTicket,
   deleteCompletionEvidence,
   resetAllTickets,
