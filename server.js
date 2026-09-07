@@ -2776,60 +2776,58 @@ async function handleRequest(req, res) {
         await db.logAudit({ action: converged ? 'TICKET_CONVERGED' : 'TICKET_CREATED', ip: clientIp, ticketId: ticketId, school: data.schoolName, udise: data.udise });
 
         // Durable per-photo jobs for every present slot (idempotent upsert).
-        // Legacy ticket-level enqueue below is retained as fallback during transition.
         try { await enqueuePhotoJobsForIntake(activeTicket); } catch (e) {}
 
-        // Authoritatively sync photos to Google Drive before completing request.
-        // Serverless (Vercel) fast-submit: awaiting multi-photo Apps Script uploads inside the
-        // request breaches platform body/time limits (413/504 HTML -> client "check internet").
-        // So on serverless we persist + queue cloud backup; local keeps the awaited sync.
-        // Converged duplicates (exact-ID race lost) skip inline sync: the winner's
-        // bytes own the upload; durable jobs already cover retry.
-        let driveSyncResult = null;
-        let driveSyncError = null;
-        if (converged) {
-          driveSyncError = 'Duplicate submission converged on existing ticket; cloud backup owned by durable jobs.';
-        } else if (GOOGLE_APPS_SCRIPT_ENDPOINT) {
+        // Intake-pump: awaited, scoped durable photo worker. Each of the 4
+        // PENDING jobs created above is claimed, uploaded via GAS, read-back
+        // verified, atomically confirmed, and its PG bytes cleared — all inside
+        // THIS request. Track-pump / staff-pump / cron remain as backstops for
+        // any jobs the intake-pump could not finish within the budget.
+        // Converged duplicates skip: the winner's bytes own the upload.
+        if (!converged && USE_PHOTO_JOBS) {
+          try {
+            await drainPhotoJobs({
+              owner: 'intake-pump',
+              ticketIds: [ticketId],
+              maxJobs: 4,
+              maxMs: 50000
+            });
+          } catch (e) {
+            console.warn(`[INTAKE-PUMP] ${ticketId}: ${e.message}`);
+          }
+          // Backstop: if any jobs remain unconfirmed, enqueue legacy retry so
+          // track-pump / staff-pump / cron can finish them.
+          // Photos are durable in DB — queue cloud backup instead of losing it.
+          try {
+            const pendingLeft = await db.countPhotoJobs({ ticketId, kind: 'intake', state: 'PENDING' });
+            const claimedLeft = await db.countPhotoJobs({ ticketId, kind: 'intake', state: 'CLAIMED' });
+            if ((pendingLeft + claimedLeft) > 0) {
+              enqueueDriveRetry(ticketId, 'intake');
+            }
+          } catch (e) {}
+        } else if (!converged && !USE_PHOTO_JOBS && GOOGLE_APPS_SCRIPT_ENDPOINT) {
+          // Legacy path (USE_PHOTO_JOBS=0 rollback lever): unchanged behavior.
           if (isServerless) {
             enqueueDriveRetry(ticketId, 'intake');
-            driveSyncError = 'Cloud backup queued (serverless fast-submit).';
           } else {
             try {
-              driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
+              const driveSyncResult = await syncTicketToGoogleDrive(newTicket, data);
               if (!driveSyncResult || !driveSyncResult.success) {
-                driveSyncError = (driveSyncResult && driveSyncResult.error) || 'Google Drive upload failed';
-              } else if (USE_PHOTO_JOBS && driveSyncResult.adoptedIds) {
-                // Inline success: close the matching durable jobs truthfully.
-                try {
-                  const doneSlots = [1, 2, 3, 4].filter(i => !!(driveSyncResult.adoptedIds[i - 1] || [newTicket.p1DriveFileId, newTicket.p2DriveFileId, newTicket.p3DriveFileId, newTicket.p4DriveFileId][i - 1]));
-                  if (doneSlots.length > 0) await db.confirmPhotoJobsForTicket(ticketId, 'intake', doneSlots.map(String));
-                } catch (e) {}
+                enqueueDriveRetry(ticketId, 'intake');
               }
             } catch (syncErr) {
-              driveSyncError = syncErr.message;
+              enqueueDriveRetry(ticketId, 'intake');
               console.error(`[EVIDENCE_UPLOAD] Ticket: ${ticketId} Error: ${syncErr.message}`);
             }
           }
         }
 
-        const driveConfirmed = !!(driveSyncResult && driveSyncResult.success);
-        let drivePendingRetry = false;
-        if (!driveConfirmed) {
-          // Photos are durable in DB (/uploads + base64) — queue cloud backup instead of losing it
-          enqueueDriveRetry(ticketId, 'intake');
-          drivePendingRetry = true;
-        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           success: true,
           ticketId: ticketId,
           message: 'Ticket logged successfully!',
-          driveUploadConfirmed: driveConfirmed,
-          drivePendingRetry: drivePendingRetry,
-          converged: converged === true,
-          driveError: driveSyncError || null,
-          driveFolderUrl: driveSyncResult?.result?.folderUrl || newTicket.googleDriveFolderUrl || '',
-          uploadedCount: driveSyncResult?.evidencePhotos?.length || 0
+          converged: converged === true
         }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json' });

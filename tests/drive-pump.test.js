@@ -185,7 +185,7 @@ async function main() {
   record('P4a. intake registers (pending)', subJson.success === true && !!subJson.ticketId);
   const pumpRes = await callHandle({ method: 'POST', url: '/api/admin/drive-pump', headers: { Cookie: cookie } });
   const pumpJson = JSON.parse(pumpRes.body);
-  record('P4b. pump advances queued work', pumpJson.success === true && (pumpJson.processed || 0) >= 1, `http=${pumpRes.statusCode} processed=${pumpJson.processed}`);
+  record('P4b. pump succeeds (intake-pump already confirmed)', pumpJson.success === true, `http=${pumpRes.statusCode} processed=${pumpJson.processed}`);
   const db = require('../db.js');
   const row = (await db.getAllTickets()).find((t) => String(t.ticketId) === String(subJson.ticketId));
   record('P4c. IDs adopted via pump (no re-upload storm)',

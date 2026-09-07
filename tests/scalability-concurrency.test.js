@@ -212,8 +212,8 @@ async function main() {
   const okRes = results.filter((r) => r.status === 200 && r.json && r.json.success && r.json.ticketId);
   record('T2a. 200 concurrent: all success with distinct IDs',
     okRes.length === N && new Set(okRes.map((r) => r.json.ticketId)).size === N, `${okRes.length}/${N} ok`);
-  record('T2b. registration SUCCESS decoupled from Drive (honest pending)',
-    okRes.every((r) => r.json.driveUploadConfirmed === false && r.json.drivePendingRetry === true));
+  record('T2b. registration SUCCESS with clean response (no Drive/pending fields)',
+    okRes.every((r) => r.json.success === true && !('drivePendingRetry' in r.json)));
   // Converge (idempotent resubmit heals any local JSON file race), then drain.
   for (let i = 0; i < N; i++) {
     await postIntake('332099' + String(10000 + i), 'GHSS SCALE ' + i);
@@ -250,7 +250,7 @@ async function main() {
   const T3ID = TIDFOR(901);
   stubModes.throwFor.add(T3ID);
   const t3sub = await postIntake(U(901), 'GHSS TIMEOUT');
-  record('T3. submit succeeds (pending) despite GAS abort', t3sub.json.ticketId === T3ID && t3sub.json.drivePendingRetry === true);
+  record('T3. submit succeeds despite GAS abort', t3sub.json.ticketId === T3ID && t3sub.json.success === true);
   let t3 = (await db.getAllTickets()).find((t) => t.ticketId === T3ID);
   record('T3a. timeout keeps bytes + queue entry', !!t3 && !!t3.photo1Url && readQueue().some((e) => e.ticketId === T3ID));
   stubModes.throwFor.delete(T3ID);
@@ -274,7 +274,10 @@ async function main() {
   record('T4b. later full success completes all 4', !!(t4 && t4.p1DriveFileId && t4.p2DriveFileId && t4.p3DriveFileId && t4.p4DriveFileId));
 
   // T5: queue file durability + double-drain guard.
+  const T5ID = TIDFOR(903);
+  stubModes.throwFor.add(T5ID);
   await postIntake(U(903), 'GHSS QUEUED');
+  stubModes.throwFor.delete(T5ID);
   record('T5a. queue state lives in a file (restart-safe)',
     readQueue().some((e) => e.ticketId && e.kind));
   const [r1, r2] = await Promise.all([server.processDriveRetryQueue(true), server.processDriveRetryQueue(true)]);

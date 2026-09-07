@@ -151,8 +151,9 @@ async function main() {
   // Gate wired into intake sync + retry acceptance.
   record('W1. intake sync enforces ID gate', /missingIntakeIds|intakeUploadComplete\(/.test(
     serverJs.slice(serverJs.indexOf('async function syncTicketToGoogleDrive'), serverJs.indexOf('async function syncTicketToGoogleDrive') + 9000)));
-  record('W2. response reports verifiedDB-safe pending (no false confirm)',
-    intakeRegion.includes('driveUploadConfirmed'));
+  record('W2. response is clean (no false confirm fields)',
+    intakeRegion.includes("success: true") && intakeRegion.includes("'Ticket logged successfully!'")
+    && !intakeRegion.includes('driveUploadConfirmed'));
 
   // A. Byte-less + ID-less must NEVER verify (nothing-to-confirm guard).
   r = server.isIntakeVerifySuccess(inspectOk({ evidenceFiles: [] }),

@@ -3,7 +3,7 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "data/**",
-      "maxDuration": 60
+      "maxDuration": 120
     }
   },
   "rewrites": [
