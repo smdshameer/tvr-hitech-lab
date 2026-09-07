@@ -6462,6 +6462,9 @@ function getTeacherPortalHtml() {
     let trackGpsAcc = null;
     let trackGpsTime = null;
     let lastCompFile = null;
+    // PHASE-1 re-encode guard: key of inputs that produced trackCompBase64.
+    // retryTeacherGps skips redundant re-encode only on exact key match.
+    let lastCompEncodeKey = null;
 
     function renderTrackedTicket(ticket) {
       if (!ticket) return;
@@ -6474,6 +6477,7 @@ function getTeacherPortalHtml() {
       trackGpsLon = null;
       trackGpsAcc = null;
       trackGpsTime = null;
+      lastCompEncodeKey = null;
 
       document.getElementById('trackTicketBadge').textContent = ticket.ticketId || 'TICKET';
       document.getElementById('trackSchoolName').textContent = ticket.schoolName || '-';
@@ -7990,9 +7994,28 @@ function getTeacherPortalHtml() {
       reader.readAsDataURL(file);
     }
 
+    // PHASE-1 completion perf: cap watermarked output at 1600px long edge
+    // (preserves aspect ratio + watermark layout, which scales off canvas dims).
+    const MAX_COMPLETION_PHOTO_DIM = 1600;
+    function fitCompletionDims(w, h, maxDim) {
+      const mw = Math.round(Number(w)) || 0;
+      const mh = Math.round(Number(h)) || 0;
+      const cap = Math.round(Number(maxDim)) || 1600;
+      if (mw <= 0 || mh <= 0) return { w: 1280, h: 720 };
+      if (mw <= cap && mh <= cap) return { w: mw, h: mh };
+      if (mw >= mh) return { w: cap, h: Math.max(1, Math.round((mh * cap) / mw)) };
+      return { w: Math.max(1, Math.round((mw * cap) / mh)), h: cap };
+    }
+
     function burnGpsWatermarkOnCanvas(canvas, sourceEl, snapshot) {
-      const vWidth = sourceEl.videoWidth || sourceEl.naturalWidth || sourceEl.width || (sourceEl.canvas && sourceEl.canvas.width) || 1280;
-      const vHeight = sourceEl.videoHeight || sourceEl.naturalHeight || sourceEl.height || (sourceEl.canvas && sourceEl.canvas.height) || 720;
+      const srcW = sourceEl.videoWidth || sourceEl.naturalWidth || sourceEl.width || (sourceEl.canvas && sourceEl.canvas.width) || 1280;
+      const srcH = sourceEl.videoHeight || sourceEl.naturalHeight || sourceEl.height || (sourceEl.canvas && sourceEl.canvas.height) || 720;
+      // Single downscale point for ALL completion paths (webcam video, native
+      // fallback img, gallery img): full sensor frames are capped at 1600px
+      // long edge before the watermark is drawn, so output payload is bounded.
+      const fitted = fitCompletionDims(srcW, srcH, MAX_COMPLETION_PHOTO_DIM);
+      const vWidth = fitted.w;
+      const vHeight = fitted.h;
 
       canvas.width = vWidth;
       canvas.height = vHeight;
@@ -8566,10 +8589,29 @@ function getTeacherPortalHtml() {
       }
     }
 
+    // PHASE-1: derive an image dataURL from the single ArrayBuffer read above
+    // (avoids a second FileReader pass over the same file). EXIF inspection
+    // still runs first on the raw bytes; GPS validation logic is unchanged.
+    function compArrayBufferToDataUrl(buffer, fileObj) {
+      try {
+        const bytes = new Uint8Array(buffer);
+        const CHUNK = 8192;
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+        }
+        // NOTE: no regex literal here — backslashes do not survive the server
+        // template-literal embedding (\/ would render as / and break parsing).
+        let mime = (fileObj && fileObj.type && fileObj.type.indexOf('image/') === 0) ? fileObj.type : 'image/jpeg';
+        return 'data:' + mime + ';base64,' + btoa(binary);
+      } catch (e) { return null; }
+    }
+
     function handleTrackCompUpload(event, workflowLabel) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       lastCompFile = file;
+      lastCompEncodeKey = null; // new file invalidates the re-encode guard
       currentWorkflowType = workflowLabel || currentWorkflowType || 'Unknown';
 
       updateGpsStatusUI('READING');
@@ -8578,6 +8620,10 @@ function getTeacherPortalHtml() {
       reader.onload = function(e) {
         const arrayBuffer = e.target.result;
         const exifGps = inspectAndParseImageBytes(arrayBuffer, file, currentWorkflowType);
+        // Single-read reuse: build the image dataURL from these same bytes so
+        // processTrackCompImage does not re-read the file (falls back to a
+        // fresh read only if conversion fails).
+        const reusedDataUrl = compArrayBufferToDataUrl(arrayBuffer, file);
         
         let finalLat = null;
         let finalLon = null;
@@ -8596,17 +8642,18 @@ function getTeacherPortalHtml() {
           trackGpsSource = gpsSource;
           trackGpsTime = exifGps.timestamp || null;
           updateGpsStatusUI('FOUND', 'PHOTO_EXIF_GPS_UNVERIFIED');
-          processTrackCompImage(file, finalLat, finalLon, finalAcc, gpsSource);
+          processTrackCompImage(file, finalLat, finalLon, finalAcc, gpsSource, reusedDataUrl);
         } else if (trackGpsLat !== null && trackGpsLon !== null) {
           finalLat = trackGpsLat;
           finalLon = trackGpsLon;
           finalAcc = trackGpsAcc;
           gpsSource = trackGpsSource || 'LIVE_BROWSER_GPS';
           updateGpsStatusUI('FOUND', gpsSource);
-          processTrackCompImage(file, finalLat, finalLon, finalAcc, gpsSource);
+          processTrackCompImage(file, finalLat, finalLon, finalAcc, gpsSource, reusedDataUrl);
         } else {
           // Clear any previous invalid state
           trackCompBase64 = '';
+          lastCompEncodeKey = null;
           const compImg = document.getElementById('trackCompImg');
           const noComp = document.getElementById('trackNoCompText');
           const btnCompView = document.getElementById('btnTrackCompView');
@@ -8626,6 +8673,16 @@ function getTeacherPortalHtml() {
 
     function retryTeacherGps() {
       if (lastCompFile && trackGpsLat !== null && trackGpsLon !== null) {
+        // PHASE-1 re-encode guard: skip only when the exact same file + GPS
+        // inputs already produced the staged photo (output would be identical).
+        // Any change (new file, new fix, cleared state) re-encodes as before.
+        try {
+          const key = [
+            ((lastCompFile.name || '') + '|' + (lastCompFile.size || '') + '|' + (lastCompFile.lastModified || '')),
+            String(trackGpsLat), String(trackGpsLon), String(trackGpsAcc), String(trackGpsSource), String(trackGpsTime || '')
+          ].join('~');
+          if (trackCompBase64 && lastCompEncodeKey === key) return;
+        } catch (e) { /* fall through to re-encode on guard failure */ }
         processTrackCompImage(lastCompFile, trackGpsLat, trackGpsLon, trackGpsAcc, trackGpsSource);
       } else {
         acquireMobileGpsPreFlight();
@@ -8650,23 +8707,17 @@ function getTeacherPortalHtml() {
       }
     }
 
-    function processTrackCompImage(file, lat, lon, acc, source) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
+    // PHASE-1: preloadedDataUrl lets handleTrackCompUpload reuse the single
+    // ArrayBuffer read (no second FileReader pass). Falls back to readAsDataURL
+    // when called directly (e.g. retryTeacherGps). GPS/EXIF validation untouched.
+    function processTrackCompImage(file, lat, lon, acc, source, preloadedDataUrl) {
+      const beginEncode = function(dataUrl) {
         const img = new Image();
         img.onload = function() {
+          // NOTE: no intermediate pre-scale canvas here — burnGpsWatermarkOnCanvas
+          // performs the single capped (1600px) downscale+draw (fixes the bug
+          // where this pre-scale was discarded by burn resetting canvas dims).
           const canvas = document.createElement('canvas');
-          const maxDim = 1600;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
-            else { w = Math.round((w * maxDim) / h); h = maxDim; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
 
           const snapshot = {
             latitude: lat,
@@ -8680,6 +8731,14 @@ function getTeacherPortalHtml() {
           };
 
           trackCompBase64 = burnGpsWatermarkOnCanvas(canvas, img, snapshot);
+          // PHASE-1 re-encode guard key (see retryTeacherGps): records the exact
+          // inputs that produced the current trackCompBase64.
+          try {
+            lastCompEncodeKey = [
+              (file && (file.name || '')) + '|' + (file && (file.size || '')) + '|' + (file && (file.lastModified || '')),
+              String(lat), String(lon), String(acc), String(source), String(trackGpsTime || '')
+            ].join('~');
+          } catch (e) { lastCompEncodeKey = null; }
 
           const compImg = document.getElementById('trackCompImg');
           const noComp = document.getElementById('trackNoCompText');
@@ -8714,9 +8773,15 @@ function getTeacherPortalHtml() {
           }
           updateTrackEvidenceStatusUI();
         };
-        img.src = e.target.result;
+        img.src = dataUrl;
       };
-      reader.readAsDataURL(file);
+      if (typeof preloadedDataUrl === 'string' && preloadedDataUrl.indexOf('data:image') === 0) {
+        beginEncode(preloadedDataUrl);
+      } else {
+        const reader = new FileReader();
+        reader.onload = function(e) { beginEncode(e.target.result); };
+        reader.readAsDataURL(file);
+      }
     }
 
     function triggerTrackHmCapture(type) {
