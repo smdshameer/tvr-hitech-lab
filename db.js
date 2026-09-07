@@ -3108,11 +3108,22 @@ async function countPhotoJobs(filter) {
 // SELECT ... FOR UPDATE SKIP LOCKED so concurrent workers take different
 // jobs and never block each other. Local JSON: synchronous read-modify-write
 // (atomic within Node's event loop — no awaits inside the critical section).
+// Optional scope: { ticketId } / { ticketIds } restricts the claim to those
+// tickets' jobs (track-pump). Unscoped behavior is unchanged.
 async function claimPhotoJob(opts) {
   const o = opts || {};
   const owner = String(o.owner || '').trim() || 'worker';
   const leaseMs = Number.isFinite(Number(o.leaseMs)) && Number(o.leaseMs) > 0 ? Number(o.leaseMs) : 10 * 60 * 1000;
   const leaseUntil = new Date(Date.now() + leaseMs).toISOString();
+  let scopeIds = null;
+  {
+    const raw = (o.ticketId !== undefined && o.ticketId !== null) ? [o.ticketId]
+      : (Array.isArray(o.ticketIds) ? o.ticketIds : null);
+    if (raw) {
+      const clean = [...new Set(raw.map((t) => String(t || '').trim()).filter(Boolean))];
+      if (clean.length > 0) scopeIds = clean;
+    }
+  }
   if (usePostgres && pool) {
     let client = null;
     try {
@@ -3122,8 +3133,10 @@ async function claimPhotoJob(opts) {
         `SELECT * FROM drive_photo_jobs
          WHERE (state = 'PENDING' OR (state = 'CLAIMED' AND lease_expires_at <= NOW()))
            AND next_attempt_at <= NOW()
+           ${scopeIds ? 'AND ticket_id = ANY($1)' : ''}
          ORDER BY next_attempt_at ASC, created_at ASC, job_id ASC
-         LIMIT 1 FOR UPDATE SKIP LOCKED`
+         LIMIT 1 FOR UPDATE SKIP LOCKED`,
+        scopeIds ? [scopeIds] : []
       );
       if (sel.rows.length === 0) {
         await client.query('ROLLBACK');
@@ -3150,6 +3163,7 @@ async function claimPhotoJob(opts) {
   let best = null;
   for (const j of jobs) {
     if (photoJobDueTimestamp(j, nowMs) < 0) continue;
+    if (scopeIds && !scopeIds.includes(String(j.ticketId || ''))) continue;
     if (!best) { best = j; continue; }
     const an = String(j.nextAttemptAt || ''), bn = String(best.nextAttemptAt || '');
     if (an !== bn) { if (an < bn) best = j; continue; }

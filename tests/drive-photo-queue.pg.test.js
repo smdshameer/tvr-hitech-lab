@@ -792,6 +792,51 @@ async function main() {
   const leaked = await q(`SELECT count(*)::int AS c FROM drive_photo_jobs WHERE state='CLAIMED'`);
   record('PG43. zero CLAIMED leases leak (every claim resolved)', leaked[0].c === 0, `leaked=${leaked[0].c}`);
 
+  // §12 track-pump (serverless immediate worker): intake leaves jobs PENDING
+  // (no inline worker); an unauthenticated track GET for the ticket processes
+  // ONLY that ticket's jobs inside the read request; unknown queries drain
+  // nothing and respond normally. Fresh picks avoid scale/open UDISEs.
+  const mT1 = pickFresh();
+  const mT2 = pickFresh();
+  const tSub = await postIntake(mT1.udise, mT1.school, mT1.block);
+  const tTid = tSub.json.ticketId;
+  const tOther = await postIntake(mT2.udise, mT2.school, mT2.block);
+  const tOtherId = tOther.json.ticketId;
+  const tJobs0 = await db.listPhotoJobs({ ticketId: tTid });
+  record('PG70. intake leaves 4 PENDING jobs (fast submit, no inline worker)',
+    tJobs0.length === 4 && tJobs0.every((j) => j.state === 'PENDING'));
+  const tRow0 = await ticketRow(tTid);
+  record('PG71. bytes retained pre-track', String(tRow0.photo1_data || '').startsWith('data:') && !tRow0.p1_drive_file_id);
+  const tRes = await callHandle({ method: 'GET', url: '/api/data?track=' + encodeURIComponent(tTid) });
+  const tJson = JSON.parse(tRes.body);
+  const tHit = (tJson.tickets || []).find((t) => String(t.ticketId) === tTid) || {};
+  record('PG72. unauthenticated track GET succeeds', tRes.statusCode === 200 && Array.isArray(tJson.tickets));
+  record('PG73. track-pump confirmed the ticket inside the read (IDs in response)',
+    !!tHit.p1DriveFileId && !!tHit.p4DriveFileId);
+  const tJobs1 = await db.listPhotoJobs({ ticketId: tTid });
+  const tRow1 = await ticketRow(tTid);
+  record('PG74. all 4 jobs CONFIRMED with bytes cleared post-track',
+    tJobs1.every((j) => j.state === 'CONFIRMED') && !String(tRow1.photo1_data || '').startsWith('data:'));
+  const oJobs = await db.listPhotoJobs({ ticketId: tOtherId });
+  record('PG75. other tickets untouched by scoped pump (still PENDING)',
+    oJobs.length === 4 && oJobs.every((j) => j.state === 'PENDING'));
+  const tRes2 = await callHandle({ method: 'GET', url: '/api/data?track=' + encodeURIComponent(tTid) });
+  record('PG76. second track is a clean no-op (nothing due)', tRes2.statusCode === 200);
+  const tMiss = await callHandle({ method: 'GET', url: '/api/data?track=NO-SUCH-TICKET-XYZ' });
+  const tMissJson = JSON.parse(tMiss.body);
+  record('PG77. unknown track query drains nothing, responds normally',
+    tMiss.statusCode === 200 && Array.isArray(tMissJson.tickets) && tMissJson.tickets.length === 0);
+  // Scoped claim unit behavior on the untouched ticket.
+  const sc1 = await db.claimPhotoJob({ owner: 'pgScope1', leaseMs: 60000, ticketIds: [tOtherId] });
+  const sc2 = await db.claimPhotoJob({ owner: 'pgScope2', leaseMs: 60000, ticketIds: [tOtherId] });
+  const sc3 = await db.claimPhotoJob({ owner: 'pgScope3', leaseMs: 60000, ticketIds: [tTid] });
+  record('PG78. scoped claims take only the scoped ticket (disjoint, no cross-take)',
+    sc1.claimed === true && sc1.job.ticketId === tOtherId
+    && sc2.claimed === true && sc2.job.ticketId === tOtherId && sc2.job.jobId !== sc1.job.jobId
+    && sc3.claimed === false);
+  await db.failPhotoJob(sc1.job.jobId, new Error('scope test release'));
+  await db.failPhotoJob(sc2.job.jobId, new Error('scope test release'));
+
   const ver = (await probe.query('SELECT version()')).rows[0].version;
   console.log('\n========================================================');
   console.log(`📦 PG-QUEUE RESULTS: ${passed} Passed, ${failed} Failed`);

@@ -1528,17 +1528,22 @@ async function processPhotoJob(job, owner, hooks) {
 
 // Bounded worker loop: claim -> process until budget exhausted or queue empty.
 // Stops cleanly before platform limits; remaining jobs stay durable/retryable.
+// Optional o.ticketIds scopes claims to those tickets (track-pump); unscoped
+// drains behave exactly as before.
 async function drainPhotoJobs(opts) {
   const o = opts || {};
   const owner = String(o.owner || ('photo-worker-' + process.pid + '-' + Date.now().toString(36))).slice(0, 80);
   const maxJobs = Number.isFinite(Number(o.maxJobs)) && Number(o.maxJobs) > 0 ? Number(o.maxJobs) : Infinity;
   const maxMs = Number.isFinite(Number(o.maxMs)) && Number(o.maxMs) > 0 ? Number(o.maxMs) : 50000;
   const leaseMs = Number.isFinite(Number(o.leaseMs)) && Number(o.leaseMs) > 0 ? Number(o.leaseMs) : 10 * 60 * 1000;
+  const scopeIds = Array.isArray(o.ticketIds)
+    ? [...new Set(o.ticketIds.map((t) => String(t || '').trim()).filter(Boolean))]
+    : null;
   const deadline = Date.now() + maxMs;
   const summary = { claimed: 0, confirmed: 0, adopted: 0, confirmedExisting: 0, failed: 0, failedPermanent: 0, dropped: 0, coldMissing: 0 };
   while (summary.claimed < maxJobs && Date.now() < deadline) {
     let c = null;
-    try { c = await db.claimPhotoJob({ owner, leaseMs }); } catch (e) { break; }
+    try { c = await db.claimPhotoJob(scopeIds ? { owner, leaseMs, ticketIds: scopeIds } : { owner, leaseMs }); } catch (e) { break; }
     if (!c || !c.claimed) break;
     summary.claimed++;
     try {
@@ -4081,20 +4086,37 @@ if (pathname === '/api/data' && req.method === 'GET') {
     });
 
     let ticketsResponse = [];
+    const trackMatches = (t) => {
+      const tId = (t.ticketId || '').toLowerCase();
+      const tUdise = String(t.udise || '').replace(/\D/g, '');
+      const tSchool = (t.schoolName || '').toLowerCase();
+      if (tId === trackQ || tId.includes(trackQ)) return true;
+      if (cleanTrackQ && cleanTrackQ.length >= 4 && tUdise.includes(cleanTrackQ)) return true;
+      if (tSchool.includes(trackQ)) return true;
+      return false;
+    };
     if (session) {
       // Authenticated staff get complete ticket list
       ticketsResponse = tickets;
     } else if (trackQ) {
       // Public search: Return ONLY matched tickets for searched school
-      ticketsResponse = tickets.filter(t => {
-        const tId = (t.ticketId || '').toLowerCase();
-        const tUdise = String(t.udise || '').replace(/\D/g, '');
-        const tSchool = (t.schoolName || '').toLowerCase();
-        if (tId === trackQ || tId.includes(trackQ)) return true;
-        if (cleanTrackQ && cleanTrackQ.length >= 4 && tUdise.includes(cleanTrackQ)) return true;
-        if (tSchool.includes(trackQ)) return true;
-        return false;
-      });
+      ticketsResponse = tickets.filter(trackMatches);
+      // Track-pump (serverless-safe worker trigger): a teacher checking status
+      // advances ONLY their matched tickets' durable photo jobs inside THIS
+      // request lifecycle (fully awaited — never frozen mid-upload, unlike
+      // fire-and-forget). Bounded per request: up to 3 tickets x 4 jobs
+      // within 20s. No-ops when nothing is due (no GAS calls, no slowdown).
+      // Never touches other tickets' jobs; never modifies bytes directly.
+      if (USE_PHOTO_JOBS && ticketsResponse.length > 0) {
+        try {
+          const scope = [...new Set(ticketsResponse.slice(0, 3).map((t) => String(t.ticketId || '').trim()))].filter(Boolean);
+          if (scope.length > 0) {
+            await drainPhotoJobs({ owner: 'track-pump', maxJobs: 4, maxMs: 20000, ticketIds: scope });
+            tickets = await db.getCanonicalActiveTickets();
+            ticketsResponse = tickets.filter(trackMatches);
+          }
+        } catch (e) {}
+      }
     } else {
       // Public unauthenticated call with no search: Return empty list to prevent data leak
       ticketsResponse = [];
@@ -6411,8 +6433,13 @@ function getTeacherPortalHtml() {
           document.getElementById('dispTicketId').textContent = result.ticketId;
           document.getElementById('formContainer').style.display = 'none';
           document.getElementById('successBox').style.display = 'block';
-          if (result.driveUploadConfirmed === false) {
-            alert('✅ Complaint saved as ' + result.ticketId + '.\\n⚠️ Cloud (Drive) backup is pending and will auto-retry — please keep the original photos in your gallery until Drive confirms.');
+          // Success popup shows ONLY the submission outcome + ticket number.
+          // Background backup runs durably out of band and is never exposed
+          // as a warning here.
+          if (result.converged) {
+            alert('✅ This complaint is already registered.\\nTicket No: ' + result.ticketId);
+          } else {
+            alert('✅ Complaint submitted successfully.\\nTicket No: ' + result.ticketId + '\\nStatus: New');
           }
         } else {
           alert('Error: ' + result.error);

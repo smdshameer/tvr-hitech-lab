@@ -578,6 +578,29 @@ async function main() {
   record('V2. worker sends the exact stored watermarked bytes (no regen)',
     seenGpsBody === WMMARK, `match=${seenGpsBody === WMMARK}`);
 
+  // Z. track-pump (JSON backend parity): intake leaves PENDING jobs; an
+  // unauthenticated track GET confirms ONLY the tracked ticket in-request.
+  const zSub = await postIntake(UDISE('120'), 'GHSS PHQZ');
+  const zTid = zSub.json.ticketId;
+  const zOther = await postIntake(UDISE('121'), 'GHSS PHQY2');
+  const zOtherId = zOther.json.ticketId;
+  record('Z1. intake leaves PENDING jobs (no inline worker)',
+    (await db.listPhotoJobs({ ticketId: zTid })).every((j) => j.state === 'PENDING'));
+  const zRes = await callHandle({ method: 'GET', url: '/api/data?track=' + encodeURIComponent(zTid) });
+  const zJson = JSON.parse(zRes.body);
+  const zHit = (zJson.tickets || []).find((t) => String(t.ticketId) === zTid) || {};
+  record('Z2. track-pump confirms the ticket inside the read',
+    zRes.statusCode === 200 && !!zHit.p1DriveFileId && !!zHit.p4DriveFileId
+    && (await db.listPhotoJobs({ ticketId: zTid })).every((j) => j.state === 'CONFIRMED'));
+  record('Z3. other tickets untouched by scoped pump',
+    (await db.listPhotoJobs({ ticketId: zOtherId })).every((j) => j.state === 'PENDING'));
+  // Scoped-claim unit behavior.
+  const zc1 = await db.claimPhotoJob({ owner: 'z1', leaseMs: 60000, ticketIds: [zOtherId] });
+  const zcX = await db.claimPhotoJob({ owner: 'zX', leaseMs: 60000, ticketIds: [zTid] });
+  record('Z4. scoped claim takes only the scoped ticket',
+    zc1.claimed === true && zc1.job.ticketId === zOtherId && zcX.claimed === false);
+  await db.failPhotoJob(zc1.job.jobId, new Error('scope release'));
+
   console.log('\n========================================================');
   console.log(`📦 PHOTO-QUEUE RESULTS: ${passed} Passed, ${failed} Failed`);
   console.log('========================================================');

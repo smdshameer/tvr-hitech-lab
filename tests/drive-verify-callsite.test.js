@@ -168,6 +168,20 @@ async function main() {
   }
   forceFolder = null;
 
+  // I. Complaint success popup: ticket number + status only — the Drive/cloud
+  // pending warning must never reach the field engineer.
+  const submitRegion = serverJs.slice(
+    serverJs.indexOf("document.getElementById('dispTicketId')"),
+    serverJs.indexOf("document.getElementById('dispTicketId')") + 1200);
+  record('I1. success popup shows the ticket number',
+    submitRegion.includes('Ticket No:') && submitRegion.includes('result.ticketId'));
+  record('I2. success popup shows status for new submissions',
+    submitRegion.includes('Status: New'));
+  record('I3. no Drive/cloud/pending/gallery/auto-retry text in success popup',
+    !/Drive|cloud|pending|auto-retry|gallery/i.test(submitRegion));
+  record('I4. converged duplicates report the existing ticket, not a warning',
+    submitRegion.includes('already registered'));
+
   console.log('\n========================================================');
   console.log(`📊 CALL-SITE RESULTS: ${passed} Passed, ${failed} Failed`);
   console.log('========================================================');
